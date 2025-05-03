@@ -4,7 +4,7 @@
 
 ## 🚀 Main Use Case
 
-This tool makes it **effortless** to capture voice notes or ideas during your workflow. You hit a single key, talk, and it handles everything:
+This tool makes it **effortless** to capture voice notes or ideas during your workflow. You hit a single key, talk, and it:
 
 - records your voice;
 - transcribes it using a local Whisper model;
