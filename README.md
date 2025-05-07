@@ -70,12 +70,13 @@ sudo apt install portaudio19-dev xdotool ffmpeg scrot
 To enable the text improvement and filename suggestion feature (mode 4):
 
 1. [Install Ollama](https://ollama.com/)
-2. Run:
+2. If needed run `ollama serve`
+3. Run:
 
    ```bash
    ollama run gemma:2b
    ```
-3. Make sure `OLLAMA_URL` and `OLLAMA_MODEL` are configured in `voice_transcriber.py`.
+4. Make sure `OLLAMA_URL` and `OLLAMA_MODEL` are configured in `voice_transcriber.py`.
 
 If Ollama is not available, the script will still function normally (just without smart cleanup).
 
