@@ -120,13 +120,16 @@ def focus_and_click_chatgpt_input(timeout=5):
         print("🔍 Looking for '+' icon to focus input...")
         start_time = time.time()
         while time.time() - start_time < timeout:
-            location = pyautogui.locateOnScreen(CHATGPT_ICON_IMAGE, confidence=0.85)
+            try :
+                location = pyautogui.locateOnScreen(CHATGPT_ICON_IMAGE, confidence=0.99)
+            except pyautogui.ImageNotFoundException:
+                time.sleep(0.2)
+                continue
             if location:
                 center = pyautogui.center(location)
                 pyautogui.click(center.x, center.y - 40)
                 print("✅ Focused input box.")
                 return True
-            time.sleep(0.1)
         print("❌ '+' icon not found.")
         return False
     except Exception as e:
@@ -184,12 +187,13 @@ def send_to_new_chatgpt(text):
     print("🌐 Opening ChatGPT...")
     webbrowser.get("firefox").open_new_tab("https://chat.openai.com/")
     found = focus_and_click_chatgpt_input(timeout=5)
-    time.sleep(0.5)
-    pyautogui.hotkey("ctrl", "v")
-    time.sleep(0.2)
-    pyautogui.press("enter")
-    if not found:
-        print("⚠️ Input box not detected, pasted anyway.")
+    if found:
+        time.sleep(0.5)
+        pyautogui.hotkey("ctrl", "v")
+        time.sleep(0.2)
+        pyautogui.press("enter")
+    else:
+        print("⚠️ Input box not detected, you can paste manually.")
 
 
 def call_llm(text):
