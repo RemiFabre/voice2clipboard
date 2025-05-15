@@ -243,6 +243,9 @@ def handle_key_input_during_recording():
 
 def post_transcription_menu(text):
     global action_chosen, current_audio_path, current_transcript_path
+    print("\n📄 Transcription:\n")
+    print(text)
+    print()
     if action_chosen is None:
         print("\nWhat would you like to do?")
         print("1. Show transcription (default)")
@@ -253,12 +256,7 @@ def post_transcription_menu(text):
         choice = input("Choose (1–5): ").strip()
         action_chosen = int(choice) if choice in '12345' else 1
 
-    print("\n📄 Transcription:\n")
-    print(text)
-    print()
-    if action_chosen == 1:
-        pass
-    elif action_chosen == 2:
+    if action_chosen == 2:
         send_to_existing_chatgpt(text)
     elif action_chosen == 3:
         send_to_new_chatgpt(text)
@@ -282,6 +280,8 @@ def post_transcription_menu(text):
             os.remove(current_transcript_path)
         except FileNotFoundError:
             pass
+    else:
+        pass  # Default action is to show transcription and exit
 
 
 def main():
@@ -289,11 +289,16 @@ def main():
         print_help()
         return
 
-    if len(sys.argv) == 2 and os.path.isfile(sys.argv[1]):
+    if len(sys.argv) == 2:
+        if not os.path.isfile(sys.argv[1]):
+            print("❌ Invalid file path. Please provide a valid .wav file.")
+            return
+        print("📂 Transcribing existing file...")
         generate_paths()
         text = transcribe_audio(sys.argv[1])
         post_transcription_menu(text)
         return
+
 
     filename = generate_paths()
     recorder = threading.Thread(target=record_audio, args=(filename,))
