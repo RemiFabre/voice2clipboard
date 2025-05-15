@@ -121,7 +121,7 @@ def focus_and_click_chatgpt_input(timeout=5):
         start_time = time.time()
         while time.time() - start_time < timeout:
             try :
-                location = pyautogui.locateOnScreen(CHATGPT_ICON_IMAGE, confidence=0.99)
+                location = pyautogui.locateOnScreen(CHATGPT_ICON_IMAGE, confidence=0.85)
             except pyautogui.ImageNotFoundException:
                 time.sleep(0.2)
                 continue
