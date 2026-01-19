@@ -138,6 +138,7 @@ def focus_and_click_chatgpt_input(timeout=5):
 
 
 def transcribe_audio(filename):
+    playsound("sounds/beep.wav")
     print("🧠 Transcribing...")
     model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
     start = time.time()
