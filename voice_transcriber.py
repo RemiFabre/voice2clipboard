@@ -50,14 +50,20 @@ def generate_paths():
     return current_audio_path
 
 
+SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
+
+
 def print_help():
     print("""
 🎙️ voice_transcriber.py - Record or transcribe voice audio using Whisper
 
 USAGE:
   python3 voice_transcriber.py                   # Start recording interactively
-  python3 voice_transcriber.py <audio_file.wav>  # Transcribe existing file (no recording)
+  python3 voice_transcriber.py <audio_file>      # Transcribe existing file (no recording)
   python3 voice_transcriber.py --help            # Show this help message
+
+SUPPORTED FORMATS:
+  .wav, .mp3, .ogg, .m4a, .flac, .opus (WhatsApp voice messages work!)
 
 NOTES:
 - Press 1–5 during recording to choose action:
@@ -152,9 +158,23 @@ def transcribe_audio(filename):
 
     global duration_sec, current_transcript_path
     if duration_sec == 0:
-        with sf.SoundFile(filename) as f:
-            file_duration = len(f) / f.samplerate
-        rtf = (end - start) / file_duration
+        # For pre-recorded files, try to get duration via ffprobe (handles all formats)
+        try:
+            result = subprocess.run(
+                ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                 '-of', 'default=noprint_wrappers=1:nokey=1', filename],
+                capture_output=True, text=True
+            )
+            file_duration = float(result.stdout.strip())
+        except (ValueError, FileNotFoundError):
+            # Fallback: try soundfile (works for WAV)
+            try:
+                with sf.SoundFile(filename) as f:
+                    file_duration = len(f) / f.samplerate
+            except Exception:
+                file_duration = end - start  # Last resort: use transcription time
+        rtf = (end - start) / file_duration if file_duration > 0 else 0
+        duration_sec = file_duration
     else:
         rtf = (end - start) / duration_sec
 
@@ -291,12 +311,18 @@ def main():
         return
 
     if len(sys.argv) == 2:
-        if not os.path.isfile(sys.argv[1]):
-            print("❌ Invalid file path. Please provide a valid .wav file.")
+        input_file = sys.argv[1]
+        if not os.path.isfile(input_file):
+            print(f"❌ File not found: {input_file}")
             return
-        print("📂 Transcribing existing file...")
+        ext = os.path.splitext(input_file)[1].lower()
+        if ext not in SUPPORTED_AUDIO_EXTENSIONS:
+            print(f"❌ Unsupported format: {ext}")
+            print(f"   Supported: {', '.join(sorted(SUPPORTED_AUDIO_EXTENSIONS))}")
+            return
+        print(f"📂 Transcribing {ext} file...")
         generate_paths()
-        text = transcribe_audio(sys.argv[1])
+        text = transcribe_audio(input_file)
         post_transcription_menu(text)
         return
 
