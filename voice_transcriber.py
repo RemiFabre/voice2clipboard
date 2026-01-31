@@ -296,11 +296,11 @@ def paste_at_cursor_and_send(text, target_window=None):
     if target_window:
         print(f"🔄 Refocusing original window ({target_window})...")
         subprocess.call(['xdotool', 'windowactivate', '--sync', target_window])
-        time.sleep(0.2)
+        time.sleep(0.3)
 
     # Use Ctrl+Shift+V (works in terminals like Claude Code)
     pyautogui.hotkey("ctrl", "shift", "v")
-    time.sleep(0.1)
+    time.sleep(0.3)
     pyautogui.press("enter")
     print("📨 Pasted and sent.")
 
