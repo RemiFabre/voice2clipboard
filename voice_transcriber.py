@@ -157,7 +157,7 @@ def transcribe_audio(filename):
     print("🧠 Transcribing...")
     model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
     start = time.time()
-    segments, info = model.transcribe(filename, beam_size=5, best_of=5)
+    segments, info = model.transcribe(filename, beam_size=1, best_of=1)
     end = time.time()
     text = " ".join([seg.text for seg in segments])
 
