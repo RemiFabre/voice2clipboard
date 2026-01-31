@@ -51,6 +51,7 @@ def generate_paths():
 
 
 SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
+QUICK_MODE_DISCLAIMER = f"[Transcribed with Whisper {MODEL_SIZE} - may contain errors] "
 
 
 def print_help():
@@ -59,19 +60,24 @@ def print_help():
 
 USAGE:
   python3 voice_transcriber.py                   # Start recording interactively
+  python3 voice_transcriber.py --quick           # Quick mode: record, transcribe, paste at cursor + Enter
   python3 voice_transcriber.py <audio_file>      # Transcribe existing file (no recording)
   python3 voice_transcriber.py --help            # Show this help message
 
 SUPPORTED FORMATS:
   .wav, .mp3, .ogg, .m4a, .flac, .opus (WhatsApp voice messages work!)
 
-NOTES:
-- Press 1–5 during recording to choose action:
+MODES:
+  Default mode: Press 1–5 during recording to choose action
     1: Show transcription
     2: Paste into ChatGPT (existing tab)
     3: Open ChatGPT and paste
     4: Improve and rename with local LLM
     5: Cancel
+
+  Quick mode (--quick): Press Escape to stop recording.
+    Transcribes and pastes text at cursor position with disclaimer, then presses Enter.
+
 - 📋 Text will always be copied to clipboard automatically.
 """)
 
@@ -87,7 +93,7 @@ def audio_callback(indata, frames, time_info, status):
     print(f"\r🎤 {elapsed:5.1f}s [{bar}]", end="", flush=True)
 
 
-def record_audio(filename):
+def record_audio(filename, quick_mode=False):
     global duration_sec, recording, callback_enabled, start_time
     q = queue.Queue()
 
@@ -99,13 +105,16 @@ def record_audio(filename):
         with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS, callback=_callback):
             playsound("sounds/plop.wav")
             print("\n🎤 Recording started.")
-            print("Press:")
-            print("  1 – Show transcription")
-            print("  2 – Paste into ChatGPT (existing tab)")
-            print("  3 – Open ChatGPT and paste")
-            print("  4 – Improve and rename with local LLM")
-            print("  5 – Cancel (discard and stop immediately)")
-            print("📋 Text will always be copied to clipboard.\n")
+            if quick_mode:
+                print("Press Escape to stop recording.\n")
+            else:
+                print("Press:")
+                print("  1 – Show transcription")
+                print("  2 – Paste into ChatGPT (existing tab)")
+                print("  3 – Open ChatGPT and paste")
+                print("  4 – Improve and rename with local LLM")
+                print("  5 – Cancel (discard and stop immediately)")
+                print("📋 Text will always be copied to clipboard.\n")
 
             start_time = time.time()
             try:
@@ -262,6 +271,40 @@ def handle_key_input_during_recording():
     listener.stop()
 
 
+def handle_escape_during_recording():
+    """Wait for Escape key to stop recording in quick mode."""
+    global recording
+
+    def on_press(key):
+        global recording
+        if key == pynput_keyboard.Key.esc:
+            recording = False
+
+    listener = pynput_keyboard.Listener(on_press=on_press)
+    listener.start()
+    while recording:
+        time.sleep(0.05)
+    listener.stop()
+
+
+def paste_at_cursor_and_send(text, target_window=None):
+    """Paste text at current cursor position and press Enter."""
+    text_with_disclaimer = QUICK_MODE_DISCLAIMER + text
+    pyperclip.copy(text_with_disclaimer)
+
+    # Refocus original window if provided
+    if target_window:
+        print(f"🔄 Refocusing original window ({target_window})...")
+        subprocess.call(['xdotool', 'windowactivate', '--sync', target_window])
+        time.sleep(0.2)
+
+    # Use Ctrl+Shift+V (works in terminals like Claude Code)
+    pyautogui.hotkey("ctrl", "shift", "v")
+    time.sleep(0.1)
+    pyautogui.press("enter")
+    print("📨 Pasted and sent.")
+
+
 def post_transcription_menu(text):
     global action_chosen, current_audio_path, current_transcript_path
     print("\n📄 Transcription:\n")
@@ -306,12 +349,25 @@ def post_transcription_menu(text):
 
 
 def main():
-    if len(sys.argv) > 2 or (len(sys.argv) > 1 and sys.argv[1] in ["--help", "-h"]):
+    global recording
+
+    # Parse arguments
+    quick_mode = "--quick" in sys.argv
+    target_window = None
+    if "--target-window" in sys.argv:
+        idx = sys.argv.index("--target-window")
+        if idx + 1 < len(sys.argv):
+            target_window = sys.argv[idx + 1]
+
+    args = [a for a in sys.argv[1:] if a not in ["--quick", "--target-window", target_window or ""]]
+
+    if len(args) > 1 or (len(args) == 1 and args[0] in ["--help", "-h"]):
         print_help()
         return
 
-    if len(sys.argv) == 2:
-        input_file = sys.argv[1]
+    # File transcription mode
+    if len(args) == 1:
+        input_file = args[0]
         if not os.path.isfile(input_file):
             print(f"❌ File not found: {input_file}")
             return
@@ -323,24 +379,43 @@ def main():
         print(f"📂 Transcribing {ext} file...")
         generate_paths()
         text = transcribe_audio(input_file)
-        post_transcription_menu(text)
+        if quick_mode:
+            paste_at_cursor_and_send(text, target_window)
+        else:
+            post_transcription_menu(text)
         return
 
-
+    # Recording mode
     filename = generate_paths()
-    recorder = threading.Thread(target=record_audio, args=(filename,))
-    hotkeys = threading.Thread(target=handle_key_input_during_recording)
-    recorder.start()
-    hotkeys.start()
-    recorder.join()
-    hotkeys.join()
 
-    if os.path.exists(filename):
-        if action_chosen == 5:
-            print("❌ Aborted before transcription.")
-            return
-        text = transcribe_audio(filename)
-        post_transcription_menu(text)
+    if quick_mode:
+        # Quick mode: Escape to stop, then paste at cursor
+        recording = True
+        recorder = threading.Thread(target=record_audio, args=(filename, True))
+        escape_listener = threading.Thread(target=handle_escape_during_recording)
+        recorder.start()
+        escape_listener.start()
+        recorder.join()
+        escape_listener.join()
+
+        if os.path.exists(filename):
+            text = transcribe_audio(filename)
+            paste_at_cursor_and_send(text, target_window)
+    else:
+        # Default mode: 1-5 keys to choose action
+        recorder = threading.Thread(target=record_audio, args=(filename,))
+        hotkeys = threading.Thread(target=handle_key_input_during_recording)
+        recorder.start()
+        hotkeys.start()
+        recorder.join()
+        hotkeys.join()
+
+        if os.path.exists(filename):
+            if action_chosen == 5:
+                print("❌ Aborted before transcription.")
+                return
+            text = transcribe_audio(filename)
+            post_transcription_menu(text)
 
 
 if __name__ == "__main__":
