@@ -29,6 +29,8 @@ This is ideal for:
 - 📋 Automatically copies text to clipboard.
 - 🧠 [Optional] Local LLM cleanup & smart filename generation (via Ollama).
 - 💬 Paste directly into ChatGPT (existing or new tab).
+- 🚀 **Quick mode** (`--quick`): Record, transcribe, and paste directly into Claude Code or any terminal.
+- 🎵 Supports multiple audio formats: WAV, MP3, OGG, M4A, FLAC, OPUS (WhatsApp voice messages work!).
 - 🗂️ Saved as daily folders with time-based subfolders (`recordings/YYYY-MM-DD/HH-MM-SS/`).
 - ⌨️ Can be launched with a **global keyboard shortcut**.
 
@@ -142,6 +144,50 @@ If mode 4 is used, the folder will be renamed to include the suggested topic (e.
 | 5   | Cancel (discard all)                 |
 
 > Text is always copied to clipboard automatically.
+
+---
+
+## 🚀 Quick Mode (for Claude Code / terminals)
+
+Quick mode is designed for fast dictation directly into Claude Code or any terminal:
+
+```bash
+python voice_transcriber.py --quick
+```
+
+Or use the launcher script with a global hotkey:
+
+```bash
+./run_transcriber_quick.sh
+```
+
+**How it works:**
+1. Press your hotkey to start recording
+2. Speak your message
+3. Press **Escape** to stop
+4. Text is transcribed, prefixed with a disclaimer, and pasted at your cursor
+5. Enter is pressed automatically
+
+The disclaimer prefix helps LLMs understand potential transcription errors:
+`[Transcribed with Whisper medium - may contain errors]`
+
+---
+
+## 📊 Performance Benchmarks
+
+Tested on RTX A2000 (4GB VRAM) with an 83-second audio file:
+
+| Config | Load | Transcribe | Total | Quality |
+|--------|------|------------|-------|---------|
+| medium/float16/beam=5 | 1.3s | 6.0s | 7.3s | Best |
+| **medium/float16/beam=1** | 1.3s | 3.0s | **4.3s** | Same quality |
+| small/int8/beam=1 | 0.9s | 1.4s | 2.3s | Minor errors |
+| base/int8/beam=1 | 0.4s | 0.6s | 1.0s | Some errors |
+| tiny/int8/beam=1 | 0.3s | 0.5s | 0.8s | More errors |
+
+**Default config**: `medium/float16/beam=1` - best balance of speed and quality.
+
+Use `benchmark_whisper.py` and `compare_transcriptions.py` to test on your hardware.
 
 ---
 
