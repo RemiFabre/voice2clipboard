@@ -1,125 +1,141 @@
-# 🎙️ Voice2ChatGPT
+# Voice2ChatGPT
 
-**Instant voice capture for transcription, clipboard, and ChatGPT interaction – all in one keypress.**
+**Voice capture for transcription, clipboard, and ChatGPT interaction – all in one keypress.**
 
-## 🚀 Main Use Case
+## Main Use Case
 
-This tool makes it **effortless** to capture voice notes or ideas during your workflow. You hit a single key, talk, and it:
+Capture voice notes during your workflow. Hit a key, talk, and it:
 
-- records your voice;
-- transcribes it using a local Whisper model;
-- copies the text to your clipboard;
-- optionally pastes it directly into ChatGPT;
-- saves the audio and transcript into a clean, timestamped folder.
+- Records your voice
+- Transcribes it using a local Whisper model
+- Copies the text to your clipboard
+- Optionally pastes it directly into ChatGPT or Claude Code
+- Saves the audio and transcript with timestamps
 
-This is ideal for:
-
-- code commentary,
-- journaling,
-- bug reporting,
-- voice-based chat prompting,
-- hands-free idea dumps.
+Ideal for code commentary, journaling, bug reporting, voice-based chat prompting, and hands-free idea dumps.
 
 ---
 
-## ✨ Features
+## Features
 
-- 🎤 Voice recording from a keypress (with visual feedback).
-- 🔠 Local Whisper transcription (via `faster-whisper`).
-- 📋 Automatically copies text to clipboard.
-- 🧠 [Optional] Local LLM cleanup & smart filename generation (via Ollama).
-- 💬 Paste directly into ChatGPT (existing or new tab).
-- 🚀 **Quick mode** (`--quick`): Record, transcribe, and paste directly into Claude Code or any terminal.
-- 🎵 Supports multiple audio formats: WAV, MP3, OGG, M4A, FLAC, OPUS (WhatsApp voice messages work!).
-- 🗂️ Saved as daily folders with time-based subfolders (`recordings/YYYY-MM-DD/HH-MM-SS/`).
-- ⌨️ Can be launched with a **global keyboard shortcut**.
+- **Voice recording** with visual feedback
+- **Local Whisper transcription** via `faster-whisper` (no cloud API needed)
+- **Automatic clipboard copy**
+- **Quick mode** for Claude Code and terminals (`--quick`)
+- **ChatGPT integration** - paste into existing or new tab
+- **Multiple audio formats**: WAV, MP3, OGG, M4A, FLAC, OPUS (WhatsApp voice messages work)
+- **Local LLM cleanup** (optional) - smart filename generation via Ollama
+- **Organized storage**: `recordings/YYYY-MM-DD/HH-MM-SS/`
+- **Global keyboard shortcut** support
 
 ---
 
-## 🧰 Requirements
+## Requirements
 
 Tested on **Ubuntu 22.04** with:
 
 - Python 3.10+
-- `faster-whisper` (for transcription)
-- `ollama` with a small model (e.g. `gemma:2b`) [optional]
-- `xdotool`, `ffmpeg`, `playsound`, `pyautogui`, `pyperclip`, `pynput`, `requests`
+- `faster-whisper` (transcription)
+- `ollama` with a small model like `gemma:2b` (optional, for text cleanup)
+- System packages: `xdotool`, `ffmpeg`, `portaudio19-dev`, `scrot`
 
 ---
 
-## 📦 Installation
-
-Create a fresh Python virtual environment:
+## Installation
 
 ```bash
+# Create virtual environment
 python3 -m venv ~/.virtualenvs/voice2chatgpt
 source ~/.virtualenvs/voice2chatgpt/bin/activate
 pip install -r requirements.txt
-````
 
-You may also need system packages:
-
-```bash
+# Install system dependencies
 sudo apt install portaudio19-dev xdotool ffmpeg scrot
 ```
 
-> Tip: If `playsound` gives warnings, ignore them or switch to a custom sound player.
+---
+
+## Usage
+
+### Standard Mode
+
+```bash
+python voice_transcriber.py
+```
+
+After recording, choose an action:
+
+| Key | Action |
+|-----|--------|
+| 1 | Show transcription (default) |
+| 2 | Paste into existing ChatGPT tab |
+| 3 | Open ChatGPT and paste |
+| 4 | Use local LLM to clean text & rename folder |
+| 5 | Cancel (discard all) |
+
+Text is always copied to clipboard automatically.
+
+### Quick Mode (for Claude Code)
+
+Designed for fast dictation directly into Claude Code or any terminal:
+
+```bash
+python voice_transcriber.py --quick
+```
+
+1. Press hotkey to start recording
+2. Speak your message
+3. Press **Escape** to stop
+4. Text is transcribed, prefixed with a disclaimer, and pasted at cursor
+5. Enter is pressed automatically
+
+The disclaimer helps LLMs understand potential errors:
+`[Transcribed with Whisper medium - may contain errors]`
 
 ---
 
-## 🧠 Optional: Local LLM setup
+## Global Shortcut Setup (Ubuntu)
 
-To enable the text improvement and filename suggestion feature (mode 4):
+1. Edit `run_transcriber.sh` with your paths:
 
-1. [Install Ollama](https://ollama.com/)
-2. If needed run `ollama serve`
-3. Run:
+```bash
+#!/bin/bash
+source /home/YOUR_USER/.virtualenvs/voice2chatgpt/bin/activate
+cd /home/YOUR_USER/path/to/voice2chatgpt
+gnome-terminal -- bash -c 'python3 voice_transcriber.py; exec bash'
+```
 
-   ```bash
-   ollama run gemma:2b
-   ```
-4. Make sure `OLLAMA_URL` and `OLLAMA_MODEL` are configured in `voice_transcriber.py`.
+2. Make executable: `chmod +x run_transcriber.sh`
 
-If Ollama is not available, the script will still function normally (just without smart cleanup).
+3. In **Settings > Keyboard > Shortcuts**, add a custom shortcut pointing to the script (e.g., `Ctrl+Alt+U`)
 
----
-
-## 🖱️ Launch with a Global Shortcut (Ubuntu only)
-
-You can launch the tool with a single shortcut from anywhere:
-
-1. Use the `run_transcriber.sh` file in this repo as a launcher.
-
-2. Edit the paths inside it:
-
-   ```bash
-   #!/bin/bash
-   source /home/YOUR_USER/.virtualenvs/voice2chatgpt/bin/activate
-   cd /home/YOUR_USER/path/to/voice2chatgpt
-   gnome-terminal -- bash -c 'python3 voice_transcriber.py; exec bash'
-   ```
-
-3. Make it executable:
-
-   ```bash
-   chmod +x run_transcriber.sh
-   ```
-
-4. Go to **Settings > Keyboard > Shortcuts**, add a **custom shortcut**:
-
-   * Name: `Voice2ChatGPT`
-   * Command: `/full/path/to/run_transcriber.sh`
-   * Shortcut: for example `Ctrl + Alt + U`
-
-That's it! From now on, pressing your chosen shortcut will open a terminal, start recording, and you can begin speaking immediately.
-
-> 🧠 Similar shortcut systems can be set up on other OSes using AutoHotKey (Windows) or Automator (macOS), but are not included in this guide.
+For quick mode, use `run_transcriber_quick.sh` instead.
 
 ---
 
-## 🗃️ Folder Structure
+## Performance Benchmarks
 
-Each session is stored in:
+Tested on RTX A2000 (4GB VRAM) with an 83-second audio file:
+
+| Model | Precision | Beam | Load | Transcribe | Total | Notes |
+|-------|-----------|------|------|------------|-------|-------|
+| medium | float16 | 5 | 1.3s | 6.0s | 7.3s | Reference |
+| **medium** | **float16** | **1** | **1.3s** | **3.0s** | **4.3s** | **Default - best balance** |
+| small | int8 | 1 | 0.9s | 1.4s | 2.3s | Minor errors |
+| base | int8 | 1 | 0.4s | 0.6s | 1.0s | Some errors |
+| tiny | int8 | 1 | 0.3s | 0.5s | 0.8s | More errors |
+
+**Key finding**: `beam_size=1` is 2x faster than `beam_size=5` with no quality loss for most audio.
+
+Run your own benchmarks:
+```bash
+python benchmark_whisper.py
+python compare_transcriptions.py
+```
+
+---
+
+## Folder Structure
 
 ```
 recordings/
@@ -129,78 +145,33 @@ recordings/
               └── transcript.txt
 ```
 
-If mode 4 is used, the folder will be renamed to include the suggested topic (e.g., `14-38-12_MercuryDashboardFix`).
+With LLM mode (4), folders are renamed to include the topic: `14-38-12_MercuryDashboardFix`
 
 ---
 
-## 🧪 Modes (choose after recording)
+## Optional: Local LLM Setup
 
-| Key | Action                               |
-| --- | ------------------------------------ |
-| 1   | Show transcription (default)         |
-| 2   | Paste into existing ChatGPT tab      |
-| 3   | Open ChatGPT and paste               |
-| 4   | Use local LLM to clean text & rename |
-| 5   | Cancel (discard all)                 |
+For text cleanup and smart filename generation:
 
-> Text is always copied to clipboard automatically.
+1. [Install Ollama](https://ollama.com/)
+2. Run `ollama serve` (if needed)
+3. Pull a model: `ollama run gemma:2b`
+4. Configure `OLLAMA_URL` and `OLLAMA_MODEL` in `voice_transcriber.py`
 
----
-
-## 🚀 Quick Mode (for Claude Code / terminals)
-
-Quick mode is designed for fast dictation directly into Claude Code or any terminal:
-
-```bash
-python voice_transcriber.py --quick
-```
-
-Or use the launcher script with a global hotkey:
-
-```bash
-./run_transcriber_quick.sh
-```
-
-**How it works:**
-1. Press your hotkey to start recording
-2. Speak your message
-3. Press **Escape** to stop
-4. Text is transcribed, prefixed with a disclaimer, and pasted at your cursor
-5. Enter is pressed automatically
-
-The disclaimer prefix helps LLMs understand potential transcription errors:
-`[Transcribed with Whisper medium - may contain errors]`
+The script works without Ollama – this just disables mode 4.
 
 ---
 
-## 📊 Performance Benchmarks
+## Known Limitations
 
-Tested on RTX A2000 (4GB VRAM) with an 83-second audio file:
-
-| Config | Load | Transcribe | Total | Quality |
-|--------|------|------------|-------|---------|
-| medium/float16/beam=5 | 1.3s | 6.0s | 7.3s | Best |
-| **medium/float16/beam=1** | 1.3s | 3.0s | **4.3s** | Same quality |
-| small/int8/beam=1 | 0.9s | 1.4s | 2.3s | Minor errors |
-| base/int8/beam=1 | 0.4s | 0.6s | 1.0s | Some errors |
-| tiny/int8/beam=1 | 0.3s | 0.5s | 0.8s | More errors |
-
-**Default config**: `medium/float16/beam=1` - best balance of speed and quality.
-
-Use `benchmark_whisper.py` and `compare_transcriptions.py` to test on your hardware.
+- Local LLM punctuation may be slow on GPUs with limited VRAM
+- ChatGPT field detection relies on screenshots (may be fragile)
+- Linux-only for automation features (xdotool, pyautogui)
 
 ---
 
-## 🛠️ TODO / Known Limitations
+## Credits
 
-* Local LLM punctuation is optional, and may be slow on GPUs with limited VRAM.
-* Visual ChatGPT field detection relies on screenshots (may be fragile).
-* Currently Linux-only for automation features (xdotool, pyautogui).
-
----
-
-## 🧡 Credits
-
-* Whisper transcription by [faster-whisper](https://github.com/guillaumekln/faster-whisper)
-* Optional LLM via [Ollama](https://ollama.com/)
-* ChatGPT integration via Firefox + xdotool
+- Transcription: [faster-whisper](https://github.com/guillaumekln/faster-whisper)
+- LLM: [Ollama](https://ollama.com/)
+- ChatGPT integration: Firefox + xdotool
