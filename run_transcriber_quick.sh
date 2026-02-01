@@ -5,4 +5,4 @@
 # Capture the currently focused window BEFORE opening terminal
 ORIGINAL_WINDOW=$(xdotool getactivewindow)
 
-terminator -e "bash -c 'source /home/remi/.virtualenvs/whisper/bin/activate && cd /home/remi/voice2chatgpt && python voice_transcriber.py --quick --target-window $ORIGINAL_WINDOW'"
+terminator -e "bash -c 'source /home/remi/.virtualenvs/whisper/bin/activate && cd /home/remi/voice2clipboard && python voice_transcriber.py --quick --target-window $ORIGINAL_WINDOW'"

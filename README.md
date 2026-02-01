@@ -1,6 +1,6 @@
-# Voice2ChatGPT
+# Voice2Clipboard
 
-**Voice capture for transcription, clipboard, and ChatGPT interaction – all in one keypress.**
+**Voice capture for transcription and clipboard – all in one keypress.**
 
 ## Main Use Case
 
@@ -45,8 +45,8 @@ Tested on **Ubuntu 22.04** with:
 
 ```bash
 # Create virtual environment
-python3 -m venv ~/.virtualenvs/voice2chatgpt
-source ~/.virtualenvs/voice2chatgpt/bin/activate
+python3 -m venv ~/.virtualenvs/voice2clipboard
+source ~/.virtualenvs/voice2clipboard/bin/activate
 pip install -r requirements.txt
 
 # Install system dependencies
@@ -100,8 +100,8 @@ The disclaimer helps LLMs understand potential errors:
 
 ```bash
 #!/bin/bash
-source /home/YOUR_USER/.virtualenvs/voice2chatgpt/bin/activate
-cd /home/YOUR_USER/path/to/voice2chatgpt
+source /home/YOUR_USER/.virtualenvs/voice2clipboard/bin/activate
+cd /home/YOUR_USER/path/to/voice2clipboard
 gnome-terminal -- bash -c 'python3 voice_transcriber.py; exec bash'
 ```
 
