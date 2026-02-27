@@ -312,10 +312,10 @@ def paste_at_cursor_and_send(text, target_window=None):
             subprocess.call(['osascript', '-e', f'tell application "{target_window}" to activate'])
         else:
             subprocess.call(['xdotool', 'windowactivate', '--sync', target_window])
-        time.sleep(0.3)
+        time.sleep(0.5)
 
     if IS_MAC:
-        pyautogui.hotkey("command", "v")
+        subprocess.call(['osascript', '-e', 'tell application "System Events" to keystroke "v" using command down'])
     else:
         pyautogui.hotkey("ctrl", "shift", "v")
     time.sleep(0.3)
