@@ -2,6 +2,7 @@ import sounddevice as sd
 import soundfile as sf
 import numpy as np
 import os
+import platform
 import threading
 import queue
 import time
@@ -13,7 +14,6 @@ import requests
 import json
 from pynput import keyboard as pynput_keyboard
 from faster_whisper import WhisperModel
-from playsound import playsound
 import sys
 from datetime import datetime
 
@@ -21,12 +21,22 @@ from datetime import datetime
 SAMPLE_RATE = 16000
 CHANNELS = 1
 MODEL_SIZE = "medium"
-DEVICE = "cuda"
-COMPUTE_TYPE = "float16"
+IS_MAC = platform.system() == "Darwin"
+DEVICE = "cpu" if IS_MAC else "cuda"
+COMPUTE_TYPE = "int8" if IS_MAC else "float16"
 MIC_BAR_WIDTH = 30
 CHATGPT_ICON_IMAGE = "assets/chatgpt_plus.jpeg"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "gemma:2b"
+
+
+def playsound(path):
+    if IS_MAC:
+        subprocess.Popen(['afplay', path])
+    else:
+        from playsound import playsound as _playsound
+        _playsound(path)
+
 
 # === Globals ===
 recording = True
@@ -103,7 +113,7 @@ def record_audio(filename, quick_mode=False):
 
     with sf.SoundFile(filename, mode='w', samplerate=SAMPLE_RATE, channels=CHANNELS) as file:
         with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS, callback=_callback):
-            playsound("sounds/plop.wav")
+            playsound("sounds/plop.mp3")
             print("\n🎤 Recording started.")
             if quick_mode:
                 print("Press Escape to stop recording.\n")
@@ -153,7 +163,7 @@ def focus_and_click_chatgpt_input(timeout=5):
 
 
 def transcribe_audio(filename):
-    playsound("sounds/beep.wav")
+    playsound("sounds/plop.mp3")
     print("🧠 Transcribing...")
     model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
     start = time.time()
@@ -163,7 +173,7 @@ def transcribe_audio(filename):
 
     pyperclip.copy(text)
     print("📋 Copied to clipboard.")
-    playsound("sounds/plop.wav")
+    playsound("sounds/plop.mp3")
 
     global duration_sec, current_transcript_path
     if duration_sec == 0:
@@ -201,10 +211,13 @@ def transcribe_audio(filename):
 def send_to_existing_chatgpt(text):
     print("📨 Focusing Firefox window...")
     try:
-        subprocess.call(['xdotool', 'search', '--onlyvisible', '--class', 'firefox', 'windowactivate'])
+        if IS_MAC:
+            subprocess.call(['osascript', '-e', 'tell application "Firefox" to activate'])
+        else:
+            subprocess.call(['xdotool', 'search', '--onlyvisible', '--class', 'firefox', 'windowactivate'])
         time.sleep(0.2)
         if focus_and_click_chatgpt_input(timeout=5):
-            pyautogui.hotkey("ctrl", "v")
+            pyautogui.hotkey("command" if IS_MAC else "ctrl", "v")
             time.sleep(0.1)
             pyautogui.press("enter")
         else:
@@ -295,11 +308,16 @@ def paste_at_cursor_and_send(text, target_window=None):
     # Refocus original window if provided
     if target_window:
         print(f"🔄 Refocusing original window ({target_window})...")
-        subprocess.call(['xdotool', 'windowactivate', '--sync', target_window])
+        if IS_MAC:
+            subprocess.call(['osascript', '-e', f'tell application "{target_window}" to activate'])
+        else:
+            subprocess.call(['xdotool', 'windowactivate', '--sync', target_window])
         time.sleep(0.3)
 
-    # Use Ctrl+Shift+V (works in terminals like Claude Code)
-    pyautogui.hotkey("ctrl", "shift", "v")
+    if IS_MAC:
+        pyautogui.hotkey("command", "v")
+    else:
+        pyautogui.hotkey("ctrl", "shift", "v")
     time.sleep(0.3)
     pyautogui.press("enter")
     print("📨 Pasted and sent.")
@@ -330,7 +348,7 @@ def post_transcription_menu(text):
         print(new_text)
         pyperclip.copy(new_text)
         print("📋 Copied enhanced version to clipboard.")
-        playsound("sounds/plop.wav")
+        playsound("sounds/plop.mp3")
         if new_name:
             folder = os.path.dirname(current_audio_path)
             base = os.path.dirname(folder)
