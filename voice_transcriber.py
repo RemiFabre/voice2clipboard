@@ -30,15 +30,18 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "gemma:2b"
 
 
-def playsound(path):
+def playsound(path, block=False):
     if IS_MAC:
-        subprocess.Popen(['afplay', path])
+        p = subprocess.Popen(['afplay', path])
+        if block:
+            p.wait()
     else:
         from playsound import playsound as _playsound
         _playsound(path)
 
 
 # === Globals ===
+whisper_model = None  # loaded once on first transcription
 recording = True
 duration_sec = 0
 start_time = None
@@ -113,7 +116,7 @@ def record_audio(filename, quick_mode=False):
 
     with sf.SoundFile(filename, mode='w', samplerate=SAMPLE_RATE, channels=CHANNELS) as file:
         with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS, callback=_callback):
-            playsound("sounds/plop.mp3")
+            playsound("sounds/plop.mp3", block=True)  # wait for sound = go signal
             print("\n🎤 Recording started.")
             if quick_mode:
                 print("Press Escape to stop recording.\n")
@@ -165,7 +168,11 @@ def focus_and_click_chatgpt_input(timeout=5):
 def transcribe_audio(filename):
     playsound("sounds/plop.mp3")
     print("🧠 Transcribing...")
-    model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
+    global whisper_model
+    if whisper_model is None:
+        print("⏳ Loading model (first run only)...")
+        whisper_model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
+    model = whisper_model
     start = time.time()
     segments, info = model.transcribe(filename, beam_size=1, best_of=1)
     end = time.time()
@@ -367,7 +374,11 @@ def post_transcription_menu(text):
 
 
 def main():
-    global recording
+    global recording, whisper_model
+    # Pre-load model so first transcription has no delay
+    print("⏳ Loading Whisper model...")
+    whisper_model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
+    print("✅ Model ready")
 
     # Parse arguments
     quick_mode = "--quick" in sys.argv
