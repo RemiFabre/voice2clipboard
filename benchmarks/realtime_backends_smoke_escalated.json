@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-02-28T00:12:58",
+  "args": {
+    "manifest": "benchmarks/manifest_template.jsonl",
+    "backend": [
+      "voxmlx",
+      "faster"
+    ],
+    "model_whisper": "medium",
+    "voxmlx_url": "ws://127.0.0.1:8000/v1/realtime",
+    "voxmlx_model": "voxtral-mini-latest",
+    "chunk_ms": 80,
+    "commit_every": 0.7,
+    "realtime_pace": false,
+    "post_commit_idle": 1.2,
+    "max_wait": 10.0,
+    "output": "benchmarks/realtime_backends_smoke_escalated.json"
+  },
+  "items": [
+    {
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "reference": ""
+    }
+  ],
+  "results": [
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "audio_duration_s": 21.799688,
+      "text": "Okay, testing if this transcript works and if it's fast enough. There's some noise around, so let's see if the transcription is good. My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense, it's probably transcription mistakes, but that's another problem.",
+      "text_len": 303,
+      "timings": {
+        "connect_s": 0.021775007247924805,
+        "send_audio_s": 0.08304810523986816,
+        "total_s": 9.599286079406738,
+        "first_token_s": 0.9380102157592773,
+        "load_s": 0.0,
+        "transcribe_s": 9.599286079406738
+      },
+      "rtf_total": 0.44034052594728595,
+      "rtf_first_token": 0.04302860737086133
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "audio_duration_s": 21.799688,
+      "text": "Ok, testing if this transcript works and if it's fast enough.  There is some noise around, so let's see if the transcription is good.  My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+      "text_len": 305,
+      "timings": {
+        "load_s": 2.1050360202789307,
+        "transcribe_s": 8.190712928771973,
+        "total_s": 10.295748949050903,
+        "first_token_s": 10.295748949050903
+      },
+      "rtf_total": 0.47228882124601523,
+      "rtf_first_token": 0.47228882124601523
+    }
+  ],
+  "errors": []
+}

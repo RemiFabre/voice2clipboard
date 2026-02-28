@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-02-28T10:05:16",
+  "args": {
+    "manifest": "benchmarks/manifest_retry_voxmlx.jsonl",
+    "backend": [
+      "voxmlx"
+    ],
+    "model_whisper": "medium",
+    "voxmlx_url": "ws://127.0.0.1:8000/v1/realtime",
+    "voxmlx_model": "voxtral-mini-latest",
+    "chunk_ms": 80,
+    "commit_every": 0.7,
+    "realtime_pace": false,
+    "post_commit_idle": 1.2,
+    "max_wait": 10.0,
+    "output": "benchmarks/realtime_backends_retry_voxmlx_20260228.json"
+  },
+  "items": [
+    {
+      "audio": "recordings/2026-02-27/20-37-12/audio.wav",
+      "reference": ""
+    },
+    {
+      "audio": "recordings/2026-02-27/21-40-52/audio.wav",
+      "reference": ""
+    }
+  ],
+  "results": [
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/20-37-12/audio.wav",
+      "audio_duration_s": 180.18,
+      "text": "Okay, so a few improvements. By the way, this message will be done through this transcribe, so there might be some inaccuracies. I'm not sure. In the base version of this repo, I had a small message. That was written always in the beginning of the text. That said, hey, this has been transcribed. There might be errors. Maybe you can word it in a way that's a bit shorter. saying, I don't know, message transcribed from voice, something like that. Okay, so that's number one. Number two is the keyboard is... I mean the key... How is it called? The hotkey is a bit annoying I like to to take the one I chose so let's iterate on that too also I was wondering the persistent demon mode I like this idea but how much how much VRAM would it take I think I have 36 gigabytes on this laptop which is very good but I like to have some info on this also I'd like you to do some research on the web to know if there are better options available I think the current version is already really good but it's a domain that moves often so a bit of a state of the art would be interesting Also, I think the beeps, the noises for each of the three steps should be different right now. And I was wondering if we could also have a mode where the transcription happens live. Or maybe semi-live, like a sentence per sentence or something like that.",
+      "text_len": 1328,
+      "timings": {
+        "connect_s": 0.01982903480529785,
+        "send_audio_s": 49.59795784950256,
+        "total_s": 61.76105713844299,
+        "first_token_s": 1.8873839378356934,
+        "load_s": 0.0,
+        "transcribe_s": 61.76105713844299
+      },
+      "rtf_total": 0.3427742098925685,
+      "rtf_first_token": 0.010474991329979427
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/21-40-52/audio.wav",
+      "audio_duration_s": 261.649688,
+      "text": "Okay, I'm trying again a transcript test to see if this works. I'm going to make it a bit long on purpose. I'm reading the voice control roadmap and the more I think of it, the more I like the the always on transcription path. This is the one I'd like us to work on right now. Of course, all of these are experimentation, so nothing must break what has been achieved. On other ideas, Okay, nice. So you compared faster whisper versus Amelix whisper. And so emilix whisper seems to be much much faster but is both medium comparable like faster whisper medium is it comparable to emilix whisper medium is it like the same model because we're talking like almost three times faster so this is insane I mean, if that's true, do we even want to explore other options? Or does it just mean that it's by far the best option out there? Yeah, so I'm reading your experiment tracks. Yeah, no, definitely track A is the one I want us to follow. And I think the... The first idea I have is that it continuously writes text somewhere. And I can press a button. And this means that starting from that moment It's like the selection starts and when I press the button again, the selection ends and all of that goes into my clipboard. I think that would be a nice way of making it work for now. And ideally the text goes to a file so that another program in LLM or something can read it live as it comes. But I like some information about this because I heard that if we're doing really, really live transcribe, we can have we can run into some problems of precision if we go like word by word because some models correct based on the sentence and",
+      "text_len": 1631,
+      "timings": {
+        "connect_s": 0.4723682403564453,
+        "send_audio_s": 70.97615885734558,
+        "total_s": 91.47244429588318,
+        "first_token_s": 2.2167880535125732,
+        "load_s": 0.0,
+        "transcribe_s": 91.47244429588318
+      },
+      "rtf_total": 0.3495989045317844,
+      "rtf_first_token": 0.008472351220661777
+    }
+  ],
+  "errors": []
+}
