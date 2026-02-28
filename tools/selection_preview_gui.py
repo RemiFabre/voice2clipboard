@@ -26,14 +26,18 @@ class AppState:
     runtime_dir: str
     max_chars: int = 30000
     deltas_path: str = field(init=False)
+    selections_path: str = field(init=False)
     marker_path: str = field(init=False)
     entries: list[DeltaEntry] = field(default_factory=list)
     file_pos: int = 0
+    selections_file_pos: int = 0
+    selected_ranges: list[tuple[float, float]] = field(default_factory=list)
     marker_active: bool = False
     marker_start_epoch: float | None = None
 
     def __post_init__(self) -> None:
         self.deltas_path = os.path.join(self.runtime_dir, "deltas.jsonl")
+        self.selections_path = os.path.join(self.runtime_dir, "selections.jsonl")
         self.marker_path = os.path.join(self.runtime_dir, "selection_marker.json")
 
 
@@ -92,6 +96,40 @@ def tail_new_deltas(state: AppState) -> None:
     state.entries = list(reversed(kept))
 
 
+def tail_new_selections(state: AppState) -> None:
+    if not os.path.exists(state.selections_path):
+        return
+    size = os.path.getsize(state.selections_path)
+    if size < state.selections_file_pos:
+        state.selections_file_pos = 0
+    with open(state.selections_path, "r", encoding="utf-8", errors="ignore") as f:
+        f.seek(state.selections_file_pos)
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except Exception:
+                continue
+            start = obj.get("selection_start_epoch")
+            end = obj.get("selection_end_epoch")
+            if start is None or end is None:
+                continue
+            try:
+                state.selected_ranges.append((float(start), float(end)))
+            except Exception:
+                continue
+        state.selections_file_pos = f.tell()
+
+
+def in_selected_ranges(state: AppState, epoch: float) -> bool:
+    for start, end in state.selected_ranges:
+        if start <= epoch <= end:
+            return True
+    return False
+
+
 def rebuild_text(state: AppState, text_widget: tk.Text) -> None:
     text_widget.configure(state="normal")
     text_widget.delete("1.0", "end")
@@ -101,7 +139,10 @@ def rebuild_text(state: AppState, text_widget: tk.Text) -> None:
     for entry in state.entries:
         total_chars += len(entry.delta)
         tag = "normal"
-        if state.marker_active and state.marker_start_epoch is not None and entry.epoch >= state.marker_start_epoch:
+        if in_selected_ranges(state, entry.epoch):
+            tag = "selected"
+            selected_chars += len(entry.delta)
+        elif state.marker_active and state.marker_start_epoch is not None and entry.epoch >= state.marker_start_epoch:
             tag = "selected"
             selected_chars += len(entry.delta)
         text_widget.insert("end", entry.delta, (tag,))
@@ -154,6 +195,7 @@ def main() -> None:
     def tick() -> None:
         state.marker_active, state.marker_start_epoch = read_marker(state.marker_path)
         tail_new_deltas(state)
+        tail_new_selections(state)
         total_chars, selected_chars = rebuild_text(state, text)
         if state.marker_active:
             status_var.set(

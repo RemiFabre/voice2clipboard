@@ -130,6 +130,7 @@ For boundary tuning sessions, use:
 Behavior:
 - Gray text = outside current selection.
 - Green text = inside current active marker window.
+- After each successful copy, selected ranges remain green permanently (history view).
 - This does not modify production pipeline behavior; it is read-only visualization.
 - If `tkinter` is unavailable on your Python build, it auto-falls back to a local web UI.
 

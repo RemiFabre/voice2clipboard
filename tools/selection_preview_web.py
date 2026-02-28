@@ -23,15 +23,19 @@ class SharedState:
     runtime_dir: str
     max_chars: int = 40000
     deltas_path: str = field(init=False)
+    selections_path: str = field(init=False)
     marker_path: str = field(init=False)
     entries: list[DeltaEntry] = field(default_factory=list)
     file_pos: int = 0
+    selections_file_pos: int = 0
+    selected_ranges: list[tuple[float, float]] = field(default_factory=list)
     marker_active: bool = False
     marker_start_epoch: float | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def __post_init__(self) -> None:
         self.deltas_path = os.path.join(self.runtime_dir, "deltas.jsonl")
+        self.selections_path = os.path.join(self.runtime_dir, "selections.jsonl")
         self.marker_path = os.path.join(self.runtime_dir, "selection_marker.json")
 
 
@@ -87,6 +91,40 @@ def tail_new_deltas(state: SharedState) -> None:
     state.entries = list(reversed(kept))
 
 
+def tail_new_selections(state: SharedState) -> None:
+    if not os.path.exists(state.selections_path):
+        return
+    size = os.path.getsize(state.selections_path)
+    if size < state.selections_file_pos:
+        state.selections_file_pos = 0
+    with open(state.selections_path, "r", encoding="utf-8", errors="ignore") as f:
+        f.seek(state.selections_file_pos)
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except Exception:
+                continue
+            start = obj.get("selection_start_epoch")
+            end = obj.get("selection_end_epoch")
+            if start is None or end is None:
+                continue
+            try:
+                state.selected_ranges.append((float(start), float(end)))
+            except Exception:
+                continue
+        state.selections_file_pos = f.tell()
+
+
+def in_selected_ranges(state: SharedState, epoch: float) -> bool:
+    for start, end in state.selected_ranges:
+        if start <= epoch <= end:
+            return True
+    return False
+
+
 def build_snapshot(state: SharedState) -> dict:
     with state.lock:
         active = state.marker_active
@@ -96,7 +134,7 @@ def build_snapshot(state: SharedState) -> dict:
         selected = 0
         for e in state.entries:
             total += len(e.delta)
-            is_sel = bool(active and start is not None and e.epoch >= start)
+            is_sel = in_selected_ranges(state, e.epoch) or bool(active and start is not None and e.epoch >= start)
             if is_sel:
                 selected += len(e.delta)
             chunks.append({"t": e.delta, "s": is_sel})
@@ -160,6 +198,7 @@ def main() -> None:
             with state.lock:
                 state.marker_active, state.marker_start_epoch = read_marker(state.marker_path)
                 tail_new_deltas(state)
+                tail_new_selections(state)
             time.sleep(0.12)
 
     threading.Thread(target=updater, daemon=True).start()
