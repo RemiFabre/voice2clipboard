@@ -1,0 +1,272 @@
+#!/usr/bin/env python3
+"""Always-on local dictation daemon (voxmlx/OpenAI-realtime compatible).
+
+- Continuously captures microphone audio.
+- Streams to ws://.../v1/realtime.
+- Writes rolling transcript + committed segments to files under runtime/always_on.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import base64
+import json
+import os
+import signal
+import sys
+import time
+from dataclasses import dataclass
+from datetime import datetime
+
+import numpy as np
+import sounddevice as sd
+import websockets
+
+
+@dataclass
+class State:
+    current_delta: str = ""
+    committed_text: str = ""
+    connected: bool = False
+    started_at: float = 0.0
+    last_delta_at: float | None = None
+
+
+def now_iso() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def append_jsonl(path: str, obj: dict) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+
+def append_text_line(path: str, text: str) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(text.rstrip() + "\n")
+
+
+def timeline_day_path(runtime_dir: str, dt: datetime | None = None) -> str:
+    day = (dt or datetime.now()).strftime("%Y-%m-%d")
+    return os.path.join(runtime_dir, "timeline", f"{day}.txt")
+
+
+def write_text(path: str, text: str) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+
+def write_state(path: str, payload: dict) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
+
+
+async def run_daemon(args: argparse.Namespace) -> None:
+    runtime_dir = args.runtime_dir
+    events_path = os.path.join(runtime_dir, "events.jsonl")
+    segments_path = os.path.join(runtime_dir, "segments.jsonl")
+    deltas_path = os.path.join(runtime_dir, "deltas.jsonl")
+    live_text_path = os.path.join(runtime_dir, "live_text.txt")
+    state_path = os.path.join(runtime_dir, "state.json")
+    pid_path = os.path.join(runtime_dir, "daemon.pid")
+
+    os.makedirs(runtime_dir, exist_ok=True)
+    write_text(live_text_path, "")
+    append_text_line(timeline_day_path(runtime_dir), f"\n=== Session start {now_iso()} ===")
+    with open(pid_path, "w", encoding="utf-8") as f:
+        f.write(str(os.getpid()))
+
+    state = State(started_at=time.time())
+    stop_event = asyncio.Event()
+    audio_q: asyncio.Queue[str] = asyncio.Queue(maxsize=256)
+
+    def _on_signal(_sig, _frame):
+        stop_event_loop = asyncio.get_event_loop()
+        stop_event_loop.call_soon_threadsafe(stop_event.set)
+
+    signal.signal(signal.SIGINT, _on_signal)
+    signal.signal(signal.SIGTERM, _on_signal)
+
+    loop = asyncio.get_running_loop()
+
+    def audio_cb(indata, _frames, _time_info, status):
+        if status:
+            return
+        mono = indata[:, 0] if indata.ndim == 2 else indata
+        pcm16 = (np.clip(mono, -1.0, 1.0) * 32767.0).astype(np.int16)
+        payload = base64.b64encode(pcm16.tobytes()).decode("ascii")
+        try:
+            loop.call_soon_threadsafe(audio_q.put_nowait, payload)
+        except asyncio.QueueFull:
+            pass
+
+    try:
+        async with websockets.connect(args.url, max_size=10 * 1024 * 1024) as ws:
+            state.connected = True
+            await ws.send(json.dumps({"type": "session.update", "model": args.model, "temperature": 0.0}))
+
+            async def sender_loop() -> None:
+                while not stop_event.is_set():
+                    try:
+                        b64 = await asyncio.wait_for(audio_q.get(), timeout=0.2)
+                    except asyncio.TimeoutError:
+                        continue
+                    await ws.send(json.dumps({"type": "input_audio_buffer.append", "audio": b64}))
+
+            async def commit_loop() -> None:
+                while not stop_event.is_set():
+                    await asyncio.sleep(args.commit_every)
+                    await ws.send(json.dumps({"type": "input_audio_buffer.commit", "final": False}))
+
+            async def segment_flush_loop() -> None:
+                while not stop_event.is_set():
+                    await asyncio.sleep(0.2)
+                    if not state.current_delta:
+                        continue
+                    if state.last_delta_at is None:
+                        continue
+                    if (time.time() - state.last_delta_at) < args.segment_silence:
+                        continue
+                    seg = state.current_delta.strip()
+                    if not seg:
+                        state.current_delta = ""
+                        continue
+
+                    state.committed_text = (state.committed_text + "\n" + seg).strip()
+                    state.current_delta = ""
+                    append_jsonl(
+                        segments_path,
+                        {
+                            "ts": now_iso(),
+                            "text": seg,
+                        },
+                    )
+                    append_text_line(timeline_day_path(runtime_dir), f"[{now_iso()}] {seg}")
+                    write_text(live_text_path, state.committed_text + "\n")
+
+            async def receiver_loop() -> None:
+                while not stop_event.is_set():
+                    raw = await ws.recv()
+                    obj = json.loads(raw)
+                    append_jsonl(events_path, {"ts": now_iso(), "event": obj})
+                    evt = obj.get("type", "")
+
+                    if evt in {"response.audio_transcript.delta", "transcription.delta"}:
+                        delta = obj.get("delta", "")
+                        if delta:
+                            # High-resolution stream used for marker-based clipboard selection.
+                            append_jsonl(
+                                deltas_path,
+                                {
+                                    "ts": now_iso(),
+                                    "epoch": time.time(),
+                                    "delta": delta,
+                                },
+                            )
+                            state.current_delta += delta
+                            state.last_delta_at = time.time()
+                            live = (state.committed_text + state.current_delta).strip()
+                            if live:
+                                write_text(live_text_path, live + "\n")
+                    elif evt == "error":
+                        append_jsonl(events_path, {"ts": now_iso(), "error": obj})
+
+            async def heartbeat_loop() -> None:
+                while not stop_event.is_set():
+                    write_state(
+                        state_path,
+                        {
+                            "connected": state.connected,
+                            "started_at": state.started_at,
+                            "uptime_s": round(time.time() - state.started_at, 2),
+                            "committed_chars": len(state.committed_text),
+                            "pending_chars": len(state.current_delta),
+                            "ts": now_iso(),
+                        },
+                    )
+                    await asyncio.sleep(1.0)
+
+            with sd.InputStream(
+                samplerate=args.samplerate,
+                channels=1,
+                dtype="float32",
+                blocksize=args.blocksize,
+                callback=audio_cb,
+            ):
+                tasks = [
+                    asyncio.create_task(sender_loop()),
+                    asyncio.create_task(receiver_loop()),
+                    asyncio.create_task(commit_loop()),
+                    asyncio.create_task(segment_flush_loop()),
+                    asyncio.create_task(heartbeat_loop()),
+                ]
+
+                await stop_event.wait()
+
+                # Final commit + short drain
+                await ws.send(json.dumps({"type": "input_audio_buffer.commit", "final": True}))
+                await asyncio.sleep(0.8)
+
+                if state.current_delta.strip():
+                    seg = state.current_delta.strip()
+                    state.committed_text = (state.committed_text + "\n" + seg).strip()
+                    append_jsonl(segments_path, {"ts": now_iso(), "text": seg})
+                    append_text_line(timeline_day_path(runtime_dir), f"[{now_iso()}] {seg}")
+                    state.current_delta = ""
+
+                write_text(live_text_path, (state.committed_text + "\n") if state.committed_text else "")
+                for t in tasks:
+                    t.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+    finally:
+        state.connected = False
+        write_state(
+            state_path,
+            {
+                "connected": False,
+                "stopped_at": now_iso(),
+                "uptime_s": round(time.time() - state.started_at, 2),
+                "committed_chars": len(state.committed_text),
+                "pending_chars": len(state.current_delta),
+            },
+        )
+        if os.path.exists(pid_path):
+            try:
+                os.remove(pid_path)
+            except OSError:
+                pass
+
+
+def parse_args() -> argparse.Namespace:
+    ap = argparse.ArgumentParser(description="Always-on Voxtral dictation daemon")
+    ap.add_argument("--url", default="ws://127.0.0.1:8000/v1/realtime")
+    ap.add_argument("--model", default="voxtral-mini-latest")
+    ap.add_argument("--runtime-dir", default="runtime/always_on")
+    ap.add_argument("--samplerate", type=int, default=16000)
+    ap.add_argument("--blocksize", type=int, default=2048)
+    ap.add_argument("--commit-every", type=float, default=0.8)
+    ap.add_argument("--segment-silence", type=float, default=0.9)
+    return ap.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    print("Always-on daemon starting...")
+    print(f"URL: {args.url}")
+    print(f"Model: {args.model}")
+    print(f"Runtime dir: {args.runtime_dir}")
+    asyncio.run(run_daemon(args))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
