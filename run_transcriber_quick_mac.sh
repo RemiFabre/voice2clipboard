@@ -1,14 +1,35 @@
 #!/bin/bash
-# Quick mode: record → transcribe → paste at cursor + Enter
-# Captures the currently focused app BEFORE opening iTerm
+set -euo pipefail
 
-ORIGINAL_APP=$(osascript -e 'tell application "System Events" to get name of first process whose frontmost is true')
+# Headless quick mode: no terminal window, no space switch.
+# Records -> transcribes (MLX) -> copies to clipboard.
+# Hotkey-safe toggle:
+# - first press starts capture
+# - second press sends SIGTERM to stop capture cleanly
 
-osascript << EOF
-tell application "iTerm"
-    create window with default profile
-    tell current session of current window
-        write text "source /Users/remi/.virtualenvs/voice2clipboard/bin/activate && cd /Users/remi/voice2clipboard && python voice_transcriber.py --quick --target-window '$ORIGINAL_APP'"
-    end tell
-end tell
-EOF
+ROOT_DIR="/Users/remi/voice2clipboard"
+VENV="/Users/remi/.virtualenvs/voice2clipboard/bin/activate"
+LOCK_FILE="/tmp/voice2clipboard_quick.pid"
+LOG_FILE="/tmp/voice2clipboard_quick.log"
+
+if [[ -f "$LOCK_FILE" ]]; then
+  EXISTING_PID="$(cat "$LOCK_FILE" 2>/dev/null || true)"
+  if [[ -n "${EXISTING_PID}" ]] && kill -0 "${EXISTING_PID}" 2>/dev/null; then
+    kill -TERM "${EXISTING_PID}" 2>/dev/null || true
+    osascript -e 'display notification "Voice capture stop requested." with title "voice2clipboard"' >/dev/null 2>&1 || true
+    exit 0
+  fi
+fi
+
+cleanup() {
+  rm -f "$LOCK_FILE"
+}
+trap cleanup EXIT
+
+source "$VENV"
+cd "$ROOT_DIR"
+
+env VOICE2CLIPBOARD_BACKEND=mlx python voice_transcriber.py --quick --copy-only >>"$LOG_FILE" 2>&1 &
+CHILD_PID=$!
+echo "$CHILD_PID" > "$LOCK_FILE"
+wait "$CHILD_PID"

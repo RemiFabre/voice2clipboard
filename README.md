@@ -94,6 +94,85 @@ The disclaimer helps LLMs understand potential errors:
 
 ---
 
+## Voxtral Realtime (Local, Apple)
+
+Recommended local path in this repo uses `voxmlx`:
+
+```bash
+cd /Users/remi/voice2clipboard
+./run_voxmlx_server.sh
+```
+
+Then run client:
+
+```bash
+cd /Users/remi/voice2clipboard
+./run_voxtral_realtime_client.sh
+```
+
+Detailed notes:
+- `VOXTRAL_DEBUG_STATUS_2026-02-27.md`
+- `LOCALVOXTRAL_RESEARCH_2026-02-27.md`
+
+### Stable daily operations (single entrypoint)
+
+Use this for start/stop/status and markers:
+
+```bash
+cd /Users/remi/voice2clipboard
+./voice_control.sh status
+./voice_control.sh start
+./voice_control.sh stop
+./voice_control.sh mark-start
+./voice_control.sh mark-stop
+./voice_control.sh live
+```
+
+Hotkey toggle:
+- `F12` toggles marker mode:
+  - first press = start capture selection
+  - second press = stop selection and copy to clipboard
+
+Single operations doc:
+- `docs/STABLE_OPERATIONS.md`
+
+---
+
+## Always-On Workflow (Marker to Clipboard)
+
+Start daemon:
+
+```bash
+cd /Users/remi/voice2clipboard
+./run_always_on_voxtral_daemon.sh
+```
+
+Start/stop selection markers:
+
+```bash
+./always_on_mark_start.sh
+./always_on_mark_stop.sh
+```
+
+Runbook:
+- `docs/ALWAYS_ON_VOXTRAL_RUNBOOK.md`
+
+---
+
+## Benchmarking Voxtral vs Whisper
+
+Run:
+
+```bash
+cd /Users/remi/voice2clipboard
+./run_benchmark_realtime_backends.sh --backend voxmlx --backend faster
+```
+
+Runbook:
+- `docs/BENCHMARKING_RUNBOOK.md`
+
+---
+
 ## Global Shortcut Setup (Ubuntu)
 
 1. Edit `run_transcriber.sh` with your paths:
@@ -127,11 +206,33 @@ Tested on RTX A2000 (4GB VRAM) with an 83-second audio file:
 
 **Key finding**: `beam_size=1` is 2x faster than `beam_size=5` with no quality loss for most audio.
 
+### macOS (Apple Silicon) update - February 27, 2026
+
+Test file: `recordings/2026-02-27/17-09-26/audio.wav` (21.80s)
+
+| Model | Precision | Beam | Load | Transcribe | Total | RTF | Notes |
+|-------|-----------|------|------|------------|-------|-----|-------|
+| medium | int8 | 5 | 1.02s | 10.17s | 11.19s | 0.47x | Reference |
+| **medium** | **int8** | **1** | **1.06s** | **8.50s** | **9.56s** | **0.39x** | **Current best on this machine** |
+
+Notes:
+- `small/base/tiny` models were not cached locally and could not be downloaded in this test environment.
+- `mlx-whisper` crashed at runtime in this environment (Metal device init exception), so no valid MLX timing was recorded here.
+
 Run your own benchmarks:
 ```bash
 python benchmark_whisper.py
 python compare_transcriptions.py
 ```
+
+Full macOS benchmark (faster-whisper + mlx, cold vs warm):
+```bash
+./run_benchmark_full_mac.sh
+# or with explicit file:
+./run_benchmark_full_mac.sh recordings/2026-02-27/17-09-26/audio.wav
+```
+
+This writes a JSON report under `benchmarks/` (for example `benchmarks/mac_full_benchmark_YYYYMMDD_HHMMSS.json`).
 
 ---
 

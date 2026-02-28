@@ -12,6 +12,7 @@ import pyautogui
 import subprocess
 import requests
 import json
+import signal
 from pynput import keyboard as pynput_keyboard
 from faster_whisper import WhisperModel
 import sys
@@ -24,6 +25,7 @@ MODEL_SIZE = "medium"
 IS_MAC = platform.system() == "Darwin"
 DEVICE = "cpu" if IS_MAC else "cuda"
 COMPUTE_TYPE = "int8" if IS_MAC else "float16"
+TRANSCRIBE_BACKEND = os.getenv("VOICE2CLIPBOARD_BACKEND", "auto")  # auto|faster|mlx
 MIC_BAR_WIDTH = 30
 CHATGPT_ICON_IMAGE = "assets/chatgpt_plus.jpeg"
 OLLAMA_URL = "http://localhost:11434/api/generate"
@@ -47,6 +49,7 @@ duration_sec = 0
 start_time = None
 action_chosen = None
 callback_enabled = True
+stop_requested_by_signal = False
 RECORDING_FILENAME = "recorded.wav"  # fallback only
 TRANSCRIPTION_FILENAME = "transcription.txt"
 current_audio_path = None
@@ -64,7 +67,24 @@ def generate_paths():
 
 
 SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
-QUICK_MODE_DISCLAIMER = f"[Transcribed with Whisper {MODEL_SIZE} - may contain errors] "
+QUICK_MODE_PREFIX = "[Voice] "
+MAC_SOUNDS = {
+    # Use system AIFF for lower startup latency than custom MP3 decode.
+    "record_start": "/System/Library/Sounds/Pop.aiff",
+    "transcribe_start": "/System/Library/Sounds/Tink.aiff",
+    "done": "/System/Library/Sounds/Glass.aiff",
+}
+TERMINAL_LIKE_APPS = {
+    "codex",
+    "iterm",
+    "iterm2",
+    "terminal",
+    "warp",
+    "kitty",
+    "alacritty",
+    "wezterm",
+    "ghostty",
+}
 
 
 def print_help():
@@ -74,6 +94,7 @@ def print_help():
 USAGE:
   python3 voice_transcriber.py                   # Start recording interactively
   python3 voice_transcriber.py --quick           # Quick mode: record, transcribe, paste at cursor + Enter
+  python3 voice_transcriber.py --quick --copy-only  # Quick mode: record, transcribe, copy to clipboard only
   python3 voice_transcriber.py <audio_file>      # Transcribe existing file (no recording)
   python3 voice_transcriber.py --help            # Show this help message
 
@@ -89,7 +110,8 @@ MODES:
     5: Cancel
 
   Quick mode (--quick): Press Escape to stop recording.
-    Transcribes and pastes text at cursor position with disclaimer, then presses Enter.
+    Default: transcribes and pastes text at cursor position with voice prefix, then presses Enter.
+    With --copy-only: transcribes and copies text to clipboard only (no paste, no Enter).
 
 - 📋 Text will always be copied to clipboard automatically.
 """)
@@ -106,6 +128,18 @@ def audio_callback(indata, frames, time_info, status):
     print(f"\r🎤 {elapsed:5.1f}s [{bar}]", end="", flush=True)
 
 
+def play_feedback(event, block=False):
+    if IS_MAC:
+        path = MAC_SOUNDS.get(event, "sounds/plop.mp3")
+        playsound(path, block=block)
+    else:
+        playsound("sounds/plop.mp3", block=block)
+
+
+def format_quick_text(text):
+    return f"{QUICK_MODE_PREFIX}{text.strip()}"
+
+
 def record_audio(filename, quick_mode=False):
     global duration_sec, recording, callback_enabled, start_time
     q = queue.Queue()
@@ -116,7 +150,7 @@ def record_audio(filename, quick_mode=False):
 
     with sf.SoundFile(filename, mode='w', samplerate=SAMPLE_RATE, channels=CHANNELS) as file:
         with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS, callback=_callback):
-            playsound("sounds/plop.mp3", block=True)  # wait for sound = go signal
+            play_feedback("record_start", block=True)  # wait for sound = go signal
             print("\n🎤 Recording started.")
             if quick_mode:
                 print("Press Escape to stop recording.\n")
@@ -166,21 +200,15 @@ def focus_and_click_chatgpt_input(timeout=5):
 
 
 def transcribe_audio(filename):
-    playsound("sounds/plop.mp3")
+    play_feedback("transcribe_start")
     print("🧠 Transcribing...")
-    global whisper_model
-    if whisper_model is None:
-        print("⏳ Loading model (first run only)...")
-        whisper_model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
-    model = whisper_model
     start = time.time()
-    segments, info = model.transcribe(filename, beam_size=1, best_of=1)
+    text = transcribe_with_best_backend(filename)
     end = time.time()
-    text = " ".join([seg.text for seg in segments])
 
     pyperclip.copy(text)
     print("📋 Copied to clipboard.")
-    playsound("sounds/plop.mp3")
+    play_feedback("done")
 
     global duration_sec, current_transcript_path
     if duration_sec == 0:
@@ -213,6 +241,80 @@ def transcribe_audio(filename):
     with open(current_transcript_path, "w") as f:
         f.write(text)
     return text
+
+
+def mlx_repo_for_model(model_size):
+    mapping = {
+        "tiny": "mlx-community/whisper-tiny-mlx",
+        "base": "mlx-community/whisper-base-mlx",
+        "small": "mlx-community/whisper-small-mlx",
+        "medium": "mlx-community/whisper-medium-mlx",
+        "large-v2": "mlx-community/whisper-large-v2-mlx",
+        "large-v3": "mlx-community/whisper-large-v3-mlx",
+    }
+    return mapping.get(model_size, "mlx-community/whisper-medium-mlx")
+
+
+def transcribe_with_mlx_subprocess(filename):
+    """Run mlx-whisper in a separate process so crashes don't kill this script."""
+    repo = mlx_repo_for_model(MODEL_SIZE)
+    payload = r"""
+import json
+import sys
+
+audio = sys.argv[1]
+repo = sys.argv[2]
+import mlx_whisper
+
+try:
+    result = mlx_whisper.transcribe(audio, path_or_hf_repo=repo)
+except TypeError:
+    result = mlx_whisper.transcribe(audio, repo)
+
+if isinstance(result, dict):
+    text = result.get("text", "")
+else:
+    text = str(result)
+print(json.dumps({"text": text.strip()}))
+""".strip()
+    cmd = [sys.executable, "-c", payload, filename, repo]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        stderr = (result.stderr or "").strip().splitlines()
+        reason = stderr[-1] if stderr else f"exit code {result.returncode}"
+        raise RuntimeError(reason)
+    output = (result.stdout or "").strip().splitlines()
+    if not output:
+        raise RuntimeError("mlx-whisper returned empty output")
+    data = json.loads(output[-1])
+    text = data.get("text", "").strip()
+    if not text:
+        raise RuntimeError("mlx-whisper returned empty transcription")
+    return text
+
+
+def transcribe_with_faster_whisper(filename):
+    global whisper_model
+    if whisper_model is None:
+        print("⏳ Loading faster-whisper model...")
+        whisper_model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
+    model = whisper_model
+    segments, _info = model.transcribe(filename, beam_size=1, best_of=1)
+    return " ".join([seg.text for seg in segments]).strip()
+
+
+def transcribe_with_best_backend(filename):
+    backend = TRANSCRIBE_BACKEND.lower()
+    if IS_MAC and backend in {"auto", "mlx"}:
+        print("⚡ Trying mlx-whisper backend...")
+        try:
+            return transcribe_with_mlx_subprocess(filename)
+        except Exception as e:
+            if backend == "mlx":
+                raise
+            print(f"⚠️ mlx-whisper unavailable ({e}); falling back to faster-whisper.")
+
+    return transcribe_with_faster_whisper(filename)
 
 
 def send_to_existing_chatgpt(text):
@@ -307,10 +409,63 @@ def handle_escape_during_recording():
     listener.stop()
 
 
-def paste_at_cursor_and_send(text, target_window=None):
+def handle_stop_signal(signum, frame):
+    """Gracefully stop active capture when receiving SIGINT/SIGTERM."""
+    global recording, stop_requested_by_signal
+    stop_requested_by_signal = True
+    recording = False
+
+
+def _escape_applescript_string(s):
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def send_text_to_iterm_session(text, session_id):
+    one_line = " ".join(text.splitlines())
+    escaped_session = _escape_applescript_string(session_id)
+    escaped_text = _escape_applescript_string(one_line)
+    script = f'''
+tell application "iTerm2"
+    repeat with w in windows
+        repeat with t in tabs of w
+            repeat with s in sessions of t
+                if (unique id of s as text) is "{escaped_session}" then
+                    tell s to write text "{escaped_text}"
+                    return "ok"
+                end if
+            end repeat
+        end repeat
+    end repeat
+end tell
+return "not_found"
+'''.strip()
+    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    status = (result.stdout or "").strip().lower()
+    if result.returncode != 0 or status != "ok":
+        detail = (result.stderr or result.stdout or f"status={status}").strip()
+        raise RuntimeError(detail)
+
+
+def target_uses_shift_paste(target_window):
+    if not target_window:
+        return False
+    name = target_window.strip().lower()
+    return any(app in name for app in TERMINAL_LIKE_APPS)
+
+
+def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None):
     """Paste text at current cursor position and press Enter."""
-    text_with_disclaimer = QUICK_MODE_DISCLAIMER + text
+    text_with_disclaimer = format_quick_text(text)
     pyperclip.copy(text_with_disclaimer)
+
+    if IS_MAC and target_iterm_session:
+        print("🔄 Sending text directly to original iTerm session...")
+        try:
+            send_text_to_iterm_session(text_with_disclaimer, target_iterm_session)
+            print("📨 Sent to iTerm session.")
+            return
+        except Exception as e:
+            print(f"⚠️ Direct iTerm send failed ({e}); falling back to clipboard paste.")
 
     # Refocus original window if provided
     if target_window:
@@ -322,7 +477,18 @@ def paste_at_cursor_and_send(text, target_window=None):
         time.sleep(0.5)
 
     if IS_MAC:
-        subprocess.call(['osascript', '-e', 'tell application "System Events" to keystroke "v" using command down'])
+        if target_uses_shift_paste(target_window):
+            subprocess.call([
+                'osascript',
+                '-e',
+                'tell application "System Events" to keystroke "v" using {command down, shift down}'
+            ])
+        else:
+            subprocess.call([
+                'osascript',
+                '-e',
+                'tell application "System Events" to keystroke "v" using command down'
+            ])
     else:
         pyautogui.hotkey("ctrl", "shift", "v")
     time.sleep(0.3)
@@ -374,25 +540,41 @@ def post_transcription_menu(text):
 
 
 def main():
-    global recording, whisper_model
-    # Pre-load model so first transcription has no delay
-    print("⏳ Loading Whisper model...")
-    whisper_model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
-    print("✅ Model ready")
+    global recording, stop_requested_by_signal
 
     # Parse arguments
     quick_mode = "--quick" in sys.argv
+    copy_only = "--copy-only" in sys.argv
+    stop_requested_by_signal = False
     target_window = None
+    target_iterm_session = None
     if "--target-window" in sys.argv:
         idx = sys.argv.index("--target-window")
         if idx + 1 < len(sys.argv):
             target_window = sys.argv[idx + 1]
+    if "--target-iterm-session" in sys.argv:
+        idx = sys.argv.index("--target-iterm-session")
+        if idx + 1 < len(sys.argv):
+            target_iterm_session = sys.argv[idx + 1]
 
-    args = [a for a in sys.argv[1:] if a not in ["--quick", "--target-window", target_window or ""]]
+    args = [
+        a for a in sys.argv[1:]
+        if a not in [
+            "--quick",
+            "--target-window",
+            target_window or "",
+            "--target-iterm-session",
+            target_iterm_session or "",
+            "--copy-only",
+        ]
+    ]
 
     if len(args) > 1 or (len(args) == 1 and args[0] in ["--help", "-h"]):
         print_help()
         return
+
+    signal.signal(signal.SIGINT, handle_stop_signal)
+    signal.signal(signal.SIGTERM, handle_stop_signal)
 
     # File transcription mode
     if len(args) == 1:
@@ -409,7 +591,11 @@ def main():
         generate_paths()
         text = transcribe_audio(input_file)
         if quick_mode:
-            paste_at_cursor_and_send(text, target_window)
+            if copy_only:
+                pyperclip.copy(format_quick_text(text))
+                print("📋 Quick mode copy-only: transcription is in clipboard.")
+            else:
+                paste_at_cursor_and_send(text, target_window, target_iterm_session)
         else:
             post_transcription_menu(text)
         return
@@ -428,8 +614,14 @@ def main():
         escape_listener.join()
 
         if os.path.exists(filename):
+            if stop_requested_by_signal:
+                print("⏹️ Stop requested.")
             text = transcribe_audio(filename)
-            paste_at_cursor_and_send(text, target_window)
+            if copy_only:
+                pyperclip.copy(format_quick_text(text))
+                print("📋 Quick mode copy-only: transcription is in clipboard.")
+            else:
+                paste_at_cursor_and_send(text, target_window, target_iterm_session)
     else:
         # Default mode: 1-5 keys to choose action
         recorder = threading.Thread(target=record_audio, args=(filename,))
