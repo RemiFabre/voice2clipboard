@@ -106,14 +106,14 @@ def is_pid_running(pid: int) -> bool:
 
 def cmd_start(runtime_dir: str) -> int:
     marker_path = os.path.join(runtime_dir, "selection_marker.json")
-    transcript_lag_s = env_float("VOICE2CLIP_TRANSCRIPT_LAG_S", 0.48)
+    boundary_pad_s = env_float("VOICE2CLIP_BOUNDARY_PAD_S", env_float("VOICE2CLIP_TRANSCRIPT_LAG_S", 0.66))
     started_epoch = time.time()
     payload = {
         "started_at": now_iso(),
         "started_epoch": started_epoch,
-        # Deltas are emitted after model latency; use lag-adjusted window for copy selection.
-        "selection_start_epoch": started_epoch + transcript_lag_s,
-        "transcript_lag_s": transcript_lag_s,
+        # Use one symmetric pad at both boundaries for delta-emission latency.
+        "selection_start_epoch": started_epoch + boundary_pad_s,
+        "boundary_pad_s": boundary_pad_s,
     }
     write_json(marker_path, payload)
     print(f"Selection started at {payload['started_at']}")
@@ -131,13 +131,12 @@ def cmd_stop(runtime_dir: str) -> int:
         print("No selection marker found. Run start first.")
         return 1
 
-    transcript_lag_s = float(marker.get("transcript_lag_s", env_float("VOICE2CLIP_TRANSCRIPT_LAG_S", 0.48)))
-    stop_grace_s = env_float("VOICE2CLIP_STOP_GRACE_S", 0.12)
+    boundary_pad_s = float(marker.get("boundary_pad_s", env_float("VOICE2CLIP_BOUNDARY_PAD_S", env_float("VOICE2CLIP_TRANSCRIPT_LAG_S", 0.66))))
     pressed_stop_epoch = time.time()
 
-    # Align stop boundary with transcript emission time to include final spoken words.
-    selection_start_epoch = float(marker.get("selection_start_epoch", float(marker.get("started_epoch", 0.0)) + transcript_lag_s))
-    selection_end_epoch = pressed_stop_epoch + transcript_lag_s + stop_grace_s
+    # Symmetric boundary compensation: same pad for start and stop.
+    selection_start_epoch = float(marker.get("selection_start_epoch", float(marker.get("started_epoch", 0.0)) + boundary_pad_s))
+    selection_end_epoch = pressed_stop_epoch + boundary_pad_s
 
     wait_s = selection_end_epoch - time.time()
     if wait_s > 0:
