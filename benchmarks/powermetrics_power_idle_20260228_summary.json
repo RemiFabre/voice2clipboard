@@ -1,0 +1,67 @@
+{
+  "file": "/private/tmp/power_idle.txt",
+  "samples": 600,
+  "first_sample": "Sat Feb 28 13:57:57 2026 +0100",
+  "last_sample": "Sat Feb 28 14:08:07 2026 +0100",
+  "stats": {
+    "cpu_mw": {
+      "n": 600,
+      "mean_mw": 2054.7,
+      "min_mw": 103,
+      "p10_mw": 204,
+      "p50_mw": 1153,
+      "p90_mw": 4526,
+      "p95_mw": 6048,
+      "max_mw": 13146,
+      "stdev_mw": 2221.5
+    },
+    "gpu_mw": {
+      "n": 600,
+      "mean_mw": 3308.7,
+      "min_mw": 2714,
+      "p10_mw": 2957,
+      "p50_mw": 3288,
+      "p90_mw": 3693,
+      "p95_mw": 3819,
+      "max_mw": 4933,
+      "stdev_mw": 293.2
+    },
+    "ane_mw": {
+      "n": 600,
+      "mean_mw": 0.0,
+      "min_mw": 0,
+      "p10_mw": 0,
+      "p50_mw": 0,
+      "p90_mw": 0,
+      "p95_mw": 0,
+      "max_mw": 0,
+      "stdev_mw": 0.0
+    },
+    "combined_mw": {
+      "n": 600,
+      "mean_mw": 5363.3,
+      "min_mw": 2851,
+      "p10_mw": 3300,
+      "p50_mw": 4518,
+      "p90_mw": 7990,
+      "p95_mw": 9549,
+      "max_mw": 16304,
+      "stdev_mw": 2280.9
+    }
+  },
+  "combined_buckets": {
+    "lt_4500": {
+      "count": 298,
+      "pct": 49.7
+    },
+    "b_4500_6000": {
+      "count": 113,
+      "pct": 18.8
+    },
+    "ge_6000": {
+      "count": 189,
+      "pct": 31.5
+    }
+  },
+  "energy_wh_estimate": 0.8939
+}

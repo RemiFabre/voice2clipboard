@@ -1,0 +1,67 @@
+{
+  "file": "benchmarks/raw_powermetrics/power_client_active_20260228.txt",
+  "samples": 443,
+  "first_sample": "Sat Feb 28 17:26:18 2026 +0100",
+  "last_sample": "Sat Feb 28 17:33:47 2026 +0100",
+  "stats": {
+    "cpu_mw": {
+      "n": 443,
+      "mean_mw": 559.8,
+      "min_mw": 116,
+      "p10_mw": 213,
+      "p50_mw": 255,
+      "p90_mw": 1306,
+      "p95_mw": 1351,
+      "max_mw": 5117,
+      "stdev_mw": 623.6
+    },
+    "gpu_mw": {
+      "n": 443,
+      "mean_mw": 11910.2,
+      "min_mw": 4948,
+      "p10_mw": 11743,
+      "p50_mw": 12459,
+      "p90_mw": 13067,
+      "p95_mw": 13191,
+      "max_mw": 13603,
+      "stdev_mw": 1986.9
+    },
+    "ane_mw": {
+      "n": 443,
+      "mean_mw": 0.0,
+      "min_mw": 0,
+      "p10_mw": 0,
+      "p50_mw": 0,
+      "p90_mw": 0,
+      "p95_mw": 0,
+      "max_mw": 0,
+      "stdev_mw": 0.0
+    },
+    "combined_mw": {
+      "n": 443,
+      "mean_mw": 12470.1,
+      "min_mw": 5228,
+      "p10_mw": 11965,
+      "p50_mw": 12717,
+      "p90_mw": 14253,
+      "p95_mw": 14424,
+      "max_mw": 18575,
+      "stdev_mw": 2092.6
+    }
+  },
+  "combined_buckets": {
+    "lt_4500": {
+      "count": 0,
+      "pct": 0.0
+    },
+    "b_4500_6000": {
+      "count": 20,
+      "pct": 4.5
+    },
+    "ge_6000": {
+      "count": 423,
+      "pct": 95.5
+    }
+  },
+  "energy_wh_estimate": 1.5345
+}
