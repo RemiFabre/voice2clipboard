@@ -1,0 +1,270 @@
+{
+  "timestamp": "2026-02-28T10:38:44",
+  "manifest": "benchmarks/manifest_groundtruth_seed.jsonl",
+  "configs": [
+    "voxmlx_voxtral",
+    "faster_medium",
+    "faster_small",
+    "faster_base"
+  ],
+  "samples": [
+    {
+      "audio": "recordings/2026-02-27/16-10-29/audio.wav",
+      "outputs": {
+        "voxmlx_voxtral": {
+          "text": "Hey, just",
+          "timings": {
+            "connect_s": 0.026109933853149414,
+            "send_audio_s": 0.016749143600463867,
+            "total_s": 12.293033838272095,
+            "first_token_s": 1.0696370601654053,
+            "load_s": 0.0,
+            "transcribe_s": 12.293033838272095
+          },
+          "rtf_total": 2.731785297393799
+        },
+        "faster_medium": {
+          "text": "Hey, just testing if this works, hopefully it does.",
+          "timings": {
+            "load_s": 2.1379342079162598,
+            "transcribe_s": 7.218274116516113,
+            "total_s": 9.356208324432373,
+            "first_token_s": 9.356208324432373
+          },
+          "rtf_total": 2.079157405429416
+        },
+        "faster_small": {
+          "text": "Hey just testing if this works hopefully it does",
+          "timings": {
+            "load_s": 1.1371302604675293,
+            "transcribe_s": 2.3461618423461914,
+            "total_s": 3.4832921028137207,
+            "first_token_s": 3.4832921028137207
+          },
+          "rtf_total": 0.7740649117363824
+        },
+        "faster_base": {
+          "text": "Hey just testing if this works hopefully it does",
+          "timings": {
+            "load_s": 0.9565129280090332,
+            "transcribe_s": 0.7282271385192871,
+            "total_s": 1.6847400665283203,
+            "first_token_s": 1.6847400665283203
+          },
+          "rtf_total": 0.37438668145073783
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "outputs": {
+        "voxmlx_voxtral": {
+          "text": "Okay,",
+          "timings": {
+            "connect_s": 0.12024998664855957,
+            "send_audio_s": 0.0757899284362793,
+            "total_s": 12.342652082443237,
+            "first_token_s": 1.100780963897705,
+            "load_s": 0.0,
+            "transcribe_s": 12.342652082443237
+          },
+          "rtf_total": 0.5661848042248695
+        },
+        "faster_medium": {
+          "text": "Ok, testing if this transcript works and if it's fast enough.  There is some noise around, so let's see if the transcription is good.  My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+          "timings": {
+            "load_s": 1.2529683113098145,
+            "transcribe_s": 8.788025856018066,
+            "total_s": 10.04099416732788,
+            "first_token_s": 10.04099416732788
+          },
+          "rtf_total": 0.4606026548328527
+        },
+        "faster_small": {
+          "text": "Ok, testing if this transcript works and if it's fast enough, there's some noise around.  So let's see if the transcription is good.  My sentence should be normal, so if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+          "timings": {
+            "load_s": 0.49271416664123535,
+            "transcribe_s": 2.96150803565979,
+            "total_s": 3.4542222023010254,
+            "first_token_s": 3.4542222023010254
+          },
+          "rtf_total": 0.1584528275038168
+        },
+        "faster_base": {
+          "text": "Okay, testing if this transcript works.  It's fast enough.  There's some noise around.  So, I'll receive the transcription.  It's good.  My sentence should be normal.  So, if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+          "timings": {
+            "load_s": 0.284146785736084,
+            "transcribe_s": 1.0401360988616943,
+            "total_s": 1.3242828845977783,
+            "first_token_s": 1.3242828845977783
+          },
+          "rtf_total": 0.060747790729747064
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-27/18-17-10/audio.wav",
+      "outputs": {
+        "voxmlx_voxtral": {
+          "text": "Okay, I",
+          "timings": {
+            "connect_s": 1.54551100730896,
+            "send_audio_s": 0.06534385681152344,
+            "total_s": 14.16685700416565,
+            "first_token_s": 2.940211057662964,
+            "load_s": 0.0,
+            "transcribe_s": 14.16685700416565
+          },
+          "rtf_total": 0.7859423580697683
+        },
+        "faster_medium": {
+          "text": "Okay, I'm trying again. Let's see if this time the transcription is correct.  I'm doing a bit of a long message. Let's assume this is a message of like, I don't know, maybe 15 seconds.  This causes inverse kinematics in robotics in a very nosy environment. Hopefully this works properly.",
+          "timings": {
+            "load_s": 1.337602138519287,
+            "transcribe_s": 8.86112380027771,
+            "total_s": 10.198725938796997,
+            "first_token_s": 10.198725938796997
+          },
+          "rtf_total": 0.5658002132222058
+        },
+        "faster_small": {
+          "text": "Okay, I'm trying again. Let's see if this time the transcription is correct. I'm doing a bit of a long message  Let's assume this is a message of like, I don't know, maybe 15 seconds. This causes inverse kinematics in robotics and in a very noisy environment  Hopefully this works properly",
+          "timings": {
+            "load_s": 0.49984002113342285,
+            "transcribe_s": 2.931675910949707,
+            "total_s": 3.43151593208313,
+            "first_token_s": 3.43151593208313
+          },
+          "rtf_total": 0.19037205800992912
+        },
+        "faster_base": {
+          "text": "Okay, I'm trying again. Let's see if this time the transcription is correct. I'm doing a bit of a long message. Let's assume this message of like 15 seconds.  This causes the inverse kinematics in robotics and a very nosy environment. Hopefully this works properly.",
+          "timings": {
+            "load_s": 0.2908029556274414,
+            "transcribe_s": 1.2943751811981201,
+            "total_s": 1.5851781368255615,
+            "first_token_s": 1.5851781368255615
+          },
+          "rtf_total": 0.08794178147284108
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-27/20-37-12/audio.wav",
+      "outputs": {
+        "faster_medium": {
+          "text": "Okay, so a few improvements. By the way, this message will be done through this transcribe,  so there might be some inaccuracies, I'm not sure. In the base version of this repo, I  had a small message that I was reading always in the beginning of the text that said,  this has been transcribed. There might be errors. Maybe you can word it in a way that's a bit  shorter, saying, I don't know, message transcribed from voice, something like that.  Okay, so that's number one. Number two is the keyboard is, I mean the key, how is it called?  The hotkey is a bit annoying. I like to take the one I chose, so let's iterate on that too. Also,  I was wondering the persistent daemon mode, I like this idea, but how much  VRAM would it take? I think I have 36 gigabytes on this laptop, which is very good, but  I like to have some info on this. Also, I like to do some research on the web to know  if there are better options available. I think the current version is already really good,  but it's a domain that moves often, so a bit of a state of the art would be interesting.  Also, I think the beeps and the noises for each of the three steps should be different right now.  I was wondering if we could also have a mode where the transcription happens live,  or maybe semi-live, like sentence per sentence or something like that.  Yeah, so all of those ideas, keep in mind I like to move forward in a way where I don't  lose anything, so we try something and I use it for like an hour and then we go back to the  previous version if it wasn't good enough or if it didn't fit my workflow, or maybe I want  all of them and then I set up different  shortcuts for it, stuff like that. So yeah, it's a message with some easy to fix right now  stuff, some research, some completely different technical paths to follow. Let's do everything.",
+          "timings": {
+            "load_s": 1.29469895362854,
+            "transcribe_s": 43.390909910202026,
+            "total_s": 44.685608863830566,
+            "first_token_s": 44.685608863830566
+          },
+          "rtf_total": 0.24800537719963683
+        },
+        "faster_small": {
+          "text": "Okay, so a few improvements. By the way, this message will be done through this  transcribe, so there might be some inaccuracies, I'm not sure. In the base  version of this repo I had a small message that was written always in the  beginning of the text that said, hey, this has been transcribed. There might  be errors. Maybe you can word it in a way that's a bit shorter, saying, I don't know,  message transcribed from voice, something like that. Okay, so that's number one.  Number two is the keyboard, I mean the key, how is it called? The hotkey.  It's a bit annoying. I like to take the one I chose, so let's iterate on that too.  Also, I was wondering the persistent demon mode. I like this idea, but how much  VRAM would it take? I think I have 36 gigabytes on this laptop, which is very  good. I like to have some info on this. Also, I'd like you to do some research on  the web to know if there are better options available. I think the current version is  already really good, but it's a domain that moves often, so a bit of a state  of the art would be interesting. Also, I think the beeps and the noises for each of  the three steps should be different right now. I was wondering if we could also  have a mode where the transcription happens live, or maybe semi-live, like  sentence per sentence or something like that. Yeah, so all of those ideas keep in  mind, I like to move forward in a way where I don't lose anything. So we try  something and I use it for like an hour and then we go back to the previous  version if it wasn't good enough, or if it isn't fit my workflow, or maybe I  want all of them, and then I set up different shortcuts for it to stop.  So yeah, it's a message with some easy-to-fix right now stuff, some  research, some completely different technical paths to follow. Let's do  everything.",
+          "timings": {
+            "load_s": 0.5128560066223145,
+            "transcribe_s": 14.974078893661499,
+            "total_s": 15.486934900283813,
+            "first_token_s": 15.486934900283813
+          },
+          "rtf_total": 0.08595257464914981
+        },
+        "faster_base": {
+          "text": "Okay so a few improvements, by the way this message will be done through this  transcribe so there might be some inaccuracies I'm not sure. In the base version  of this repo I had a small message that was written always in the beginning of  the text that said hey this has been transcribed there might be errors. Maybe  you can work it in a way that's a bit shorter saying you know message transcribed  from voice something like that. Okay so that's number one number two is the  keyboard is I mean the key how is called the hotkey the bit annoying I like to  to take the one I chose so let's iterate on that too. Also I was wondering the  persistent demon mode I like this idea but how much how much VRAM would it take?  I think I have 36 gigabytes on this laptop which is very good but I like to have  some some info on this also I like you to do some research on the web to know if  there are better options available I think conversion is already really good  but it's a domain that moves often so a bit of a state of the art would be  interesting also I think the the beeps and the noises for each of the three  steps should be different right now and I was wondering if we could also have a  mode where the transcription happens live or maybe semi-live like a sentence  or something like that. Yeah so all of all of those ideas keep in mind I like to  move forward in a way where I don't lose anything so we try something and I use  it for like an hour and then we go back to the previous version if it wasn't  good enough or if it didn't fit my workflow or maybe I want all of them and  I said of different different shortcuts for it stuff alone okay so yeah the  message we have some easy to fix right now stuff some research some completely  different technical paths to follow let's do everything",
+          "timings": {
+            "load_s": 0.2887129783630371,
+            "transcribe_s": 4.7537620067596436,
+            "total_s": 5.042474985122681,
+            "first_token_s": 5.042474985122681
+          },
+          "rtf_total": 0.02798576415319503
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-27/21-40-52/audio.wav",
+      "outputs": {
+        "faster_medium": {
+          "text": "Okay, I'm trying again a transcript test to see if this works.  I'm going to make it a bit long on purpose.  I'm reading the voice control roadmap and the more I think of it, the more I like the always on transcription path.  This is the one I'd like us to work on right now.  Of course all of these are experimentation, so nothing must break what has been achieved on other ideas.  Okay, nice.  Nice, so you compared faster whisper versus MLX whisper.  MLX whisper seems to be much, much faster, but is both medium comparable?  Like faster whisper medium, is it comparable to MLX whisper medium?  Is it like the same model? Because we're talking like almost three times faster, so this is insane.  I mean if that's true, do we even want to explore other options or does it just mean that it's by far the best option out there?  So I'm reading your experiment tracks.  Definitely track A is the one I want us to follow.  And I think the first idea I have is that it continuously writes text somewhere and I can press a button.  And this means that starting from that moment, it's like the selection starts and when I press the button again, the selection ends and all of that goes into my clipboard.  I think that would be a nice way of making it work for now.  And ideally the text goes to the file so that another program in LLM or something can read it live as it comes.  But I like some information about this because I heard that if we're doing really, really like live transcribe, we can run into some problems of precision if we go like word by word because someone's correct based on the sentence.  And I don't think I have much value in doing word by word, so doing sentence by sentence, for example, is better.  I think that's what we need to do.  But then again, that's for you to say and based on the evidence of research and benchmarks and what the library's advice.  Yeah, I think track C probably able to do it after or through track A.  Okay, so I'm fine with this before getting into implementation.  I'm going to answer my questions and maybe do a little bit of research if needed.",
+          "timings": {
+            "load_s": 1.441866159439087,
+            "transcribe_s": 71.97041916847229,
+            "total_s": 73.41228532791138,
+            "first_token_s": 73.41228532791138
+          },
+          "rtf_total": 0.28057470998364564
+        },
+        "faster_small": {
+          "text": "Okay, I'm trying again a transcript test to see if this works.  I'm going to make it a bit longer on purpose.  I'm reading the voice control roadmap and the more I think of it, the more I like the always on transcription path.  This is the one I'd like us to work on right now.  Of course, all of these are experimentation, so nothing must break what has been achieved on other ideas.  Okay, nice.  Nice. You compared faster whisper versus Mélix whisper.  Mélix whisper seems to be much, much faster, but is both medium comparable?  Faster whisper medium? Is it comparable to Mélix whisper medium?  Is it the same model? Because we're talking almost three times faster, so this is insane.  I mean, if that's true, do we even want to explore other options?  Or does it just mean that it's by far the best option out there?  Yes, I'm reading your experiment tracks.  Yeah, no, definitely track A is the one I want us to follow.  I think the first idea I have is that it continuously write text somewhere and I can press a button.  This means that starting from that moment, it's like the selection starts and when I press the button again,  the selection ends and all of that goes into my clipboard.  I think that would be a nice way of making it work for now.  And ideally the text goes to the file so that another program in LLM or something can read it live as it comes.  But I like some information about this because I heard that if we're doing really, really like live transcript,  we can run into some problems of precision if we go like word by word because some models correct based on the sentence.  And I don't think I have much value in doing word by word, so if doing sentence by sentence, for example, is better,  I think that's what we need to do.  But then again, that's for you to say and based on the evidence of research and benchmarks and what the libraries advise.  Yeah, I think track C will probably be able to do it after or through track A.  Okay, so I'm fine with this.  Before getting into implementation, answer my questions and maybe do a little bit of research if needed.",
+          "timings": {
+            "load_s": 0.5463111400604248,
+            "transcribe_s": 20.88007092475891,
+            "total_s": 21.426382064819336,
+            "first_token_s": 21.426382064819336
+          },
+          "rtf_total": 0.08188957620625686
+        },
+        "faster_base": {
+          "text": "Okay, I'm trying again a transcript test to see if this works.  I'm going to make it a bit long on purpose.  I'm reading the post-control roadmap and the more I think of it, the more I like the always on transcription path.  This is the one I'd like us to work on right now.  Of course, all of these are experimentation, so nothing was break, what has been achieved on other ideas.  Okay, nice. So you compare faster whisper versus amelix whisper.  Amelix whisper seems to be much, much faster, but is both medium comparable?  Like faster whisper medium? Is it comparable to amelix whisper medium?  Is it the same model? Because we're talking almost three times faster.  It's insane. If that's true, do we even want to explore other options?  Or does it just mean that it's by far the best option out there?  So I'm reading your experiment tracks.  I definitely track A the one I want us to follow.  And I think the first idea I have is that it continuously right takes somewhere and I can press the button.  And this means that starting from that moment, the selection starts and when I press the button again, the selection ends and all of that goes into my keyboard.  I think that that would be a nice way of making it work for now.  And ideally the text goes to the file so that another program in LLM or something can read it live as it comes.  But I like some information about this because I heard that if we're doing really, really like live transcribe, we can run into some problems of precision.  If we go like world by world because some models correct based on the sentence.  And I don't think I have much value in doing world by world.  So doing sentence by sentence, for example, is better. I think that's what we need to do.  And again, that's for you to say and based on the evidence of research and benchmarks and what the library is advised.  Yeah, I think Traxie will probably be able to do it after or through track A.  Okay, so I'm fine with this before getting into implementation, answer my questions and maybe do a little bit of research if needed.",
+          "timings": {
+            "load_s": 0.2879180908203125,
+            "transcribe_s": 7.702945709228516,
+            "total_s": 7.990863800048828,
+            "first_token_s": 7.990863800048828
+          },
+          "rtf_total": 0.03054031465173705
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-27/21-48-39/audio.wav",
+      "outputs": {
+        "voxmlx_voxtral": {
+          "text": "Can we first do a bit more research on this? Like, for example, those MLX, allow for streaming or do we need specifically whisper streaming for it to work? And we're only talking about Whisper. Are there other options in currently? I mean, this seems",
+          "timings": {
+            "connect_s": 0.235184907913208,
+            "send_audio_s": 18.763411045074463,
+            "total_s": 29.869314908981323,
+            "first_token_s": 2.449434995651245,
+            "load_s": 0.0,
+            "transcribe_s": 29.869314908981323
+          },
+          "rtf_total": 0.4942923546854103
+        },
+        "faster_medium": {
+          "text": "Can we first do a bit more research on this?  For example, does MLX allow for streaming?  Or do we need, specifically, whisper streaming for it to work?  And we're only talking about whisper. Are there other options currently?  This seems to be a very rapidly moving subject.  I hear about a new model that does stuff.  I want you to research recent models that could be better than whisper for us.  Maybe that's not the case because you need to implement something specific for Apple for it to be better.  I need this research phase first.",
+          "timings": {
+            "load_s": 1.3912889957427979,
+            "transcribe_s": 17.843031883239746,
+            "total_s": 19.234320878982544,
+            "first_token_s": 19.234320878982544
+          },
+          "rtf_total": 0.318299157078701
+        },
+        "faster_small": {
+          "text": "Can we first do a bit more research on this?  For example, does MLX allow for streaming?  Or do we need specifically whisper streaming for it to work?  And we're only talking about whisper.  Are there other options currently?  This seems to be a very rapidly moving subject.  I hear about a new model that does recent models that are better than whisper for us.  Maybe that's not the case because you need to implement something specific for Apple for it to be better.  I need this research phase first.",
+          "timings": {
+            "load_s": 0.5846331119537354,
+            "transcribe_s": 6.001810789108276,
+            "total_s": 6.586443901062012,
+            "first_token_s": 6.586443901062012
+          },
+          "rtf_total": 0.10899576621626414
+        },
+        "faster_base": {
+          "text": "Can we first do a bit more research on this?  Like, for example, does Ablelex allow for streaming?  Or do we need specifically whisper streaming for it to work?  And we're only talking about whisper.  Are there other options in currently?  I mean, this seems to be very rapidly moving subject type.  I've been here a week about a new model that I want you to research.  Recent models that are better than whisper for us.  Maybe that's not the case, because you need to implement something specific for Able  to be better.  But I need this research phase first.",
+          "timings": {
+            "load_s": 0.3496119976043701,
+            "transcribe_s": 2.0025649070739746,
+            "total_s": 2.3521769046783447,
+            "first_token_s": 2.3521769046783447
+          },
+          "rtf_total": 0.03892499926406082
+        }
+      }
+    }
+  ]
+}

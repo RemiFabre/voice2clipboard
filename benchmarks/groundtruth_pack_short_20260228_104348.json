@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-02-28T10:43:48",
+  "manifest": "benchmarks/manifest_groundtruth_seed_short.jsonl",
+  "configs": [
+    {
+      "key": "voxmlx_voxtral",
+      "label": "voxmlx:voxtral-mini-latest",
+      "backend": "voxmlx"
+    },
+    {
+      "key": "faster_medium",
+      "label": "faster:whisper-medium",
+      "backend": "faster"
+    },
+    {
+      "key": "faster_small",
+      "label": "faster:whisper-small",
+      "backend": "faster"
+    },
+    {
+      "key": "faster_base",
+      "label": "faster:whisper-base",
+      "backend": "faster"
+    }
+  ],
+  "config_errors": [
+    {
+      "config": "voxmlx:voxtral-mini-latest",
+      "error": "Traceback (most recent call last):\n  File \"/Users/remi/voice2clipboard/tools/benchmark_realtime_backends.py\", line 27, in <module>\n    import numpy as np\nModuleNotFoundError: No module named 'numpy'"
+    },
+    {
+      "config": "faster:whisper-medium",
+      "error": "Traceback (most recent call last):\n  File \"/Users/remi/voice2clipboard/tools/benchmark_realtime_backends.py\", line 27, in <module>\n    import numpy as np\nModuleNotFoundError: No module named 'numpy'"
+    },
+    {
+      "config": "faster:whisper-small",
+      "error": "Traceback (most recent call last):\n  File \"/Users/remi/voice2clipboard/tools/benchmark_realtime_backends.py\", line 27, in <module>\n    import numpy as np\nModuleNotFoundError: No module named 'numpy'"
+    },
+    {
+      "config": "faster:whisper-base",
+      "error": "Traceback (most recent call last):\n  File \"/Users/remi/voice2clipboard/tools/benchmark_realtime_backends.py\", line 27, in <module>\n    import numpy as np\nModuleNotFoundError: No module named 'numpy'"
+    }
+  ],
+  "samples": [
+    {
+      "audio": "recordings/2026-02-27/16-10-29/audio.wav",
+      "outputs": {}
+    },
+    {
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "outputs": {}
+    },
+    {
+      "audio": "recordings/2026-02-27/18-17-10/audio.wav",
+      "outputs": {}
+    },
+    {
+      "audio": "recordings/2026-02-27/21-48-39/audio.wav",
+      "outputs": {}
+    }
+  ]
+}

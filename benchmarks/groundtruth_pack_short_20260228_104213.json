@@ -1,0 +1,152 @@
+{
+  "timestamp": "2026-02-28T10:42:13",
+  "manifest": "benchmarks/manifest_groundtruth_seed_short.jsonl",
+  "configs": [
+    "voxmlx_voxtral",
+    "faster_medium",
+    "faster_small",
+    "faster_base"
+  ],
+  "samples": [
+    {
+      "audio": "recordings/2026-02-27/16-10-29/audio.wav",
+      "outputs": {
+        "faster_medium": {
+          "text": "Hey, just testing if this works, hopefully it does.",
+          "timings": {
+            "load_s": 1.5526700019836426,
+            "transcribe_s": 7.170468807220459,
+            "total_s": 8.723138809204102,
+            "first_token_s": 8.723138809204102
+          },
+          "rtf_total": 1.9384752909342449
+        },
+        "faster_small": {
+          "text": "Hey just testing if this works hopefully it does",
+          "timings": {
+            "load_s": 0.9523897171020508,
+            "transcribe_s": 2.439037322998047,
+            "total_s": 3.3914270401000977,
+            "first_token_s": 3.3914270401000977
+          },
+          "rtf_total": 0.7536504533555772
+        },
+        "faster_base": {
+          "text": "Hey just testing if this works hopefully it does",
+          "timings": {
+            "load_s": 0.7612719535827637,
+            "transcribe_s": 0.7451698780059814,
+            "total_s": 1.5064418315887451,
+            "first_token_s": 1.5064418315887451
+          },
+          "rtf_total": 0.33476485146416557
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "outputs": {
+        "faster_medium": {
+          "text": "Ok, testing if this transcript works and if it's fast enough.  There is some noise around, so let's see if the transcription is good.  My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+          "timings": {
+            "load_s": 1.0750179290771484,
+            "transcribe_s": 8.682705163955688,
+            "total_s": 9.757723093032837,
+            "first_token_s": 9.757723093032837
+          },
+          "rtf_total": 0.4476083828829494
+        },
+        "faster_small": {
+          "text": "Ok, testing if this transcript works and if it's fast enough, there's some noise around.  So let's see if the transcription is good.  My sentence should be normal, so if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+          "timings": {
+            "load_s": 0.37914395332336426,
+            "transcribe_s": 3.0718610286712646,
+            "total_s": 3.451004981994629,
+            "first_token_s": 3.451004981994629
+          },
+          "rtf_total": 0.15830524647851058
+        },
+        "faster_base": {
+          "text": "Okay, testing if this transcript works.  It's fast enough.  There's some noise around.  So, I'll receive the transcription.  It's good.  My sentence should be normal.  So, if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+          "timings": {
+            "load_s": 0.1582190990447998,
+            "transcribe_s": 1.02134370803833,
+            "total_s": 1.1795628070831299,
+            "first_token_s": 1.1795628070831299
+          },
+          "rtf_total": 0.05410916005234249
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-27/18-17-10/audio.wav",
+      "outputs": {
+        "faster_medium": {
+          "text": "Okay, I'm trying again. Let's see if this time the transcription is correct.  I'm doing a bit of a long message. Let's assume this is a message of like, I don't know, maybe 15 seconds.  This causes inverse kinematics in robotics in a very nosy environment. Hopefully this works properly.",
+          "timings": {
+            "load_s": 1.075211763381958,
+            "transcribe_s": 8.598335027694702,
+            "total_s": 9.67354679107666,
+            "first_token_s": 9.67354679107666
+          },
+          "rtf_total": 0.5366645667166312
+        },
+        "faster_small": {
+          "text": "Okay, I'm trying again. Let's see if this time the transcription is correct. I'm doing a bit of a long message  Let's assume this is a message of like, I don't know, maybe 15 seconds. This causes inverse kinematics in robotics and in a very noisy environment  Hopefully this works properly",
+          "timings": {
+            "load_s": 0.39874720573425293,
+            "transcribe_s": 2.997083902359009,
+            "total_s": 3.3958311080932617,
+            "first_token_s": 3.3958311080932617
+          },
+          "rtf_total": 0.18839235180511216
+        },
+        "faster_base": {
+          "text": "Okay, I'm trying again. Let's see if this time the transcription is correct. I'm doing a bit of a long message. Let's assume this message of like 15 seconds.  This causes the inverse kinematics in robotics and a very nosy environment. Hopefully this works properly.",
+          "timings": {
+            "load_s": 0.15191411972045898,
+            "transcribe_s": 1.3154468536376953,
+            "total_s": 1.4673609733581543,
+            "first_token_s": 1.4673609733581543
+          },
+          "rtf_total": 0.08140557522402825
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-27/21-48-39/audio.wav",
+      "outputs": {
+        "faster_medium": {
+          "text": "Can we first do a bit more research on this?  For example, does MLX allow for streaming?  Or do we need, specifically, whisper streaming for it to work?  And we're only talking about whisper. Are there other options currently?  This seems to be a very rapidly moving subject.  I hear about a new model that does stuff.  I want you to research recent models that could be better than whisper for us.  Maybe that's not the case because you need to implement something specific for Apple for it to be better.  I need this research phase first.",
+          "timings": {
+            "load_s": 1.0636179447174072,
+            "transcribe_s": 17.775538206100464,
+            "total_s": 18.83915615081787,
+            "first_token_s": 18.83915615081787
+          },
+          "rtf_total": 0.3117597736154933
+        },
+        "faster_small": {
+          "text": "Can we first do a bit more research on this?  For example, does MLX allow for streaming?  Or do we need specifically whisper streaming for it to work?  And we're only talking about whisper.  Are there other options currently?  This seems to be a very rapidly moving subject.  I hear about a new model that does recent models that are better than whisper for us.  Maybe that's not the case because you need to implement something specific for Apple for it to be better.  I need this research phase first.",
+          "timings": {
+            "load_s": 0.40996289253234863,
+            "transcribe_s": 5.983673810958862,
+            "total_s": 6.393636703491211,
+            "first_token_s": 6.393636703491211
+          },
+          "rtf_total": 0.10580509632718309
+        },
+        "faster_base": {
+          "text": "Can we first do a bit more research on this?  Like, for example, does Ablelex allow for streaming?  Or do we need specifically whisper streaming for it to work?  And we're only talking about whisper.  Are there other options in currently?  I mean, this seems to be very rapidly moving subject type.  I've been here a week about a new model that I want you to research.  Recent models that are better than whisper for us.  Maybe that's not the case, because you need to implement something specific for Able  to be better.  But I need this research phase first.",
+          "timings": {
+            "load_s": 0.15781497955322266,
+            "transcribe_s": 2.0819802284240723,
+            "total_s": 2.239795207977295,
+            "first_token_s": 2.239795207977295
+          },
+          "rtf_total": 0.037065250767813904
+        }
+      }
+    }
+  ]
+}
