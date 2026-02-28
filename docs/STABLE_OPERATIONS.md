@@ -152,13 +152,12 @@ tail -n 50 /Users/remi/voice2clipboard/runtime/always_on/toggle.log
 Clipboard marker selection note:
 - Marker copy now prefers `deltas.jsonl` (fine-grained stream) for better boundary accuracy.
 - Falls back to `segments.jsonl` if delta data is unavailable.
-- Marker boundaries are lag-compensated to match spoken time:
-  - start boundary uses `press_start + transcript_lag`
-  - stop boundary uses `press_stop + transcript_lag + stop_grace`
-  - defaults: `transcript_lag=0.48s`, `stop_grace=0.12s`
-  - override via env vars:
-    - `VOICE2CLIP_TRANSCRIPT_LAG_S`
-    - `VOICE2CLIP_STOP_GRACE_S`
+- Marker boundaries use symmetric lag compensation:
+  - start boundary uses `press_start + boundary_pad`
+  - stop boundary uses `press_stop + boundary_pad`
+  - default: `boundary_pad=0.66s`
+  - override via env var:
+    - `VOICE2CLIP_BOUNDARY_PAD_S`
 
 ## Transcript partitioning (stability update)
 - Transcript timeline is now one file per day:
