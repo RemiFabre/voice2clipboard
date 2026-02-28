@@ -131,6 +131,7 @@ Behavior:
 - Gray text = outside current selection.
 - Green text = inside current active marker window.
 - This does not modify production pipeline behavior; it is read-only visualization.
+- If `tkinter` is unavailable on your Python build, it auto-falls back to a local web UI.
 
 Alternative in VS Code:
 - open `runtime/always_on/live_text.txt`
