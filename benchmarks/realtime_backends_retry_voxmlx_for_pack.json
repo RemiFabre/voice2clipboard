@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-02-28T10:40:46",
+  "args": {
+    "manifest": "benchmarks/manifest_retry_voxmlx.jsonl",
+    "backend": [
+      "voxmlx"
+    ],
+    "model_whisper": "medium",
+    "voxmlx_url": "ws://127.0.0.1:8000/v1/realtime",
+    "voxmlx_model": "voxtral-mini-latest",
+    "chunk_ms": 80,
+    "commit_every": 0.7,
+    "realtime_pace": false,
+    "post_commit_idle": 1.2,
+    "max_wait": 10.0,
+    "output": "benchmarks/realtime_backends_retry_voxmlx_for_pack.json"
+  },
+  "items": [
+    {
+      "audio": "recordings/2026-02-27/20-37-12/audio.wav",
+      "reference": ""
+    },
+    {
+      "audio": "recordings/2026-02-27/21-40-52/audio.wav",
+      "reference": ""
+    }
+  ],
+  "results": [],
+  "errors": [
+    "voxmlx:recordings/2026-02-27/20-37-12/audio.wav: [Errno 1] Operation not permitted",
+    "voxmlx:recordings/2026-02-27/21-40-52/audio.wav: [Errno 1] Operation not permitted"
+  ]
+}

@@ -1,0 +1,163 @@
+{
+  "timestamp": "2026-02-28T11:56:17",
+  "args": {
+    "manifest": "benchmarks/groundtruth_edit_best.jsonl",
+    "backend": [
+      "voxmlx"
+    ],
+    "model_whisper": "medium",
+    "voxmlx_url": "ws://127.0.0.1:8000/v1/realtime",
+    "voxmlx_model": "mistralai/Voxtral-Mini-4B-Realtime-2602",
+    "chunk_ms": 80,
+    "commit_every": 0.7,
+    "realtime_pace": false,
+    "post_commit_idle": 1.2,
+    "max_wait": 10.0,
+    "output": "benchmarks/realtime_backends_groundtruth_bestedit_voxmlx_fixed.json"
+  },
+  "items": [
+    {
+      "audio": "recordings/2026-02-27/16-10-29/audio.wav",
+      "reference": "Hey, just testing if this works, hopefully it does."
+    },
+    {
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "reference": "Ok, testing if this transcript works and if it's fast enough.  There is some noise around, so let's see if the transcription is good.  My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense, it's probably transcription mistakes, but that's another problem."
+    },
+    {
+      "audio": "recordings/2026-02-27/18-17-10/audio.wav",
+      "reference": "Okay, I'm trying again. Let's see if this time the transcription is correct.  I'm doing a bit of a long message. Let's assume this is a message of like, I don't know, maybe 15 seconds.  This causes inverse kinematics in robotics in a very nosy environment. Hopefully this works properly."
+    },
+    {
+      "audio": "recordings/2026-02-27/21-48-39/audio.wav",
+      "reference": "Can we first do a bit more research on this?  Like, for example, does MLX allow for streaming?  Or do we need, specifically, whisper streaming for it to work?  And we're only talking about whisper. Are there other options currently?  I mean, this seems to be a very rapidly moving subject.  I hear about a new model that does stuff.  I want you to research recent models that could be better than whisper for us.  Maybe that's not the case because you need to implement something specific for Apple for it to be better.  I need this research phase first."
+    },
+    {
+      "audio": "recordings/2026-02-28/11-16-57/audio.wav",
+      "reference": "Ok, donc je refais un message vocal en français.  J'aimerais qu'on utilise celui-ci pour le benchmark.  Je vais faire exprès d'utiliser des mots, des fois avec des longues pauses.  Je me demande si on peut poser des questions aussi.  Là, l'environnement est très silencieux.  Des fois, il y a des petits bruits de chaise, des trucs comme ça, mais grosso modo là,  c'est un contexte idéal.  Je pourrais peut-être travailler comme ça.  Et oui, je me demande si je peux utiliser du franglais, des mots un peu archotiques.  Tu vois, si je dis qu'est-ce que c'est que ce bordel de merde, est-ce que c'est bien traduit ?  Si je dis à la future, elle n'a pas été débatant, c'est de ma faute.  Tu vois, est-ce que ce genre de phrase fonctionne ?"
+    }
+  ],
+  "results": [
+    {
+      "backend": "voxmlx",
+      "model": "mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "config": "voxmlx:mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "audio": "recordings/2026-02-27/16-10-29/audio.wav",
+      "audio_duration_s": 4.5,
+      "text": "Hey, just testing",
+      "text_len": 17,
+      "timings": {
+        "connect_s": 0.019180774688720703,
+        "send_audio_s": 0.01225423812866211,
+        "total_s": 12.177671909332275,
+        "first_token_s": 0.9615607261657715,
+        "load_s": 0.0,
+        "transcribe_s": 12.177671909332275
+      },
+      "rtf_total": 2.70614931318495,
+      "rtf_first_token": 0.21368016137017143,
+      "reference": "Hey, just testing if this works, hopefully it does.",
+      "metrics": {
+        "wer": 0.6666666666666666,
+        "cer": 0.6511627906976745
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "model": "mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "config": "voxmlx:mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "audio_duration_s": 21.799688,
+      "text": "Okay, testing if this transcript works",
+      "text_len": 38,
+      "timings": {
+        "connect_s": 0.16727876663208008,
+        "send_audio_s": 0.06200122833251953,
+        "total_s": 13.551767110824585,
+        "first_token_s": 2.325563907623291,
+        "load_s": 0.0,
+        "transcribe_s": 13.551767110824585
+      },
+      "rtf_total": 0.6216495901603998,
+      "rtf_first_token": 0.10667877024768846,
+      "reference": "Ok, testing if this transcript works and if it's fast enough.  There is some noise around, so let's see if the transcription is good.  My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense, it's probably transcription mistakes, but that's another problem.",
+      "metrics": {
+        "wer": 0.9019607843137255,
+        "cer": 0.8809523809523809
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "model": "mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "config": "voxmlx:mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "audio": "recordings/2026-02-27/18-17-10/audio.wav",
+      "audio_duration_s": 18.025313,
+      "text": "Okay,",
+      "text_len": 5,
+      "timings": {
+        "connect_s": 0.17981696128845215,
+        "send_audio_s": 0.04915618896484375,
+        "total_s": 12.373229026794434,
+        "first_token_s": 1.150679111480713,
+        "load_s": 0.0,
+        "transcribe_s": 12.373229026794434
+      },
+      "rtf_total": 0.6864362924956938,
+      "rtf_first_token": 0.0638368449680021,
+      "reference": "Okay, I'm trying again. Let's see if this time the transcription is correct.  I'm doing a bit of a long message. Let's assume this is a message of like, I don't know, maybe 15 seconds.  This causes inverse kinematics in robotics in a very nosy environment. Hopefully this works properly.",
+      "metrics": {
+        "wer": 0.98,
+        "cer": 0.9788135593220338
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "model": "mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "config": "voxmlx:mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "audio": "recordings/2026-02-27/21-48-39/audio.wav",
+      "audio_duration_s": 60.428438,
+      "text": "Can we first do a bit more research on this? Like, for example, those MLX, allow for streaming or do we need specifically whisper streaming for it to work? And we're only talking about Whisper. Are there other options in currently? I mean, this",
+      "text_len": 244,
+      "timings": {
+        "connect_s": 0.1722879409790039,
+        "send_audio_s": 18.825349807739258,
+        "total_s": 29.86667799949646,
+        "first_token_s": 2.456629991531372,
+        "load_s": 0.0,
+        "transcribe_s": 29.86667799949646
+      },
+      "rtf_total": 0.4942487177890724,
+      "rtf_first_token": 0.04065354116105686,
+      "reference": "Can we first do a bit more research on this?  Like, for example, does MLX allow for streaming?  Or do we need, specifically, whisper streaming for it to work?  And we're only talking about whisper. Are there other options currently?  I mean, this seems to be a very rapidly moving subject.  I hear about a new model that does stuff.  I want you to research recent models that could be better than whisper for us.  Maybe that's not the case because you need to implement something specific for Apple for it to be better.  I need this research phase first.",
+      "metrics": {
+        "wer": 0.59,
+        "cer": 0.5704697986577181
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "model": "mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "config": "voxmlx:mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "audio": "recordings/2026-02-28/11-16-57/audio.wav",
+      "audio_duration_s": 48.245625,
+      "text": "Ok, donc je refais un message vocal en français. J'aimerais qu'on utilise celui-ci pour le",
+      "text_len": 90,
+      "timings": {
+        "connect_s": 1.1689772605895996,
+        "send_audio_s": 4.273634672164917,
+        "total_s": 16.36471915245056,
+        "first_token_s": 3.674136161804199,
+        "load_s": 0.0,
+        "transcribe_s": 16.36471915245056
+      },
+      "rtf_total": 0.3391959198880844,
+      "rtf_first_token": 0.07615480495494047,
+      "reference": "Ok, donc je refais un message vocal en français.  J'aimerais qu'on utilise celui-ci pour le benchmark.  Je vais faire exprès d'utiliser des mots, des fois avec des longues pauses.  Je me demande si on peut poser des questions aussi.  Là, l'environnement est très silencieux.  Des fois, il y a des petits bruits de chaise, des trucs comme ça, mais grosso modo là,  c'est un contexte idéal.  Je pourrais peut-être travailler comme ça.  Et oui, je me demande si je peux utiliser du franglais, des mots un peu archotiques.  Tu vois, si je dis qu'est-ce que c'est que ce bordel de merde, est-ce que c'est bien traduit ?  Si je dis à la future, elle n'a pas été débatant, c'est de ma faute.  Tu vois, est-ce que ce genre de phrase fonctionne ?",
+      "metrics": {
+        "wer": 0.8814814814814815,
+        "cer": 0.8722689075630252
+      }
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-02-28T00:09:23",
+  "args": {
+    "manifest": "benchmarks/manifest_template.jsonl",
+    "backend": [
+      "voxmlx",
+      "mlx",
+      "faster"
+    ],
+    "model_whisper": "medium",
+    "voxmlx_url": "ws://127.0.0.1:8000/v1/realtime",
+    "voxmlx_model": "voxtral-mini-latest",
+    "chunk_ms": 80,
+    "commit_every": 0.7,
+    "realtime_pace": false,
+    "post_commit_idle": 1.2,
+    "max_wait": 10.0,
+    "output": "benchmarks/realtime_backends_smoke.json"
+  },
+  "items": [
+    {
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "reference": ""
+    }
+  ],
+  "results": [
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "audio_duration_s": 21.799688,
+      "text": "Ok, testing if this transcript works and if it's fast enough.  There is some noise around, so let's see if the transcription is good.  My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+      "text_len": 305,
+      "timings": {
+        "load_s": 1.8399012088775635,
+        "transcribe_s": 8.13263201713562,
+        "total_s": 9.972533226013184,
+        "first_token_s": 9.972533226013184
+      },
+      "rtf_total": 0.4574621997348395,
+      "rtf_first_token": 0.4574621997348395
+    }
+  ],
+  "errors": [
+    "voxmlx:recordings/2026-02-27/17-09-26/audio.wav: [Errno 1] Operation not permitted",
+    "mlx:recordings/2026-02-27/17-09-26/audio.wav: *** Terminating app due to uncaught exception 'NSRangeException', reason: '*** -[__NSArray0 objectAtIndex:]: index 0 beyond bounds for empty array'\n*** First throw call stack:\n(\n\t0   CoreFoundation                      0x000000018c11ba30 __exceptionPreprocess + 176\n\t1   libobjc.A.dylib                     0x000000018bbdeb90 objc_exception_throw + 88\n\t2   CoreFoundation                      0x000000018c1440cc CFArrayApply + 0\n\t3   libmlx.dylib                        0x00000001083b7480 _ZN3mlx4core5metal6DeviceC2Ev + 204\n\t4   libmlx.dylib                        0x00000001083bac1c _ZN3mlx4core5metal6deviceENS0_6DeviceE + 80\n\t5   libmlx.dylib                        0x000000010838dbc0 _ZN3mlx4core5metal14MetalAllocatorC2Ev + 64\n\t6   libmlx.dylib                        0x000000010838da5c _ZN3mlx4core9allocator9allocatorEv + 80\n\t7   libmlx.dylib                        0x00000001076b6450 _ZN3mlx4core5array4initIPKjEEvT_ + 64\n\t8   libmlx.dylib                        0x00000001076b6388 _ZN3mlx4core5arrayC2IjEESt16initializer_listIT_ENS0_5DtypeE + 152\n\t9   libmlx.dylib                        0x00000001076af9a0 _ZN3mlx4core6random3keyEy + 72\n\t10  core.cpython-314-darwin.so          0x0000000105795a00 _ZNK3mlx4core5array6nbytesEv + 718048\n\t11  core.cpython-314-darwin.so          0x00000001057975cc _ZNK3mlx4core5array6nbytesEv + 725164\n\t12  core.cpython-314-darwin.so          0x00000001056ddde0 PyInit_core + 428\n\t13  Python                              0x0000000105a775cc PyModule_ExecDef + 188\n\t14  Python                              0x0000000105b911cc _imp_exec_dynamic + 16\n\t15  Python                              0x0000000105b437a0 _PyEval_EvalFrameDefault + 24752\n\t16  Python                              0x0000000105b3d3ec _PyEval_Vector + 268\n\t17  Python                              0x0000000105a0faf8 object_vacall + 228\n\t18  Python                              0x0000000105a0f948 PyObject_CallMethodObjArgs + 112\n\t19  Python                              0x0000000105b8e0c4 PyImport_ImportModuleLevelObject + 3132\n\t20  Python                              0x0000000105b4cd20 _PyEval_ImportName + 200\n\t21  Python                              0x0000000105b43648 _PyEval_EvalFrameDefault + 24408\n\t22  Python                              0x0000000105b3d1f4 PyEval_EvalCode + 248\n\t23  Python                              0x0000000105b38190 builtin_exec + 376\n\t24  Python                              0x0000000105b437a0 _PyEval_EvalFrameDefault + 24752\n\t25  Python                              0x0000000105b3d3ec _PyEval_Vector + 268\n\t26  Python                              0x0000000105a0faf8 object_vacall + 228\n\t27  Python                              0x0000000105a0f948 PyObject_CallMethodObjArgs + 112\n\t28  Python                              0x0000000105b8e0c4 PyImport_ImportModuleLevelObject + 3132\n\t29  Python                              0x0000000105b365b8 builtin___import__ + 172\n\t30  Python                              0x0000000105b437a0 _PyEval_EvalFrameDefault + 24752\n\t31  Python                              0x0000000105b3d3ec _PyEval_Vector + 268\n\t32  Python                              0x0000000105a0faf8 object_vacall + 228\n\t33  Python                              0x0000000105a0f948 PyObject_CallMethodObjArgs + 112\n\t34  Python                              0x0000000105b8d6c4 PyImport_ImportModuleLevelObject + 572\n\t35  Python                              0x0000000105b4cd20 _PyEval_ImportName + 200\n\t36  Python                              0x0000000105b43648 _PyEval_EvalFrameDefault + 24408\n\t37  Python                              0x0000000105b3d1f4 PyEval_EvalCode + 248\n\t38  Python                              0x0000000105b38190 builtin_exec + 376\n\t39  Python                              0x0000000105b437a0 _PyEval_EvalFrameDefault + 24752\n\t40  Python                              0x0000000105b3d3ec _PyEval_Vector + 268\n\t41  Python                              0x0000000105a0faf8 object_vacall + 228\n\t42  Python                              0x0000000105a0f948 PyObject_CallMethodObjArgs + 112\n\t43  Python                              0x0000000105b8e0c4 PyImport_ImportModuleLevelObject + 3132\n\t44  Python                              0x0000000105b4cd20 _PyEval_ImportName + 200\n\t45  Python                              0x0000000105b43648 _PyEval_EvalFrameDefault + 24408\n\t46  Python                              0x0000000105b3d1f4 PyEval_EvalCode + 248\n\t47  Python                              0x0000000105bb4e8c run_mod + 172\n\t48  Python                              0x0000000105bb3be0 _PyRun_StringFlagsWithName + 148\n\t49  Python                              0x0000000105bb3950 _PyRun_SimpleStringFlagsWithName + 160\n\t50  Python                              0x0000000105be0494 Py_RunMain + 356\n\t51  Python                              0x0000000105be0ab8 pymain_main + 232\n\t52  Python                              0x0000000105be0b54 Py_BytesMain + 40\n\t53  dyld                                0x000000018bc1eb98 start + 6076\n)\nlibc++abi: terminating due to uncaught exception of type NSException"
+  ]
+}

@@ -1,0 +1,776 @@
+{
+  "timestamp": "2026-02-28T09:45:25",
+  "args": {
+    "manifest": "benchmarks/manifest_generated.jsonl",
+    "backend": [
+      "voxmlx",
+      "faster"
+    ],
+    "model_whisper": "medium",
+    "voxmlx_url": "ws://127.0.0.1:8000/v1/realtime",
+    "voxmlx_model": "voxtral-mini-latest",
+    "chunk_ms": 80,
+    "commit_every": 0.7,
+    "realtime_pace": false,
+    "post_commit_idle": 1.2,
+    "max_wait": 10.0,
+    "output": "benchmarks/realtime_backends_batch_20260228.json"
+  },
+  "items": [
+    {
+      "audio": "recordings/2026-02-27/15-36-28/audio.wav",
+      "reference": ""
+    },
+    {
+      "audio": "recordings/2026-02-27/15-41-11/audio.wav",
+      "reference": ""
+    },
+    {
+      "audio": "recordings/2026-02-27/16-10-29/audio.wav",
+      "reference": "Hey, just testing if this works, hopefully it does."
+    },
+    {
+      "audio": "recordings/2026-02-27/16-11-41/audio.wav",
+      "reference": ""
+    },
+    {
+      "audio": "recordings/2026-02-27/16-13-32/audio.wav",
+      "reference": "okay try again hopefully this time you can see what I'm saying"
+    },
+    {
+      "audio": "recordings/2026-02-27/16-26-02/audio.wav",
+      "reference": "Okay, I'm trying to speak again a few things. First of all, the terminal appears with the  moving bars before the TINK noise. So can I speak as soon as I see the terminal or  do I have to wait for the little noise? And second, I am astonished by how slow  this is running on this laptop. I think you can check the performances that were  written in the repo. I think I have values for a Linux desktop with a  GPU card, which is not a recent one, but the performance was insane. It was like  100 times real-time or something like that. It was extremely fast. And on this  laptop that I thought was kind of high-end, it's super slow. It's almost, it's  slower than real-time factor. Is there a configuration we're not doing  properly? Is there something we can do to improve this? Because in this state  I don't think it's very usable."
+    },
+    {
+      "audio": "recordings/2026-02-27/16-41-09/audio.wav",
+      "reference": "Testing again, let's see if you can read my message"
+    },
+    {
+      "audio": "recordings/2026-02-27/16-42-01/audio.wav",
+      "reference": ""
+    },
+    {
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "reference": "Ok, testing if this transcript works and if it's fast enough. There is some noise around, so let's see if the transcription is good. My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense. It's probably transcription mistakes, but that's another problem."
+    },
+    {
+      "audio": "recordings/2026-02-27/18-13-30/audio.wav",
+      "reference": "Okay, this time the shortcut worked so it seems that the reason it didn't work was probably just a dumb thing of a combination of keys that was not recognized properly. So I'm doing a bit of a long message on purpose to see how fast this transcribe section goes. Hopefully this is very very fast with the new MNX stuff and hopefully there are no mistakes here, there are no words that are mistaken. I'll try to use some special words like robotics, interpolation, we've got inverse kinematics and it's okay there's some noise around me and I just want to benchmark this whole thing. Hopefully this will become my new framework, my new workflow and let's stop here."
+    },
+    {
+      "audio": "recordings/2026-02-27/18-14-26/audio.wav",
+      "reference": ""
+    },
+    {
+      "audio": "recordings/2026-02-27/18-14-27/audio.wav",
+      "reference": ""
+    },
+    {
+      "audio": "recordings/2026-02-27/18-17-10/audio.wav",
+      "reference": "Okay, I'm trying again. Let's see if this time the transcription is correct. I'm doing a bit of a long message. Let's assume this is a message of like, I don't know, maybe 15 seconds. This causes inverse kinematics in robotics in a very nosy environment. Hopefully this works properly."
+    },
+    {
+      "audio": "recordings/2026-02-27/18-35-52/audio.wav",
+      "reference": "Okay, let's see if this is true. But how do I stop the recording?"
+    },
+    {
+      "audio": "recordings/2026-02-27/20-37-12/audio.wav",
+      "reference": "Okay, so a few improvements. By the way, this message will be done through this transcribe, so there might be some inaccuracies, I'm not sure. In the base version of this repo, I had a small message that I was reading always in the beginning of the text that said, hey, this has been transcribed. There might be errors. Maybe you can word it in a way that's a bit shorter, saying, I don't know, message transcribed from voice, something like that. Okay, so that's number one. Number two is the keyboard is, I mean the key, how is it the hotkey is a bit annoying. I like to take the one I chose, so let's iterate on that too. Also, I was wondering the persistent demon mode, I like this idea, but how much, how much VRAM would it take? I think I have 36 gigabytes on this laptop, which is very good, but yeah, I like to have some info on this. Also, I like to do some research on the web to know if there are better options available. I think the current version is already really, really good, but it's a domain that moves often, so a bit of a state of the art would be interesting. Also, I think the beeps, the noises for each of the three steps should be different right now. And I was wondering if we could also have a mode where the transcription happens live, or maybe semi-live, like sentence per sentence or something like that. Yeah, so all of those ideas, keep in mind, I like to move forward in a way where I don't lose anything, so we try something, and I use it for like an hour, and then we go back to the previous version if it wasn't good enough, or if it doesn't fit my workflow, or maybe I want all of them, and then I set up different shortcuts for it. So yeah, it's a message with some easy to fix right now stuff, some research, some completely different technical paths to follow. Let's do everything."
+    },
+    {
+      "audio": "recordings/2026-02-27/21-31-28/audio.wav",
+      "reference": "ok I'm just trying if the transcribe works I heard the first bit"
+    },
+    {
+      "audio": "recordings/2026-02-27/21-40-52/audio.wav",
+      "reference": "Okay, I'm trying again a transcript test to see if this works. I'm going to make it a bit long on purpose. I'm reading the voice control roadmap and the more I think of it, the more I like the always on transcription path. This is the one I'd like us to work on right now. Of course, all of these are experimentation, so nothing must break what has been achieved on other ideas. Okay, nice. Nice, so you compared Faster Whisper versus MLX Whisper. MLX Whisper seems to be much, much faster, but is both medium comparable? Like Faster Whisper medium, is it comparable to MLX Whisper medium? Is it like the same model? Because we're talking like almost three times faster, so this is insane. I mean, if that's true, do we even want to explore other options or does it just mean that it's by far the best option out there? Yeah, so I'm reading your experiment tracks. Yeah, no, definitely track A is the one I want us to follow. And I think the first idea I have is that it continuously writes text somewhere and I can press a button. And this means that starting from that moment, it's like the selection starts. And when I press the button again, the selection ends and all of that goes into my clipboard. I think that that would be a nice way of making it work for now. And ideally, the text goes to the file so that another program in LLM or something can read it live as it comes. But I like some information about this because I heard that if we're doing really, really like live transcribe, we can run into some problems of precision if we go like word by word because someone's correct based on the sentence. And I don't think I have much value in doing word by word. So doing sentence by sentence, for example, is better. I think that that's what we need to do. But then again, that's for you to say. I think that's a good question based on the evidence of research and benchmarks and what the library's advice. And we'll probably be able to do it after or through track A. OK, so I'm fine with this. Before getting into implementation, answer my questions and maybe do a little bit of research if needed."
+    },
+    {
+      "audio": "recordings/2026-02-27/21-48-39/audio.wav",
+      "reference": "Can we first do a bit more research on this? For example, does MLX allow for streaming? Or do we need, specifically, whisper streaming for it to work? And we're only talking about whisper. Are there other options currently? This seems to be a very rapidly moving subject. I hear about a new model that does stuff. I want you to research recent models that could be better than whisper for us. Maybe that's not the case, because you need to implement something specific for Apple for it to be better. But I need this research phase first."
+    }
+  ],
+  "results": [
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/15-36-28/audio.wav",
+      "audio_duration_s": null,
+      "text": "",
+      "text_len": 0,
+      "timings": {
+        "connect_s": 0.02570796012878418,
+        "send_audio_s": 0.00010395050048828125,
+        "total_s": 10.115211009979248,
+        "first_token_s": null,
+        "load_s": 0.0,
+        "transcribe_s": 10.115211009979248
+      }
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/15-36-28/audio.wav",
+      "audio_duration_s": null,
+      "text": "",
+      "text_len": 0,
+      "timings": {
+        "load_s": 2.2412009239196777,
+        "transcribe_s": 3.353485107421875,
+        "total_s": 5.594686031341553,
+        "first_token_s": 5.594686031341553
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/15-41-11/audio.wav",
+      "audio_duration_s": 1.455938,
+      "text": "",
+      "text_len": 0,
+      "timings": {
+        "connect_s": 0.018082857131958008,
+        "send_audio_s": 0.0036470890045166016,
+        "total_s": 10.02987790107727,
+        "first_token_s": null,
+        "load_s": 0.0,
+        "transcribe_s": 10.02987790107727
+      },
+      "rtf_total": 6.888945752550775
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/15-41-11/audio.wav",
+      "audio_duration_s": 1.455938,
+      "text": "Thanks for watching!",
+      "text_len": 20,
+      "timings": {
+        "load_s": 1.3412749767303467,
+        "transcribe_s": 6.900156021118164,
+        "total_s": 8.24143099784851,
+        "first_token_s": 8.24143099784851
+      },
+      "rtf_total": 5.6605645280558035,
+      "rtf_first_token": 5.6605645280558035
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/16-10-29/audio.wav",
+      "audio_duration_s": 4.5,
+      "text": "Hey, just",
+      "text_len": 9,
+      "timings": {
+        "connect_s": 0.005134105682373047,
+        "send_audio_s": 0.012791633605957031,
+        "total_s": 12.163482904434204,
+        "first_token_s": 0.9205150604248047,
+        "load_s": 0.0,
+        "transcribe_s": 12.163482904434204
+      },
+      "rtf_total": 2.7029962009853787,
+      "rtf_first_token": 0.20455890231662327,
+      "reference": "Hey, just testing if this works, hopefully it does.",
+      "metrics": {
+        "wer": 0.7777777777777778,
+        "cer": 0.813953488372093
+      }
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/16-10-29/audio.wav",
+      "audio_duration_s": 4.5,
+      "text": "Hey, just testing if this works, hopefully it does.",
+      "text_len": 51,
+      "timings": {
+        "load_s": 1.3014919757843018,
+        "transcribe_s": 7.103728294372559,
+        "total_s": 8.40522027015686,
+        "first_token_s": 8.40522027015686
+      },
+      "rtf_total": 1.8678267267015245,
+      "rtf_first_token": 1.8678267267015245,
+      "reference": "Hey, just testing if this works, hopefully it does.",
+      "metrics": {
+        "wer": 0.0,
+        "cer": 0.0
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/16-11-41/audio.wav",
+      "audio_duration_s": 14.912813,
+      "text": "Okay, so I'm testing",
+      "text_len": 20,
+      "timings": {
+        "connect_s": 0.0053670406341552734,
+        "send_audio_s": 0.03931283950805664,
+        "total_s": 13.311215877532959,
+        "first_token_s": 2.1049861907958984,
+        "load_s": 0.0,
+        "transcribe_s": 13.311215877532959
+      },
+      "rtf_total": 0.8926026147805219,
+      "rtf_first_token": 0.141152859007613
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/16-11-41/audio.wav",
+      "audio_duration_s": 14.912813,
+      "text": "Ok, so I'm testing the vocal thing.  If you can read this message, then it works.",
+      "text_len": 81,
+      "timings": {
+        "load_s": 1.2805728912353516,
+        "transcribe_s": 7.400591135025024,
+        "total_s": 8.681164026260376,
+        "first_token_s": 8.681164026260376
+      },
+      "rtf_total": 0.5821278672414371,
+      "rtf_first_token": 0.5821278672414371
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/16-13-32/audio.wav",
+      "audio_duration_s": 4.797188,
+      "text": "Okay, try again",
+      "text_len": 15,
+      "timings": {
+        "connect_s": 0.034288883209228516,
+        "send_audio_s": 0.012276172637939453,
+        "total_s": 12.236955881118774,
+        "first_token_s": 0.9847729206085205,
+        "load_s": 0.0,
+        "transcribe_s": 12.236955881118774
+      },
+      "rtf_total": 2.5508601874929173,
+      "rtf_first_token": 0.20528128574667504,
+      "reference": "okay try again hopefully this time you can see what I'm saying",
+      "metrics": {
+        "wer": 0.75,
+        "cer": 0.7843137254901961
+      }
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/16-13-32/audio.wav",
+      "audio_duration_s": 4.797188,
+      "text": "okay try again hopefully this time you can see what I'm saying",
+      "text_len": 62,
+      "timings": {
+        "load_s": 1.377450942993164,
+        "transcribe_s": 7.266265869140625,
+        "total_s": 8.643716812133789,
+        "first_token_s": 8.643716812133789
+      },
+      "rtf_total": 1.8018299078822404,
+      "rtf_first_token": 1.8018299078822404,
+      "reference": "okay try again hopefully this time you can see what I'm saying",
+      "metrics": {
+        "wer": 0.0,
+        "cer": 0.0
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/16-26-02/audio.wav",
+      "audio_duration_s": 81.128438,
+      "text": "Okay, I'm trying to speak again. A few things. First of all, So can I speak as soon as I see a terminal or do I have to wait for the little noise? And second I'm astonished by how slow this is running on on this laptop I think you can check the performances that were written in the in the",
+      "text_len": 289,
+      "timings": {
+        "connect_s": 0.05366706848144531,
+        "send_audio_s": 23.027674913406372,
+        "total_s": 34.05242085456848,
+        "first_token_s": 1.0465919971466064,
+        "load_s": 0.0,
+        "transcribe_s": 34.05242085456848
+      },
+      "rtf_total": 0.41973470331782403,
+      "rtf_first_token": 0.012900433225974428,
+      "reference": "Okay, I'm trying to speak again a few things. First of all, the terminal appears with the  moving bars before the TINK noise. So can I speak as soon as I see the terminal or  do I have to wait for the little noise? And second, I am astonished by how slow  this is running on this laptop. I think you can check the performances that were  written in the repo. I think I have values for a Linux desktop with a  GPU card, which is not a recent one, but the performance was insane. It was like  100 times real-time or something like that. It was extremely fast. And on this  laptop that I thought was kind of high-end, it's super slow. It's almost, it's  slower than real-time factor. Is there a configuration we're not doing  properly? Is there something we can do to improve this? Because in this state  I don't think it's very usable.",
+      "metrics": {
+        "wer": 0.65,
+        "cer": 0.6686656671664168
+      }
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/16-26-02/audio.wav",
+      "audio_duration_s": 81.128438,
+      "text": "Okay, I'm trying to speak again a few things. First of all, the terminal appears with the  moving bars before the TINK noise. So can I speak as soon as I see the terminal or  do I have to wait for the little noise? And second, I am astonished by how slow  this is running on this laptop. I think you can check the performances that were  written in the repo. I think I have values for a Linux desktop with a  GPU card, which is not a recent one, but the performance was insane. It was like  100 times real-time or something like that. It was extremely fast. And on this  laptop that I thought was kind of high-end, it's super slow. It's almost, it's  slower than real-time factor. Is there a configuration we're not doing  properly? Is there something we can do to improve this? Because in this state  I don't think it's very usable.",
+      "text_len": 833,
+      "timings": {
+        "load_s": 1.5297610759735107,
+        "transcribe_s": 23.468072175979614,
+        "total_s": 24.997833251953125,
+        "first_token_s": 24.997833251953125
+      },
+      "rtf_total": 0.3081266429898863,
+      "rtf_first_token": 0.3081266429898863,
+      "reference": "Okay, I'm trying to speak again a few things. First of all, the terminal appears with the  moving bars before the TINK noise. So can I speak as soon as I see the terminal or  do I have to wait for the little noise? And second, I am astonished by how slow  this is running on this laptop. I think you can check the performances that were  written in the repo. I think I have values for a Linux desktop with a  GPU card, which is not a recent one, but the performance was insane. It was like  100 times real-time or something like that. It was extremely fast. And on this  laptop that I thought was kind of high-end, it's super slow. It's almost, it's  slower than real-time factor. Is there a configuration we're not doing  properly? Is there something we can do to improve this? Because in this state  I don't think it's very usable.",
+      "metrics": {
+        "wer": 0.0,
+        "cer": 0.0
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/16-41-09/audio.wav",
+      "audio_duration_s": 5.72625,
+      "text": "Testing again. Let's see if you can read my message.",
+      "text_len": 52,
+      "timings": {
+        "connect_s": 0.07659196853637695,
+        "send_audio_s": 0.01827716827392578,
+        "total_s": 4.636470079421997,
+        "first_token_s": 2.392380952835083,
+        "load_s": 0.0,
+        "transcribe_s": 4.636470079421997
+      },
+      "rtf_total": 0.809686981780746,
+      "rtf_first_token": 0.4177919149242668,
+      "reference": "Testing again, let's see if you can read my message",
+      "metrics": {
+        "wer": 0.0,
+        "cer": 0.047619047619047616
+      }
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/16-41-09/audio.wav",
+      "audio_duration_s": 5.72625,
+      "text": "Testing again, let's see if you can read my message",
+      "text_len": 51,
+      "timings": {
+        "load_s": 1.2962439060211182,
+        "transcribe_s": 7.054536819458008,
+        "total_s": 8.350780725479126,
+        "first_token_s": 8.350780725479126
+      },
+      "rtf_total": 1.4583332417339665,
+      "rtf_first_token": 1.4583332417339665,
+      "reference": "Testing again, let's see if you can read my message",
+      "metrics": {
+        "wer": 0.0,
+        "cer": 0.0
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/16-42-01/audio.wav",
+      "audio_duration_s": 4.899375,
+      "text": "Just",
+      "text_len": 4,
+      "timings": {
+        "connect_s": 0.053147077560424805,
+        "send_audio_s": 0.015101909637451172,
+        "total_s": 12.215167999267578,
+        "first_token_s": 0.9939491748809814,
+        "load_s": 0.0,
+        "transcribe_s": 12.215167999267578
+      },
+      "rtf_total": 2.493209439830096,
+      "rtf_first_token": 0.20287264699701113
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/16-42-01/audio.wav",
+      "audio_duration_s": 4.899375,
+      "text": "Just testing again to see if it's much faster.",
+      "text_len": 46,
+      "timings": {
+        "load_s": 1.4329919815063477,
+        "transcribe_s": 7.171069145202637,
+        "total_s": 8.604061126708984,
+        "first_token_s": 8.604061126708984
+      },
+      "rtf_total": 1.7561548415275385,
+      "rtf_first_token": 1.7561548415275385
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "audio_duration_s": 21.799688,
+      "text": "Okay,",
+      "text_len": 5,
+      "timings": {
+        "connect_s": 0.005456209182739258,
+        "send_audio_s": 0.07989096641540527,
+        "total_s": 12.128435134887695,
+        "first_token_s": 0.9226522445678711,
+        "load_s": 0.0,
+        "transcribe_s": 12.128435134887695
+      },
+      "rtf_total": 0.5563581981030048,
+      "rtf_first_token": 0.04232410319670039,
+      "reference": "Ok, testing if this transcript works and if it's fast enough. There is some noise around, so let's see if the transcription is good. My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense. It's probably transcription mistakes, but that's another problem.",
+      "metrics": {
+        "wer": 1.0,
+        "cer": 0.9801587301587301
+      }
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "audio_duration_s": 21.799688,
+      "text": "Ok, testing if this transcript works and if it's fast enough.  There is some noise around, so let's see if the transcription is good.  My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+      "text_len": 305,
+      "timings": {
+        "load_s": 1.2990162372589111,
+        "transcribe_s": 8.634718894958496,
+        "total_s": 9.933735132217407,
+        "first_token_s": 9.933735132217407
+      },
+      "rtf_total": 0.45568244518992235,
+      "rtf_first_token": 0.45568244518992235,
+      "reference": "Ok, testing if this transcript works and if it's fast enough. There is some noise around, so let's see if the transcription is good. My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense. It's probably transcription mistakes, but that's another problem.",
+      "metrics": {
+        "wer": 0.0,
+        "cer": 0.0
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/18-13-30/audio.wav",
+      "audio_duration_s": 48.42375,
+      "text": "Okay, this time the short could work. So it seems that the reason it didn't work was probably just a dumb thing of a combination of keys that was not recognized properly. So I'm doing a bit of a long",
+      "text_len": 199,
+      "timings": {
+        "connect_s": 0.0054759979248046875,
+        "send_audio_s": 9.010634899139404,
+        "total_s": 19.63015103340149,
+        "first_token_s": 0.9305429458618164,
+        "load_s": 0.0,
+        "transcribe_s": 19.63015103340149
+      },
+      "rtf_total": 0.4053827106203359,
+      "rtf_first_token": 0.019216664257968794,
+      "reference": "Okay, this time the shortcut worked so it seems that the reason it didn't work was probably just a dumb thing of a combination of keys that was not recognized properly. So I'm doing a bit of a long message on purpose to see how fast this transcribe section goes. Hopefully this is very very fast with the new MNX stuff and hopefully there are no mistakes here, there are no words that are mistaken. I'll try to use some special words like robotics, interpolation, we've got inverse kinematics and it's okay there's some noise around me and I just want to benchmark this whole thing. Hopefully this will become my new framework, my new workflow and let's stop here.",
+      "metrics": {
+        "wer": 0.7,
+        "cer": 0.7174311926605504
+      }
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/18-13-30/audio.wav",
+      "audio_duration_s": 48.42375,
+      "text": "okay this time the short could work so it seems that the reason it didn't work  was probably just a dumb thing of a combination of keys that was not  recognized probably. So I'm doing a bit of a long message on purpose to see how  fast this transcribe section goes. Hopefully this is very very fast with  the new MNX stuff and hopefully there are no mistakes here there are no words  that are mistaken. I'll try to use some special words like robotics we've got  interpolation we've got inverse kinematics and it's okay there's some  noise around me and I just want to benchmark this this whole thing  hopefully this will become my my new framework and let's stop here",
+      "text_len": 668,
+      "timings": {
+        "load_s": 1.4891488552093506,
+        "transcribe_s": 14.794650316238403,
+        "total_s": 16.283799171447754,
+        "first_token_s": 16.283799171447754
+      },
+      "rtf_total": 0.33627711962513757,
+      "rtf_first_token": 0.33627711962513757,
+      "reference": "Okay, this time the shortcut worked so it seems that the reason it didn't work was probably just a dumb thing of a combination of keys that was not recognized properly. So I'm doing a bit of a long message on purpose to see how fast this transcribe section goes. Hopefully this is very very fast with the new MNX stuff and hopefully there are no mistakes here, there are no words that are mistaken. I'll try to use some special words like robotics, interpolation, we've got inverse kinematics and it's okay there's some noise around me and I just want to benchmark this whole thing. Hopefully this will become my new framework, my new workflow and let's stop here.",
+      "metrics": {
+        "wer": 0.08333333333333333,
+        "cer": 0.07522935779816514
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/18-14-26/audio.wav",
+      "audio_duration_s": 6.868125,
+      "text": "",
+      "text_len": 0,
+      "timings": {
+        "connect_s": 0.018553972244262695,
+        "send_audio_s": 0.019411087036132812,
+        "total_s": 10.143380880355835,
+        "first_token_s": null,
+        "load_s": 0.0,
+        "transcribe_s": 10.143380880355835
+      },
+      "rtf_total": 1.4768777330575427
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/18-14-26/audio.wav",
+      "audio_duration_s": 6.868125,
+      "text": "Coochie Coochie",
+      "text_len": 15,
+      "timings": {
+        "load_s": 1.5093328952789307,
+        "transcribe_s": 10.23479700088501,
+        "total_s": 11.74412989616394,
+        "first_token_s": 11.74412989616394
+      },
+      "rtf_total": 1.7099470228284925,
+      "rtf_first_token": 1.7099470228284925
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/18-14-27/audio.wav",
+      "audio_duration_s": 4.749375,
+      "text": "",
+      "text_len": 0,
+      "timings": {
+        "connect_s": 0.007235050201416016,
+        "send_audio_s": 0.013361215591430664,
+        "total_s": 10.050095081329346,
+        "first_token_s": null,
+        "load_s": 0.0,
+        "transcribe_s": 10.050095081329346
+      },
+      "rtf_total": 2.1160879234276817
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/18-14-27/audio.wav",
+      "audio_duration_s": 4.749375,
+      "text": "Thank you for watching.",
+      "text_len": 23,
+      "timings": {
+        "load_s": 1.3819661140441895,
+        "transcribe_s": 6.954466104507446,
+        "total_s": 8.336432218551636,
+        "first_token_s": 8.336432218551636
+      },
+      "rtf_total": 1.755269318289593,
+      "rtf_first_token": 1.755269318289593
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/18-17-10/audio.wav",
+      "audio_duration_s": 18.025313,
+      "text": "Okay, I'm trying again. Let's see if this time",
+      "text_len": 46,
+      "timings": {
+        "connect_s": 0.046356916427612305,
+        "send_audio_s": 0.046981096267700195,
+        "total_s": 13.462608814239502,
+        "first_token_s": 1.006464958190918,
+        "load_s": 0.0,
+        "transcribe_s": 13.462608814239502
+      },
+      "rtf_total": 0.7468724018406505,
+      "rtf_first_token": 0.055836198694076376,
+      "reference": "Okay, I'm trying again. Let's see if this time the transcription is correct. I'm doing a bit of a long message. Let's assume this is a message of like, I don't know, maybe 15 seconds. This causes inverse kinematics in robotics in a very nosy environment. Hopefully this works properly.",
+      "metrics": {
+        "wer": 0.82,
+        "cer": 0.8389830508474576
+      }
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/18-17-10/audio.wav",
+      "audio_duration_s": 18.025313,
+      "text": "Okay, I'm trying again. Let's see if this time the transcription is correct.  I'm doing a bit of a long message. Let's assume this is a message of like, I don't know, maybe 15 seconds.  This causes inverse kinematics in robotics in a very nosy environment. Hopefully this works properly.",
+      "text_len": 287,
+      "timings": {
+        "load_s": 1.4112160205841064,
+        "transcribe_s": 8.786646127700806,
+        "total_s": 10.197862148284912,
+        "first_token_s": 10.197862148284912
+      },
+      "rtf_total": 0.5657522922506206,
+      "rtf_first_token": 0.5657522922506206,
+      "reference": "Okay, I'm trying again. Let's see if this time the transcription is correct. I'm doing a bit of a long message. Let's assume this is a message of like, I don't know, maybe 15 seconds. This causes inverse kinematics in robotics in a very nosy environment. Hopefully this works properly.",
+      "metrics": {
+        "wer": 0.0,
+        "cer": 0.0
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/18-35-52/audio.wav",
+      "audio_duration_s": 14.595,
+      "text": "Okay, let's see if this is true.",
+      "text_len": 32,
+      "timings": {
+        "connect_s": 0.0062677860260009766,
+        "send_audio_s": 0.03720211982727051,
+        "total_s": 13.552709817886353,
+        "first_token_s": 2.336225986480713,
+        "load_s": 0.0,
+        "transcribe_s": 13.552709817886353
+      },
+      "rtf_total": 0.9285858045828265,
+      "rtf_first_token": 0.16007029712098067,
+      "reference": "Okay, let's see if this is true. But how do I stop the recording?",
+      "metrics": {
+        "wer": 0.5,
+        "cer": 0.5
+      }
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/18-35-52/audio.wav",
+      "audio_duration_s": 14.595,
+      "text": "Okay, let's see if this is true.  But how do I stop the recording?",
+      "text_len": 66,
+      "timings": {
+        "load_s": 1.3263790607452393,
+        "transcribe_s": 7.2865331172943115,
+        "total_s": 8.61291217803955,
+        "first_token_s": 8.61291217803955
+      },
+      "rtf_total": 0.5901275901363172,
+      "rtf_first_token": 0.5901275901363172,
+      "reference": "Okay, let's see if this is true. But how do I stop the recording?",
+      "metrics": {
+        "wer": 0.0,
+        "cer": 0.0
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/20-37-12/audio.wav",
+      "audio_duration_s": 180.18,
+      "text": "Okay, so a few improvements. By the way, this message will be done through this transcribe, so there might be some inaccuracies. I'm not sure. In the base version of this repo, I had a small message. That was written always in the beginning of the text. That said, hey, this has been transcribed. There might be errors. Maybe you can word it in a way that's a bit shorter. saying, I don't know, message transcribed from voice, something like that. Okay, so that's number one. Number two is the keyboard is... I mean the key... How is it called? The hotkey is a bit annoying I like to to take the one I chose so let's iterate on that too also I was wondering the persistent demon mode I like this idea but how much how much VRAM would it take I think I have 36 gigabytes on this laptop which is very good but I like to have some info on this also I'd like you to do some research on the web to know if there are better options available I think the current version is already really good but it's a domain that moves often so a bit of a state of the art would be interesting Also, I think the beeps, the noises for each of the three steps should be different right now. And I was wondering if we could also have a mode where the transcription happens live. Or maybe semi-live, like a sentence per sentence or something like that.",
+      "text_len": 1328,
+      "timings": {
+        "connect_s": 0.01982903480529785,
+        "send_audio_s": 49.59795784950256,
+        "total_s": 61.76105713844299,
+        "first_token_s": 1.8873839378356934,
+        "load_s": 0.0,
+        "transcribe_s": 61.76105713844299
+      },
+      "rtf_total": 0.3427742098925685,
+      "rtf_first_token": 0.010474991329979427
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/20-37-12/audio.wav",
+      "audio_duration_s": 180.18,
+      "text": "Okay, so a few improvements. By the way, this message will be done through this transcribe,  so there might be some inaccuracies, I'm not sure. In the base version of this repo, I  had a small message that I was reading always in the beginning of the text that said,  this has been transcribed. There might be errors. Maybe you can word it in a way that's a bit  shorter, saying, I don't know, message transcribed from voice, something like that.  Okay, so that's number one. Number two is the keyboard is, I mean the key, how is it called?  The hotkey is a bit annoying. I like to take the one I chose, so let's iterate on that too. Also,  I was wondering the persistent daemon mode, I like this idea, but how much  VRAM would it take? I think I have 36 gigabytes on this laptop, which is very good, but  I like to have some info on this. Also, I like to do some research on the web to know  if there are better options available. I think the current version is already really good,  but it's a domain that moves often, so a bit of a state of the art would be interesting.  Also, I think the beeps and the noises for each of the three steps should be different right now.  I was wondering if we could also have a mode where the transcription happens live,  or maybe semi-live, like sentence per sentence or something like that.  Yeah, so all of those ideas, keep in mind I like to move forward in a way where I don't  lose anything, so we try something and I use it for like an hour and then we go back to the  previous version if it wasn't good enough or if it didn't fit my workflow, or maybe I want  all of them and then I set up different  shortcuts for it, stuff like that. So yeah, it's a message with some easy to fix right now  stuff, some research, some completely different technical paths to follow. Let's do everything.",
+      "text_len": 1832,
+      "timings": {
+        "load_s": 1.6646790504455566,
+        "transcribe_s": 44.20637488365173,
+        "total_s": 45.87105393409729,
+        "first_token_s": 45.87105393409729
+      },
+      "rtf_total": 0.25458460391884385,
+      "rtf_first_token": 0.25458460391884385,
+      "reference": "Okay, so a few improvements. By the way, this message will be done through this transcribe, so there might be some inaccuracies, I'm not sure. In the base version of this repo, I had a small message that I was reading always in the beginning of the text that said, hey, this has been transcribed. There might be errors. Maybe you can word it in a way that's a bit shorter, saying, I don't know, message transcribed from voice, something like that. Okay, so that's number one. Number two is the keyboard is, I mean the key, how is it the hotkey is a bit annoying. I like to take the one I chose, so let's iterate on that too. Also, I was wondering the persistent demon mode, I like this idea, but how much, how much VRAM would it take? I think I have 36 gigabytes on this laptop, which is very good, but yeah, I like to have some info on this. Also, I like to do some research on the web to know if there are better options available. I think the current version is already really, really good, but it's a domain that moves often, so a bit of a state of the art would be interesting. Also, I think the beeps, the noises for each of the three steps should be different right now. And I was wondering if we could also have a mode where the transcription happens live, or maybe semi-live, like sentence per sentence or something like that. Yeah, so all of those ideas, keep in mind, I like to move forward in a way where I don't lose anything, so we try something, and I use it for like an hour, and then we go back to the previous version if it wasn't good enough, or if it doesn't fit my workflow, or maybe I want all of them, and then I set up different shortcuts for it. So yeah, it's a message with some easy to fix right now stuff, some research, some completely different technical paths to follow. Let's do everything.",
+      "metrics": {
+        "wer": 0.036827195467422094,
+        "cer": 0.04078857919782461
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/21-31-28/audio.wav",
+      "audio_duration_s": 7.928438,
+      "text": "Okay, I'm just trying if the",
+      "text_len": 28,
+      "timings": {
+        "connect_s": 0.09125590324401855,
+        "send_audio_s": 0.03082895278930664,
+        "total_s": 13.6487717628479,
+        "first_token_s": 2.419541835784912,
+        "load_s": 0.0,
+        "transcribe_s": 13.6487717628479
+      },
+      "rtf_total": 1.7214956795837844,
+      "rtf_first_token": 0.30517257444466517,
+      "reference": "ok I'm just trying if the transcribe works I heard the first bit",
+      "metrics": {
+        "wer": 0.6153846153846154,
+        "cer": 0.6730769230769231
+      }
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/21-31-28/audio.wav",
+      "audio_duration_s": 7.928438,
+      "text": "ok I'm just trying if the transcribe works I heard the first bit",
+      "text_len": 64,
+      "timings": {
+        "load_s": 1.4304938316345215,
+        "transcribe_s": 7.222925901412964,
+        "total_s": 8.653419733047485,
+        "first_token_s": 8.653419733047485
+      },
+      "rtf_total": 1.0914406763409747,
+      "rtf_first_token": 1.0914406763409747,
+      "reference": "ok I'm just trying if the transcribe works I heard the first bit",
+      "metrics": {
+        "wer": 0.0,
+        "cer": 0.0
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/21-40-52/audio.wav",
+      "audio_duration_s": 261.649688,
+      "text": "Okay, I'm trying again a transcript test to see if this works. I'm going to make it a bit long on purpose. I'm reading the voice control roadmap and the more I think of it, the more I like the the always on transcription path. This is the one I'd like us to work on right now. Of course, all of these are experimentation, so nothing must break what has been achieved. On other ideas, Okay, nice. So you compared faster whisper versus Amelix whisper. And so emilix whisper seems to be much much faster but is both medium comparable like faster whisper medium is it comparable to emilix whisper medium is it like the same model because we're talking like almost three times faster so this is insane I mean, if that's true, do we even want to explore other options? Or does it just mean that it's by far the best option out there? Yeah, so I'm reading your experiment tracks. Yeah, no, definitely track A is the one I want us to follow. And I think the... The first idea I have is that it continuously writes text somewhere. And I can press a button. And this means that starting from that moment It's like the selection starts and when I press the button again, the selection ends and all of that goes into my clipboard. I think that would be a nice way of making it work for now. And ideally the text goes to a file so that another program in LLM or something can read it live as it comes. But I like some information about this because I heard that if we're doing really, really live transcribe, we can have we can run into some problems of precision if we go like word by word because some models correct based on the sentence and",
+      "text_len": 1631,
+      "timings": {
+        "connect_s": 0.4723682403564453,
+        "send_audio_s": 70.97615885734558,
+        "total_s": 91.47244429588318,
+        "first_token_s": 2.2167880535125732,
+        "load_s": 0.0,
+        "transcribe_s": 91.47244429588318
+      },
+      "rtf_total": 0.3495989045317844,
+      "rtf_first_token": 0.008472351220661777
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/21-40-52/audio.wav",
+      "audio_duration_s": 261.649688,
+      "text": "Okay, I'm trying again a transcript test to see if this works.  I'm going to make it a bit long on purpose.  I'm reading the voice control roadmap and the more I think of it, the more I like the always on transcription path.  This is the one I'd like us to work on right now.  Of course all of these are experimentation, so nothing must break what has been achieved on other ideas.  Okay, nice.  Nice, so you compared faster whisper versus MLX whisper.  MLX whisper seems to be much, much faster, but is both medium comparable?  Like faster whisper medium, is it comparable to MLX whisper medium?  Is it like the same model? Because we're talking like almost three times faster, so this is insane.  I mean if that's true, do we even want to explore other options or does it just mean that it's by far the best option out there?  So I'm reading your experiment tracks.  Definitely track A is the one I want us to follow.  And I think the first idea I have is that it continuously writes text somewhere and I can press a button.  And this means that starting from that moment, it's like the selection starts and when I press the button again, the selection ends and all of that goes into my clipboard.  I think that would be a nice way of making it work for now.  And ideally the text goes to the file so that another program in LLM or something can read it live as it comes.  But I like some information about this because I heard that if we're doing really, really like live transcribe, we can run into some problems of precision if we go like word by word because someone's correct based on the sentence.  And I don't think I have much value in doing word by word, so doing sentence by sentence, for example, is better.  I think that's what we need to do.  But then again, that's for you to say and based on the evidence of research and benchmarks and what the library's advice.  Yeah, I think track C probably able to do it after or through track A.  Okay, so I'm fine with this before getting into implementation.  I'm going to answer my questions and maybe do a little bit of research if needed.",
+      "text_len": 2099,
+      "timings": {
+        "load_s": 1.486046314239502,
+        "transcribe_s": 70.88746500015259,
+        "total_s": 72.37351131439209,
+        "first_token_s": 72.37351131439209
+      },
+      "rtf_total": 0.276604615383268,
+      "rtf_first_token": 0.276604615383268,
+      "reference": "Okay, I'm trying again a transcript test to see if this works. I'm going to make it a bit long on purpose. I'm reading the voice control roadmap and the more I think of it, the more I like the always on transcription path. This is the one I'd like us to work on right now. Of course, all of these are experimentation, so nothing must break what has been achieved on other ideas. Okay, nice. Nice, so you compared Faster Whisper versus MLX Whisper. MLX Whisper seems to be much, much faster, but is both medium comparable? Like Faster Whisper medium, is it comparable to MLX Whisper medium? Is it like the same model? Because we're talking like almost three times faster, so this is insane. I mean, if that's true, do we even want to explore other options or does it just mean that it's by far the best option out there? Yeah, so I'm reading your experiment tracks. Yeah, no, definitely track A is the one I want us to follow. And I think the first idea I have is that it continuously writes text somewhere and I can press a button. And this means that starting from that moment, it's like the selection starts. And when I press the button again, the selection ends and all of that goes into my clipboard. I think that that would be a nice way of making it work for now. And ideally, the text goes to the file so that another program in LLM or something can read it live as it comes. But I like some information about this because I heard that if we're doing really, really like live transcribe, we can run into some problems of precision if we go like word by word because someone's correct based on the sentence. And I don't think I have much value in doing word by word. So doing sentence by sentence, for example, is better. I think that that's what we need to do. But then again, that's for you to say. I think that's a good question based on the evidence of research and benchmarks and what the library's advice. And we'll probably be able to do it after or through track A. OK, so I'm fine with this. Before getting into implementation, answer my questions and maybe do a little bit of research if needed.",
+      "metrics": {
+        "wer": 0.05263157894736842,
+        "cer": 0.047285464098073555
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "audio": "recordings/2026-02-27/21-48-39/audio.wav",
+      "audio_duration_s": 60.428438,
+      "text": "Can we first do a bit more research on this? Like, for example, those MLX, allow for streaming or do we need specifically whisper",
+      "text_len": 129,
+      "timings": {
+        "connect_s": 0.20638704299926758,
+        "send_audio_s": 11.744038820266724,
+        "total_s": 22.768584966659546,
+        "first_token_s": 2.669034957885742,
+        "load_s": 0.0,
+        "transcribe_s": 22.768584966659546
+      },
+      "rtf_total": 0.376785925968491,
+      "rtf_first_token": 0.04416852472482811,
+      "reference": "Can we first do a bit more research on this? For example, does MLX allow for streaming? Or do we need, specifically, whisper streaming for it to work? And we're only talking about whisper. Are there other options currently? This seems to be a very rapidly moving subject. I hear about a new model that does stuff. I want you to research recent models that could be better than whisper for us. Maybe that's not the case, because you need to implement something specific for Apple for it to be better. But I need this research phase first.",
+      "metrics": {
+        "wer": 0.7857142857142857,
+        "cer": 0.7954545454545454
+      }
+    },
+    {
+      "backend": "faster",
+      "audio": "recordings/2026-02-27/21-48-39/audio.wav",
+      "audio_duration_s": 60.428438,
+      "text": "Can we first do a bit more research on this?  For example, does MLX allow for streaming?  Or do we need, specifically, whisper streaming for it to work?  And we're only talking about whisper. Are there other options currently?  This seems to be a very rapidly moving subject.  I hear about a new model that does stuff.  I want you to research recent models that could be better than whisper for us.  Maybe that's not the case because you need to implement something specific for Apple for it to be better.  I need this research phase first.",
+      "text_len": 540,
+      "timings": {
+        "load_s": 1.515192985534668,
+        "transcribe_s": 18.006108045578003,
+        "total_s": 19.52130103111267,
+        "first_token_s": 19.52130103111267
+      },
+      "rtf_total": 0.32304824809657784,
+      "rtf_first_token": 0.32304824809657784,
+      "reference": "Can we first do a bit more research on this? For example, does MLX allow for streaming? Or do we need, specifically, whisper streaming for it to work? And we're only talking about whisper. Are there other options currently? This seems to be a very rapidly moving subject. I hear about a new model that does stuff. I want you to research recent models that could be better than whisper for us. Maybe that's not the case, because you need to implement something specific for Apple for it to be better. But I need this research phase first.",
+      "metrics": {
+        "wer": 0.01020408163265306,
+        "cer": 0.00909090909090909
+      }
+    }
+  ],
+  "errors": [],
+  "timestamp_complete": "2026-02-28T09:45:25"
+}

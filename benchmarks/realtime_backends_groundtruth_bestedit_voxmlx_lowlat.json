@@ -1,0 +1,163 @@
+{
+  "timestamp": "2026-02-28T11:49:09",
+  "args": {
+    "manifest": "benchmarks/groundtruth_edit_best.jsonl",
+    "backend": [
+      "voxmlx"
+    ],
+    "model_whisper": "medium",
+    "voxmlx_url": "ws://127.0.0.1:8000/v1/realtime",
+    "voxmlx_model": "voxtral-mini-latest",
+    "chunk_ms": 80,
+    "commit_every": 0.3,
+    "realtime_pace": false,
+    "post_commit_idle": 0.8,
+    "max_wait": 10.0,
+    "output": "benchmarks/realtime_backends_groundtruth_bestedit_voxmlx_lowlat.json"
+  },
+  "items": [
+    {
+      "audio": "recordings/2026-02-27/16-10-29/audio.wav",
+      "reference": "Hey, just testing if this works, hopefully it does."
+    },
+    {
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "reference": "Ok, testing if this transcript works and if it's fast enough.  There is some noise around, so let's see if the transcription is good.  My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense, it's probably transcription mistakes, but that's another problem."
+    },
+    {
+      "audio": "recordings/2026-02-27/18-17-10/audio.wav",
+      "reference": "Okay, I'm trying again. Let's see if this time the transcription is correct.  I'm doing a bit of a long message. Let's assume this is a message of like, I don't know, maybe 15 seconds.  This causes inverse kinematics in robotics in a very nosy environment. Hopefully this works properly."
+    },
+    {
+      "audio": "recordings/2026-02-27/21-48-39/audio.wav",
+      "reference": "Can we first do a bit more research on this?  Like, for example, does MLX allow for streaming?  Or do we need, specifically, whisper streaming for it to work?  And we're only talking about whisper. Are there other options currently?  I mean, this seems to be a very rapidly moving subject.  I hear about a new model that does stuff.  I want you to research recent models that could be better than whisper for us.  Maybe that's not the case because you need to implement something specific for Apple for it to be better.  I need this research phase first."
+    },
+    {
+      "audio": "recordings/2026-02-28/11-16-57/audio.wav",
+      "reference": "Ok, donc je refais un message vocal en français.  J'aimerais qu'on utilise celui-ci pour le benchmark.  Je vais faire exprès d'utiliser des mots, des fois avec des longues pauses.  Je me demande si on peut poser des questions aussi.  Là, l'environnement est très silencieux.  Des fois, il y a des petits bruits de chaise, des trucs comme ça, mais grosso modo là,  c'est un contexte idéal.  Je pourrais peut-être travailler comme ça.  Et oui, je me demande si je peux utiliser du franglais, des mots un peu archotiques.  Tu vois, si je dis qu'est-ce que c'est que ce bordel de merde, est-ce que c'est bien traduit ?  Si je dis à la future, elle n'a pas été débatant, c'est de ma faute.  Tu vois, est-ce que ce genre de phrase fonctionne ?"
+    }
+  ],
+  "results": [
+    {
+      "backend": "voxmlx",
+      "model": "voxtral-mini-latest",
+      "config": "voxmlx:voxtral-mini-latest",
+      "audio": "recordings/2026-02-27/16-10-29/audio.wav",
+      "audio_duration_s": 4.5,
+      "text": "Hey, just",
+      "text_len": 9,
+      "timings": {
+        "connect_s": 0.022286176681518555,
+        "send_audio_s": 0.01172494888305664,
+        "total_s": 11.772083282470703,
+        "first_token_s": 0.9391751289367676,
+        "load_s": 0.0,
+        "transcribe_s": 11.772083282470703
+      },
+      "rtf_total": 2.6160185072157116,
+      "rtf_first_token": 0.20870558420817056,
+      "reference": "Hey, just testing if this works, hopefully it does.",
+      "metrics": {
+        "wer": 0.7777777777777778,
+        "cer": 0.813953488372093
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "model": "voxtral-mini-latest",
+      "config": "voxmlx:voxtral-mini-latest",
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "audio_duration_s": 21.799688,
+      "text": "Okay",
+      "text_len": 4,
+      "timings": {
+        "connect_s": 0.12781715393066406,
+        "send_audio_s": 0.07408785820007324,
+        "total_s": 11.837175130844116,
+        "first_token_s": 1.023042917251587,
+        "load_s": 0.0,
+        "transcribe_s": 11.837175130844116
+      },
+      "rtf_total": 0.5429974562408469,
+      "rtf_first_token": 0.046929245833774634,
+      "reference": "Ok, testing if this transcript works and if it's fast enough.  There is some noise around, so let's see if the transcription is good.  My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense, it's probably transcription mistakes, but that's another problem.",
+      "metrics": {
+        "wer": 1.0,
+        "cer": 0.9841269841269841
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "model": "voxtral-mini-latest",
+      "config": "voxmlx:voxtral-mini-latest",
+      "audio": "recordings/2026-02-27/18-17-10/audio.wav",
+      "audio_duration_s": 18.025313,
+      "text": "Okay, I",
+      "text_len": 7,
+      "timings": {
+        "connect_s": 1.657778024673462,
+        "send_audio_s": 0.06508588790893555,
+        "total_s": 13.816163063049316,
+        "first_token_s": 2.98014497756958,
+        "load_s": 0.0,
+        "transcribe_s": 13.816163063049316
+      },
+      "rtf_total": 0.7664867213706257,
+      "rtf_first_token": 0.16533110840125662,
+      "reference": "Okay, I'm trying again. Let's see if this time the transcription is correct.  I'm doing a bit of a long message. Let's assume this is a message of like, I don't know, maybe 15 seconds.  This causes inverse kinematics in robotics in a very nosy environment. Hopefully this works properly.",
+      "metrics": {
+        "wer": 0.96,
+        "cer": 0.9745762711864406
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "model": "voxtral-mini-latest",
+      "config": "voxmlx:voxtral-mini-latest",
+      "audio": "recordings/2026-02-27/21-48-39/audio.wav",
+      "audio_duration_s": 60.428438,
+      "text": "Can we first do a bit more research on this? Like, for example, those MLX, allow for streaming or do we need specifically whisper streaming for it to work? And we're only talking about Whisper. Are there other options in currently? I mean, this",
+      "text_len": 244,
+      "timings": {
+        "connect_s": 0.47194600105285645,
+        "send_audio_s": 19.391292095184326,
+        "total_s": 29.916287183761597,
+        "first_token_s": 2.8269810676574707,
+        "load_s": 0.0,
+        "transcribe_s": 29.916287183761597
+      },
+      "rtf_total": 0.4950696753697588,
+      "rtf_first_token": 0.04678229590606778,
+      "reference": "Can we first do a bit more research on this?  Like, for example, does MLX allow for streaming?  Or do we need, specifically, whisper streaming for it to work?  And we're only talking about whisper. Are there other options currently?  I mean, this seems to be a very rapidly moving subject.  I hear about a new model that does stuff.  I want you to research recent models that could be better than whisper for us.  Maybe that's not the case because you need to implement something specific for Apple for it to be better.  I need this research phase first.",
+      "metrics": {
+        "wer": 0.59,
+        "cer": 0.5704697986577181
+      }
+    },
+    {
+      "backend": "voxmlx",
+      "model": "voxtral-mini-latest",
+      "config": "voxmlx:voxtral-mini-latest",
+      "audio": "recordings/2026-02-28/11-16-57/audio.wav",
+      "audio_duration_s": 48.245625,
+      "text": "Ok, donc je refais un message vocal en français. J'aimerais qu'on utilise celui-ci pour le",
+      "text_len": 90,
+      "timings": {
+        "connect_s": 1.7899987697601318,
+        "send_audio_s": 4.936289072036743,
+        "total_s": 17.187323808670044,
+        "first_token_s": 4.895879745483398,
+        "load_s": 0.0,
+        "transcribe_s": 17.187323808670044
+      },
+      "rtf_total": 0.35624626706919116,
+      "rtf_first_token": 0.10147821166133507,
+      "reference": "Ok, donc je refais un message vocal en français.  J'aimerais qu'on utilise celui-ci pour le benchmark.  Je vais faire exprès d'utiliser des mots, des fois avec des longues pauses.  Je me demande si on peut poser des questions aussi.  Là, l'environnement est très silencieux.  Des fois, il y a des petits bruits de chaise, des trucs comme ça, mais grosso modo là,  c'est un contexte idéal.  Je pourrais peut-être travailler comme ça.  Et oui, je me demande si je peux utiliser du franglais, des mots un peu archotiques.  Tu vois, si je dis qu'est-ce que c'est que ce bordel de merde, est-ce que c'est bien traduit ?  Si je dis à la future, elle n'a pas été débatant, c'est de ma faute.  Tu vois, est-ce que ce genre de phrase fonctionne ?",
+      "metrics": {
+        "wer": 0.8814814814814815,
+        "cer": 0.8722689075630252
+      }
+    }
+  ],
+  "errors": []
+}
