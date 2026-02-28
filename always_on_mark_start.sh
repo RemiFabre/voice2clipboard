@@ -9,8 +9,8 @@ cd "$ROOT_DIR"
 t0="$(python3 -c 'import time; print(time.time())')"
 python tools/always_on_capture.py start --runtime-dir "$RUNTIME_DIR"
 t1="$(python3 -c 'import time; print(time.time())')"
-# Fast non-blocking cue (distinct start sound)
-afplay /System/Library/Sounds/Hero.aiff >/dev/null 2>&1 &
+# Fast non-blocking cue (short start sound)
+afplay /System/Library/Sounds/Pop.aiff >/dev/null 2>&1 &
 t2="$(python3 -c 'import time; print(time.time())')"
 if [[ "${VOICE2CLIP_NOTIFY:-1}" == "1" ]]; then
   osascript -e 'display notification "Voice selection started" with title "voice2clipboard"' >/dev/null 2>&1 &
