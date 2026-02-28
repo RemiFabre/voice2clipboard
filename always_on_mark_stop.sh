@@ -12,8 +12,8 @@ python tools/always_on_capture.py stop --runtime-dir "$RUNTIME_DIR"
 RC=$?
 set -e
 t1="$(python3 -c 'import time; print(time.time())')"
-# Fast non-blocking cue (distinct stop sound)
-afplay /System/Library/Sounds/Glass.aiff >/dev/null 2>&1 &
+# Fast non-blocking cue (short stop sound)
+afplay /System/Library/Sounds/Tink.aiff >/dev/null 2>&1 &
 t2="$(python3 -c 'import time; print(time.time())')"
 if [[ "$RC" -eq 0 ]]; then
   if [[ "${VOICE2CLIP_NOTIFY:-1}" == "1" ]]; then
