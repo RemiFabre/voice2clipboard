@@ -133,6 +133,7 @@ Behavior:
 - After each successful copy, selected ranges remain green permanently (history view).
 - This does not modify production pipeline behavior; it is read-only visualization.
 - If `tkinter` is unavailable on your Python build, it auto-falls back to a local web UI.
+- Session-only behavior: preview starts from "now" (ignores old transcript history) and keeps color state only while the preview is running.
 
 Alternative in VS Code:
 - open `runtime/always_on/live_text.txt`
