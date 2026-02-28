@@ -32,6 +32,7 @@ Logs and diagnostics:
   live              Open live transcript files in VS Code
   live-ts           Open timestamped daily timeline in VS Code
   live-tail         Tail live transcript in terminal
+  preview           Open temporary selection preview GUI
   hotkey-last       Show latest hotkey toggle events
 EOF
 }
@@ -154,6 +155,9 @@ case "$cmd" in
     echo "- $RUNTIME_DIR/live_text.txt"
     echo "- $timeline"
     tail -n 80 -f "$RUNTIME_DIR/live_text.txt" "$timeline"
+    ;;
+  preview)
+    "$ROOT_DIR/run_selection_preview_gui.sh"
     ;;
   files)
     show_files

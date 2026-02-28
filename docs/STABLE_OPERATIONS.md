@@ -41,6 +41,7 @@ From `/Users/remi/voice2clipboard`:
 ./voice_control.sh live
 ./voice_control.sh live-ts
 ./voice_control.sh live-tail
+./voice_control.sh preview
 ```
 
 ## Does it auto-start on boot/login?
@@ -118,6 +119,18 @@ If you only want timestamps:
 ```bash
 ./voice_control.sh live-ts
 ```
+
+## Temporary tuning UI (selection preview)
+For boundary tuning sessions, use:
+
+```bash
+./voice_control.sh preview
+```
+
+Behavior:
+- Gray text = outside current selection.
+- Green text = inside current active marker window.
+- This does not modify production pipeline behavior; it is read-only visualization.
 
 Alternative in VS Code:
 - open `runtime/always_on/live_text.txt`
