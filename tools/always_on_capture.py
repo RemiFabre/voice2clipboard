@@ -24,6 +24,16 @@ def now_iso() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+def env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
 def read_json(path: str) -> dict:
     if not os.path.exists(path):
         return {}
@@ -96,9 +106,14 @@ def is_pid_running(pid: int) -> bool:
 
 def cmd_start(runtime_dir: str) -> int:
     marker_path = os.path.join(runtime_dir, "selection_marker.json")
+    transcript_lag_s = env_float("VOICE2CLIP_TRANSCRIPT_LAG_S", 0.48)
+    started_epoch = time.time()
     payload = {
         "started_at": now_iso(),
-        "started_epoch": time.time(),
+        "started_epoch": started_epoch,
+        # Deltas are emitted after model latency; use lag-adjusted window for copy selection.
+        "selection_start_epoch": started_epoch + transcript_lag_s,
+        "transcript_lag_s": transcript_lag_s,
     }
     write_json(marker_path, payload)
     print(f"Selection started at {payload['started_at']}")
@@ -116,8 +131,17 @@ def cmd_stop(runtime_dir: str) -> int:
         print("No selection marker found. Run start first.")
         return 1
 
-    start_epoch = float(marker.get("started_epoch", 0.0))
-    end_epoch = time.time()
+    transcript_lag_s = float(marker.get("transcript_lag_s", env_float("VOICE2CLIP_TRANSCRIPT_LAG_S", 0.48)))
+    stop_grace_s = env_float("VOICE2CLIP_STOP_GRACE_S", 0.12)
+    pressed_stop_epoch = time.time()
+
+    # Align stop boundary with transcript emission time to include final spoken words.
+    selection_start_epoch = float(marker.get("selection_start_epoch", float(marker.get("started_epoch", 0.0)) + transcript_lag_s))
+    selection_end_epoch = pressed_stop_epoch + transcript_lag_s + stop_grace_s
+
+    wait_s = selection_end_epoch - time.time()
+    if wait_s > 0:
+        time.sleep(wait_s)
 
     picked_deltas: list[str] = []
     for d in read_deltas(deltas_path):
@@ -137,7 +161,7 @@ def cmd_stop(runtime_dir: str) -> int:
             epoch = float(epoch)
         except Exception:
             continue
-        if start_epoch <= epoch <= end_epoch:
+        if selection_start_epoch <= epoch <= selection_end_epoch:
             picked_deltas.append(str(delta))
 
     # Preferred path: fine-grained delta stream (more accurate than segment-level cut).
@@ -152,7 +176,7 @@ def cmd_stop(runtime_dir: str) -> int:
             seg_epoch = parse_iso_to_epoch(ts)
         except Exception:
             continue
-        if start_epoch <= seg_epoch <= end_epoch:
+        if selection_start_epoch <= seg_epoch <= selection_end_epoch:
             picked_segments.append(text)
 
     # Fallback for older runs with no deltas stream available.
