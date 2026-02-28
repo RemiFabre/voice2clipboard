@@ -3,6 +3,7 @@ sounddevice==0.5.1
 soundfile==0.13.1
 numpy==1.26.4
 faster-whisper
+mlx-whisper
 playsound==1.2.2
 
 # Clipboard & automation

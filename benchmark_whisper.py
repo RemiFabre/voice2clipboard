@@ -5,27 +5,31 @@ Benchmark different Whisper configurations to find the best speed/quality tradeo
 
 import time
 import sys
+import platform
+import subprocess
+import json
 from faster_whisper import WhisperModel
 
 # Test file - use the most recent recording or pass as argument
 DEFAULT_TEST_FILE = "recordings/2026-01-31/14-58-08/audio.wav"
-
-DEVICE = "cuda"
+IS_MAC = platform.system() == "Darwin"
+DEVICE = "cpu" if IS_MAC else "cuda"
+COMPUTE_TYPES = ["int8"] if IS_MAC else ["float16", "int8"]
 
 # Configurations to test
-CONFIGS = [
-    # (model_size, compute_type, beam_size, best_of)
-    ("medium", "float16", 5, 5),   # Current config (baseline)
-    ("medium", "float16", 1, 1),   # Reduced beam
-    ("medium", "int8", 5, 5),      # int8 quantization
-    ("medium", "int8", 1, 1),      # int8 + reduced beam
-    ("small", "float16", 5, 5),    # Smaller model
-    ("small", "int8", 1, 1),       # Small optimized
-    ("base", "float16", 5, 5),     # Even smaller
-    ("base", "int8", 1, 1),        # Base optimized
-    ("tiny", "float16", 5, 5),     # Smallest
-    ("tiny", "int8", 1, 1),        # Tiny optimized
-]
+CONFIGS = []
+for compute_type in COMPUTE_TYPES:
+    CONFIGS.extend([
+        # (model_size, compute_type, beam_size, best_of)
+        ("medium", compute_type, 5, 5),
+        ("medium", compute_type, 1, 1),
+        ("small", compute_type, 5, 5),
+        ("small", compute_type, 1, 1),
+        ("base", compute_type, 5, 5),
+        ("base", compute_type, 1, 1),
+        ("tiny", compute_type, 5, 5),
+        ("tiny", compute_type, 1, 1),
+    ])
 
 
 def benchmark_config(test_file, model_size, compute_type, beam_size, best_of):
@@ -61,12 +65,65 @@ def benchmark_config(test_file, model_size, compute_type, beam_size, best_of):
     }
 
 
+def get_audio_duration_sec(test_file):
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', test_file],
+            capture_output=True, text=True
+        )
+        return float(result.stdout.strip())
+    except Exception:
+        return None
+
+
+def benchmark_mlx(test_file, model_size):
+    repo = f"mlx-community/whisper-{model_size}-mlx"
+    payload = r"""
+import json
+import sys
+audio = sys.argv[1]
+repo = sys.argv[2]
+import mlx_whisper
+try:
+    result = mlx_whisper.transcribe(audio, path_or_hf_repo=repo)
+except TypeError:
+    result = mlx_whisper.transcribe(audio, repo)
+text = result.get("text", "") if isinstance(result, dict) else str(result)
+print(json.dumps({"text": text.strip()}))
+""".strip()
+    start = time.time()
+    proc = subprocess.run([sys.executable, "-c", payload, test_file, repo], capture_output=True, text=True)
+    elapsed = time.time() - start
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or proc.stdout or "mlx failed").strip())
+    lines = (proc.stdout or "").strip().splitlines()
+    if not lines:
+        raise RuntimeError("mlx returned no output")
+    text = json.loads(lines[-1]).get("text", "")
+    return {
+        "model": model_size,
+        "compute": "mlx",
+        "beam": 1,
+        "best_of": 1,
+        "load_time": 0.0,
+        "transcribe_time": elapsed,
+        "total_time": elapsed,
+        "text": text,
+        "text_len": len(text),
+    }
+
+
 def main():
     test_file = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_TEST_FILE
+    include_mlx = "--include-mlx" in sys.argv
 
     print(f"Benchmarking Whisper configurations")
     print(f"Test file: {test_file}")
     print(f"Device: {DEVICE}")
+    duration = get_audio_duration_sec(test_file)
+    if duration:
+        print(f"Audio duration: {duration:.2f}s")
     print("=" * 80)
 
     results = []
@@ -95,12 +152,26 @@ def main():
     print("\n" + "=" * 80)
     print("SUMMARY")
     print("=" * 80)
-    print(f"{'Config':<40} {'Load':>7} {'Trans':>7} {'Total':>7} {'Chars':>6}")
+    print(f"{'Config':<40} {'Load':>7} {'Trans':>7} {'Total':>7} {'RTF':>7} {'Chars':>6}")
     print("-" * 80)
 
     for r in results:
         config = f"{r['model']}/{r['compute']}/beam={r['beam']}"
-        print(f"{config:<40} {r['load_time']:>6.2f}s {r['transcribe_time']:>6.2f}s {r['total_time']:>6.2f}s {r['text_len']:>6}")
+        rtf = (r["transcribe_time"] / duration) if duration else 0.0
+        print(f"{config:<40} {r['load_time']:>6.2f}s {r['transcribe_time']:>6.2f}s {r['total_time']:>6.2f}s {rtf:>6.2f}x {r['text_len']:>6}")
+
+    if IS_MAC and include_mlx:
+        print("\n" + "=" * 80)
+        print("MLX BENCHMARKS")
+        print("=" * 80)
+        for model in ["medium", "small", "base", "tiny"]:
+            print(f"\nTesting mlx/{model}...", end=" ", flush=True)
+            try:
+                r = benchmark_mlx(test_file, model)
+                rtf = (r["transcribe_time"] / duration) if duration else 0.0
+                print(f"done ({r['transcribe_time']:.2f}s, RTF {rtf:.2f}x)")
+            except Exception as e:
+                print(f"ERROR: {e}")
 
     # Show transcription samples for quality comparison
     print("\n" + "=" * 80)
