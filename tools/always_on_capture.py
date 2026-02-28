@@ -52,6 +52,12 @@ def write_json(path: str, payload: dict) -> None:
     os.replace(tmp, path)
 
 
+def append_jsonl(path: str, payload: dict) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+
 def read_segments(path: str) -> list[dict]:
     if not os.path.exists(path):
         return []
@@ -125,6 +131,7 @@ def cmd_stop(runtime_dir: str) -> int:
     segments_path = os.path.join(runtime_dir, "segments.jsonl")
     deltas_path = os.path.join(runtime_dir, "deltas.jsonl")
     out_path = os.path.join(runtime_dir, "last_selection.txt")
+    selections_path = os.path.join(runtime_dir, "selections.jsonl")
 
     marker = read_json(marker_path)
     if not marker:
@@ -190,6 +197,17 @@ def cmd_stop(runtime_dir: str) -> int:
     os.makedirs(runtime_dir, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(selected_text + "\n")
+
+    append_jsonl(
+        selections_path,
+        {
+            "ts": now_iso(),
+            "selection_start_epoch": selection_start_epoch,
+            "selection_end_epoch": selection_end_epoch,
+            "chars": len(selected_text),
+            "text": selected_text,
+        },
+    )
 
     if os.path.exists(marker_path):
         os.remove(marker_path)
