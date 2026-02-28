@@ -192,6 +192,11 @@ def main() -> None:
     args = ap.parse_args()
 
     state = SharedState(runtime_dir=args.runtime_dir)
+    # Session-only preview: ignore historical content before startup.
+    if os.path.exists(state.deltas_path):
+        state.file_pos = os.path.getsize(state.deltas_path)
+    if os.path.exists(state.selections_path):
+        state.selections_file_pos = os.path.getsize(state.selections_path)
 
     def updater() -> None:
         while True:
