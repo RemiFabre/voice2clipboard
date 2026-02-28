@@ -1,0 +1,324 @@
+{
+  "timestamp": "2026-02-28T11:24:12",
+  "manifest": "benchmarks/manifest_groundtruth_seed_short.jsonl",
+  "configs": [
+    {
+      "key": "voxmlx_voxtral",
+      "label": "voxmlx:voxtral-mini-latest",
+      "backend": "voxmlx"
+    },
+    {
+      "key": "faster_medium",
+      "label": "faster:whisper-medium",
+      "backend": "faster"
+    },
+    {
+      "key": "faster_small",
+      "label": "faster:whisper-small",
+      "backend": "faster"
+    },
+    {
+      "key": "faster_base",
+      "label": "faster:whisper-base",
+      "backend": "faster"
+    }
+  ],
+  "config_errors": [],
+  "samples": [
+    {
+      "audio": "recordings/2026-02-27/16-10-29/audio.wav",
+      "outputs": {
+        "voxmlx_voxtral": {
+          "backend": "voxmlx",
+          "model": "voxtral-mini-latest",
+          "config": "voxmlx:voxtral-mini-latest",
+          "text": "Hey, just",
+          "timings": {
+            "connect_s": 0.0830681324005127,
+            "send_audio_s": 0.014226913452148438,
+            "total_s": 12.242069959640503,
+            "first_token_s": 1.016282081604004,
+            "load_s": 0.0,
+            "transcribe_s": 12.242069959640503
+          },
+          "rtf_total": 2.720459991031223
+        },
+        "faster_medium": {
+          "backend": "faster",
+          "model": "whisper-medium",
+          "config": "faster:whisper-medium",
+          "text": "Hey, just testing if this works, hopefully it does.",
+          "timings": {
+            "load_s": 1.8688948154449463,
+            "transcribe_s": 7.0971410274505615,
+            "total_s": 8.966035842895508,
+            "first_token_s": 8.966035842895508
+          },
+          "rtf_total": 1.992452409532335
+        },
+        "faster_small": {
+          "backend": "faster",
+          "model": "whisper-small",
+          "config": "faster:whisper-small",
+          "text": "Hey just testing if this works hopefully it does",
+          "timings": {
+            "load_s": 1.1477980613708496,
+            "transcribe_s": 2.43894100189209,
+            "total_s": 3.5867390632629395,
+            "first_token_s": 3.5867390632629395
+          },
+          "rtf_total": 0.7970531251695421
+        },
+        "faster_base": {
+          "backend": "faster",
+          "model": "whisper-base",
+          "config": "faster:whisper-base",
+          "text": "Hey just testing if this works hopefully it does",
+          "timings": {
+            "load_s": 0.973581075668335,
+            "transcribe_s": 0.7589030265808105,
+            "total_s": 1.7324841022491455,
+            "first_token_s": 1.7324841022491455
+          },
+          "rtf_total": 0.3849964671664768
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-27/17-09-26/audio.wav",
+      "outputs": {
+        "voxmlx_voxtral": {
+          "backend": "voxmlx",
+          "model": "voxtral-mini-latest",
+          "config": "voxmlx:voxtral-mini-latest",
+          "text": "Okay,",
+          "timings": {
+            "connect_s": 0.10688114166259766,
+            "send_audio_s": 0.07604193687438965,
+            "total_s": 12.325927257537842,
+            "first_token_s": 1.09678316116333,
+            "load_s": 0.0,
+            "transcribe_s": 12.325927257537842
+          },
+          "rtf_total": 0.5654175994416912
+        },
+        "faster_medium": {
+          "backend": "faster",
+          "model": "whisper-medium",
+          "config": "faster:whisper-medium",
+          "text": "Ok, testing if this transcript works and if it's fast enough.  There is some noise around, so let's see if the transcription is good.  My sentences should be normal, so if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+          "timings": {
+            "load_s": 1.2860019207000732,
+            "transcribe_s": 8.737147808074951,
+            "total_s": 10.023149728775024,
+            "first_token_s": 10.023149728775024
+          },
+          "rtf_total": 0.4597840908904304
+        },
+        "faster_small": {
+          "backend": "faster",
+          "model": "whisper-small",
+          "config": "faster:whisper-small",
+          "text": "Ok, testing if this transcript works and if it's fast enough, there's some noise around.  So let's see if the transcription is good.  My sentence should be normal, so if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+          "timings": {
+            "load_s": 0.534376859664917,
+            "transcribe_s": 2.9969520568847656,
+            "total_s": 3.5313289165496826,
+            "first_token_s": 3.5313289165496826
+          },
+          "rtf_total": 0.1619898833666648
+        },
+        "faster_base": {
+          "backend": "faster",
+          "model": "whisper-base",
+          "config": "faster:whisper-base",
+          "text": "Okay, testing if this transcript works.  It's fast enough.  There's some noise around.  So, I'll receive the transcription.  It's good.  My sentence should be normal.  So, if you see weird words or stuff like that, that shouldn't make sense.  It's probably transcription mistakes, but that's another problem.",
+          "timings": {
+            "load_s": 0.2951529026031494,
+            "transcribe_s": 1.077134132385254,
+            "total_s": 1.3722870349884033,
+            "first_token_s": 1.3722870349884033
+          },
+          "rtf_total": 0.06294984749269822
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-27/18-17-10/audio.wav",
+      "outputs": {
+        "voxmlx_voxtral": {
+          "backend": "voxmlx",
+          "model": "voxtral-mini-latest",
+          "config": "voxmlx:voxtral-mini-latest",
+          "text": "Okay, I",
+          "timings": {
+            "connect_s": 1.675987958908081,
+            "send_audio_s": 0.06686115264892578,
+            "total_s": 14.294088363647461,
+            "first_token_s": 3.0802600383758545,
+            "load_s": 0.0,
+            "transcribe_s": 14.294088363647461
+          },
+          "rtf_total": 0.7930008407425414
+        },
+        "faster_medium": {
+          "backend": "faster",
+          "model": "whisper-medium",
+          "config": "faster:whisper-medium",
+          "text": "Okay, I'm trying again. Let's see if this time the transcription is correct.  I'm doing a bit of a long message. Let's assume this is a message of like, I don't know, maybe 15 seconds.  This causes inverse kinematics in robotics in a very nosy environment. Hopefully this works properly.",
+          "timings": {
+            "load_s": 1.3179891109466553,
+            "transcribe_s": 8.6749849319458,
+            "total_s": 9.992974042892456,
+            "first_token_s": 9.992974042892456
+          },
+          "rtf_total": 0.5543856044492795
+        },
+        "faster_small": {
+          "backend": "faster",
+          "model": "whisper-small",
+          "config": "faster:whisper-small",
+          "text": "Okay, I'm trying again. Let's see if this time the transcription is correct. I'm doing a bit of a long message  Let's assume this is a message of like, I don't know, maybe 15 seconds. This causes inverse kinematics in robotics and in a very noisy environment  Hopefully this works properly",
+          "timings": {
+            "load_s": 0.5191330909729004,
+            "transcribe_s": 2.9765539169311523,
+            "total_s": 3.4956870079040527,
+            "first_token_s": 3.4956870079040527
+          },
+          "rtf_total": 0.1939321113538529
+        },
+        "faster_base": {
+          "backend": "faster",
+          "model": "whisper-base",
+          "config": "faster:whisper-base",
+          "text": "Okay, I'm trying again. Let's see if this time the transcription is correct. I'm doing a bit of a long message. Let's assume this message of like 15 seconds.  This causes the inverse kinematics in robotics and a very nosy environment. Hopefully this works properly.",
+          "timings": {
+            "load_s": 0.3005702495574951,
+            "transcribe_s": 1.330596923828125,
+            "total_s": 1.6311671733856201,
+            "first_token_s": 1.6311671733856201
+          },
+          "rtf_total": 0.09049314002955844
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-27/21-48-39/audio.wav",
+      "outputs": {
+        "voxmlx_voxtral": {
+          "backend": "voxmlx",
+          "model": "voxtral-mini-latest",
+          "config": "voxmlx:voxtral-mini-latest",
+          "text": "Can we first do a bit more research on this? Like, for example, those MLX, allow for streaming or do we need specifically whisper streaming for it to work? And we're only talking about Whisper. Are there other options in currently? I mean, this",
+          "timings": {
+            "connect_s": 0.3434889316558838,
+            "send_audio_s": 18.30253791809082,
+            "total_s": 29.56524395942688,
+            "first_token_s": 2.591665029525757,
+            "load_s": 0.0,
+            "transcribe_s": 29.56524395942688
+          },
+          "rtf_total": 0.4892604366081228
+        },
+        "faster_medium": {
+          "backend": "faster",
+          "model": "whisper-medium",
+          "config": "faster:whisper-medium",
+          "text": "Can we first do a bit more research on this?  For example, does MLX allow for streaming?  Or do we need, specifically, whisper streaming for it to work?  And we're only talking about whisper. Are there other options currently?  This seems to be a very rapidly moving subject.  I hear about a new model that does stuff.  I want you to research recent models that could be better than whisper for us.  Maybe that's not the case because you need to implement something specific for Apple for it to be better.  I need this research phase first.",
+          "timings": {
+            "load_s": 1.2955818176269531,
+            "transcribe_s": 17.60408306121826,
+            "total_s": 18.899664878845215,
+            "first_token_s": 18.899664878845215
+          },
+          "rtf_total": 0.3127611022950025
+        },
+        "faster_small": {
+          "backend": "faster",
+          "model": "whisper-small",
+          "config": "faster:whisper-small",
+          "text": "Can we first do a bit more research on this?  For example, does MLX allow for streaming?  Or do we need specifically whisper streaming for it to work?  And we're only talking about whisper.  Are there other options currently?  This seems to be a very rapidly moving subject.  I hear about a new model that does recent models that are better than whisper for us.  Maybe that's not the case because you need to implement something specific for Apple for it to be better.  I need this research phase first.",
+          "timings": {
+            "load_s": 0.5227079391479492,
+            "transcribe_s": 6.061779975891113,
+            "total_s": 6.5844879150390625,
+            "first_token_s": 6.5844879150390625
+          },
+          "rtf_total": 0.10896339758176543
+        },
+        "faster_base": {
+          "backend": "faster",
+          "model": "whisper-base",
+          "config": "faster:whisper-base",
+          "text": "Can we first do a bit more research on this?  Like, for example, does Ablelex allow for streaming?  Or do we need specifically whisper streaming for it to work?  And we're only talking about whisper.  Are there other options in currently?  I mean, this seems to be very rapidly moving subject type.  I've been here a week about a new model that I want you to research.  Recent models that are better than whisper for us.  Maybe that's not the case, because you need to implement something specific for Able  to be better.  But I need this research phase first.",
+          "timings": {
+            "load_s": 0.29552721977233887,
+            "transcribe_s": 2.0059127807617188,
+            "total_s": 2.3014400005340576,
+            "first_token_s": 2.3014400005340576
+          },
+          "rtf_total": 0.03808537961107083
+        }
+      }
+    },
+    {
+      "audio": "recordings/2026-02-28/11-16-57/audio.wav",
+      "outputs": {
+        "voxmlx_voxtral": {
+          "backend": "voxmlx",
+          "model": "voxtral-mini-latest",
+          "config": "voxmlx:voxtral-mini-latest",
+          "text": "Ok, donc je refais un message vocal en français. J'aimerais qu'on utilise celui-ci pour le",
+          "timings": {
+            "connect_s": 1.590942144393921,
+            "send_audio_s": 4.998617887496948,
+            "total_s": 17.00033211708069,
+            "first_token_s": 4.153576135635376,
+            "load_s": 0.0,
+            "transcribe_s": 17.00033211708069
+          },
+          "rtf_total": 0.35237044016075425
+        },
+        "faster_medium": {
+          "backend": "faster",
+          "model": "whisper-medium",
+          "config": "faster:whisper-medium",
+          "text": "Ok, donc je refais un message vocal en français.  J'aimerais qu'on utilise celui-ci pour le benchmark.  Je vais faire exprès d'utiliser des mots, des fois avec des longues pauses.  Je me demande si on peut poser des questions aussi.  Là, l'environnement est très silencieux.  Des fois, il y a des petits bruits de chaise, des trucs comme ça, mais grosso modo là,  c'est un contexte idéal.  Je pourrais peut-être travailler comme ça.  Et oui, je me demande si je peux utiliser du franglais, des mots un peu archotiques.  Tu vois, si je dis qu'est-ce que c'est que ce bordel de merde, est-ce que c'est bien traduit ?  Si je dis à la future, elle n'a pas été débatant, c'est de ma faute.  Tu vois, est-ce que ce genre de phrase fonctionne ?",
+          "timings": {
+            "load_s": 1.291482925415039,
+            "transcribe_s": 16.878206253051758,
+            "total_s": 18.169689178466797,
+            "first_token_s": 18.169689178466797
+          },
+          "rtf_total": 0.376608017379126
+        },
+        "faster_small": {
+          "backend": "faster",
+          "model": "whisper-small",
+          "config": "faster:whisper-small",
+          "text": "Ok, donc je refais un message vocale en français.  J'aimerais que l'on utilise celui-ci pour le benchmark.  Je vais faire exploit d'utiliser des mots, des fois avec des longues pauses.  Je vais me demander si on peut poser des questions aussi.  Là, l'environnement est très silencieux.  Des fois, il y a des petits bruit de chaise, des trucs comme ça.  Mais pour ce modo, là, c'est un contexte idéal.  Je pourrais travailler comme ça.  Et oui, effectivement, si je peux utiliser du franglais, des mots un peu arcotiques,  tu vois, si je dis qu'est-ce que c'est que ce bordel de merde,  est-ce que c'est bien traduit,  si je dis que la feature, elle n'a pas été débattant, c'est de ma faute.  Tu vois, est-ce que ce genre de phrase fonctionne ?",
+          "timings": {
+            "load_s": 0.6287882328033447,
+            "transcribe_s": 6.026592016220093,
+            "total_s": 6.6553802490234375,
+            "first_token_s": 6.6553802490234375
+          },
+          "rtf_total": 0.13794785017342895
+        },
+        "faster_base": {
+          "backend": "faster",
+          "model": "whisper-base",
+          "config": "faster:whisper-base",
+          "text": "Ok, donc je referais un message vocal en français, j'aimerais qu'on te souvienne pour le benchmark.  Je vais faire expliquer des mots, des fois avec des longues pauses.  Je pense que si on peut poser des questions,  la l'environnement est très silencieux pour des fois des petits branches,  mais pour ce modo, c'est un contexte idéal, je pourrais te travailler comme ça.  Et si je peux utiliser du franglais, des mots un peu arcotiques,  tu as 6 d'ici, qu'est-ce que c'est que ce bordel de merde,  ce que c'est bien traduit, si j'ai dit à la future,  à la paix de débatant, c'est de ma faute, tu as ce que ce genre de phrases fonctionne.",
+          "timings": {
+            "load_s": 0.29360389709472656,
+            "transcribe_s": 2.9623169898986816,
+            "total_s": 3.255920886993408,
+            "first_token_s": 3.255920886993408
+          },
+          "rtf_total": 0.06748634486533045
+        }
+      }
+    }
+  ]
+}
