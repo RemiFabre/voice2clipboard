@@ -33,7 +33,7 @@ cd /Users/remi/voice2clipboard
 Voice-command mode is enabled by default in daemon service:
 - say `roger start` to begin selection
 - say `roger stop` to end selection and copy
-- uses same sounds as manual start/stop scripts
+- aliases: `copy start` / `copy stop`
 
 5. Stop everything:
 ```bash
