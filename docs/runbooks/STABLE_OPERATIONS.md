@@ -92,8 +92,11 @@ So `start/stop` control the **background services**, not marker windows.
 By default, the daemon also supports spoken marker control:
 - `roger start` -> starts capture selection
 - `roger stop` -> stops selection and copies to clipboard
+- `copy start` -> starts capture selection
+- `copy stop` -> stops selection and copies to clipboard
 
-These actions call the same scripts as manual marker commands, so cues/sounds stay consistent.
+Voice-command capture is text-based between keywords (not timestamp-window based), so it does not use boundary pad tuning.
+Manual hotkey/button markers still use timestamp-window selection.
 
 Customize phrases with env vars before starting services:
 ```bash
