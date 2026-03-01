@@ -31,7 +31,7 @@ class SharedState:
     selections_file_pos: int = 0
     selected_ranges: list[tuple[float, float]] = field(default_factory=list)
     selected_spans: list[tuple[int, int]] = field(default_factory=list)
-    pending_selection_texts: list[str] = field(default_factory=list)
+    pending_selection_texts: list[dict] = field(default_factory=list)
     selection_search_cursor: int = 0
     marker_active: bool = False
     marker_start_epoch: float | None = None
@@ -126,14 +126,21 @@ def resolve_pending_selection_texts(state: SharedState) -> None:
     if not state.pending_selection_texts:
         return
     hay = full_text(state)
-    unresolved: list[str] = []
+    unresolved: list[dict] = []
     start_local_hint = max(0, state.selection_search_cursor)
-    for needle in state.pending_selection_texts:
+    for item in state.pending_selection_texts:
+        needle = str(item.get("text", ""))
+        tries = int(item.get("tries", 0))
+        if not needle:
+            continue
         s = hay.find(needle, start_local_hint)
         if s < 0:
             s = hay.find(needle)
         if s < 0:
-            unresolved.append(needle)
+            tries += 1
+            if tries <= 10:
+                item["tries"] = tries
+                unresolved.append(item)
             continue
         e = s + len(needle)
         state.selected_spans.append((s, e))
@@ -162,14 +169,15 @@ def tail_new_selections(state: SharedState) -> None:
             end = obj.get("selection_end_epoch")
             source = str(obj.get("source", ""))
             sel_text = str(obj.get("selection_text", "")).strip()
+            if start is not None and end is not None:
+                try:
+                    state.selected_ranges.append((float(start), float(end)))
+                except Exception:
+                    pass
             if source == "voice_command" and sel_text:
-                state.pending_selection_texts.append(sel_text)
+                state.pending_selection_texts.append({"text": sel_text, "tries": 0})
                 continue
             if start is None or end is None:
-                continue
-            try:
-                state.selected_ranges.append((float(start), float(end)))
-            except Exception:
                 continue
         state.selections_file_pos = f.tell()
 
