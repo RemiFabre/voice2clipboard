@@ -28,6 +28,7 @@ class AppState:
     deltas_path: str = field(init=False)
     selections_path: str = field(init=False)
     marker_path: str = field(init=False)
+    state_path: str = field(init=False)
     entries: list[DeltaEntry] = field(default_factory=list)
     file_pos: int = 0
     selections_file_pos: int = 0
@@ -37,16 +38,29 @@ class AppState:
     selection_search_cursor: int = 0
     marker_active: bool = False
     marker_start_epoch: float | None = None
+    daemon_connected: bool = False
 
     def __post_init__(self) -> None:
         self.deltas_path = os.path.join(self.runtime_dir, "deltas.jsonl")
         self.selections_path = os.path.join(self.runtime_dir, "selections.jsonl")
         self.marker_path = os.path.join(self.runtime_dir, "selection_marker.json")
+        self.state_path = os.path.join(self.runtime_dir, "state.json")
 
 
 def read_marker(path: str) -> tuple[bool, float | None]:
     if not os.path.exists(path):
         return False, None
+
+
+def read_daemon_connected(path: str) -> bool:
+    if not os.path.exists(path):
+        return False
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            obj = json.load(f)
+        return bool(obj.get("connected", False))
+    except Exception:
+        return False
     try:
         with open(path, "r", encoding="utf-8") as f:
             obj = json.load(f)
@@ -231,7 +245,7 @@ def main() -> None:
     top = tk.Frame(root, bg="#101214")
     top.pack(fill="x", padx=12, pady=(10, 4))
 
-    status_var = tk.StringVar(value="Marker: inactive")
+    status_var = tk.StringVar(value="Daemon: disconnected | Marker: inactive")
     stats_var = tk.StringVar(value="Chars: total=0 selected=0")
 
     status_label = tk.Label(top, textvariable=status_var, fg="#D0D7DE", bg="#101214", font=("Menlo", 12, "bold"))
@@ -257,16 +271,21 @@ def main() -> None:
 
     def tick() -> None:
         state.marker_active, state.marker_start_epoch = read_marker(state.marker_path)
+        state.daemon_connected = read_daemon_connected(state.state_path)
         tail_new_deltas(state)
         tail_new_selections(state)
         resolve_pending_selection_texts(state)
         total_chars, selected_chars = rebuild_text(state, text)
+        daemon = "Daemon: listening" if state.daemon_connected else "Daemon: disconnected"
         if state.marker_active:
-            status_var.set(
-                f"Marker: ACTIVE  start_epoch={state.marker_start_epoch:.3f}" if state.marker_start_epoch else "Marker: ACTIVE"
+            marker = (
+                f"Marker: ACTIVE  start_epoch={state.marker_start_epoch:.3f}"
+                if state.marker_start_epoch
+                else "Marker: ACTIVE"
             )
         else:
-            status_var.set("Marker: inactive")
+            marker = "Marker: inactive"
+        status_var.set(f"{daemon} | {marker}")
         stats_var.set(f"Chars: total={total_chars} selected={selected_chars}")
         root.after(args.refresh_ms, tick)
 

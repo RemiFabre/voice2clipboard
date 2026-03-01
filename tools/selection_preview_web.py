@@ -25,6 +25,7 @@ class SharedState:
     deltas_path: str = field(init=False)
     selections_path: str = field(init=False)
     marker_path: str = field(init=False)
+    state_path: str = field(init=False)
     entries: list[DeltaEntry] = field(default_factory=list)
     file_pos: int = 0
     selections_file_pos: int = 0
@@ -34,17 +35,30 @@ class SharedState:
     selection_search_cursor: int = 0
     marker_active: bool = False
     marker_start_epoch: float | None = None
+    daemon_connected: bool = False
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def __post_init__(self) -> None:
         self.deltas_path = os.path.join(self.runtime_dir, "deltas.jsonl")
         self.selections_path = os.path.join(self.runtime_dir, "selections.jsonl")
         self.marker_path = os.path.join(self.runtime_dir, "selection_marker.json")
+        self.state_path = os.path.join(self.runtime_dir, "state.json")
 
 
 def read_marker(path: str) -> tuple[bool, float | None]:
     if not os.path.exists(path):
         return False, None
+
+
+def read_daemon_connected(path: str) -> bool:
+    if not os.path.exists(path):
+        return False
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            obj = json.load(f)
+        return bool(obj.get("connected", False))
+    except Exception:
+        return False
     try:
         with open(path, "r", encoding="utf-8") as f:
             obj = json.load(f)
@@ -204,6 +218,7 @@ def build_snapshot(state: SharedState) -> dict:
     return {
         "marker_active": active,
         "marker_start_epoch": start,
+        "daemon_connected": state.daemon_connected,
         "total_chars": total,
         "selected_chars": selected,
         "chunks": chunks,
@@ -223,7 +238,7 @@ body { background:#101214; color:#d0d7de; font-family:Menlo, monospace; margin:0
 .s { color:#00d084; }
 </style></head>
 <body>
-<div class="top"><div class="status" id="status">Marker: inactive</div><div class="stats" id="stats"></div></div>
+<div class="top"><div class="status" id="status">Daemon: disconnected | Marker: inactive</div><div class="stats" id="stats"></div></div>
 <div id="text"></div>
 <script>
 async function tick(){
@@ -232,7 +247,9 @@ async function tick(){
   const s = document.getElementById('status');
   const st = document.getElementById('stats');
   const t = document.getElementById('text');
-  s.textContent = d.marker_active ? `Marker: ACTIVE start_epoch=${(d.marker_start_epoch||0).toFixed(3)}` : 'Marker: inactive';
+  const daemon = d.daemon_connected ? 'Daemon: listening' : 'Daemon: disconnected';
+  const marker = d.marker_active ? `Marker: ACTIVE start_epoch=${(d.marker_start_epoch||0).toFixed(3)}` : 'Marker: inactive';
+  s.textContent = `${daemon} | ${marker}`;
   st.textContent = `Chars: total=${d.total_chars} selected=${d.selected_chars}`;
   let html = '';
   for (const c of d.chunks) {
@@ -265,6 +282,7 @@ def main() -> None:
         while True:
             with state.lock:
                 state.marker_active, state.marker_start_epoch = read_marker(state.marker_path)
+                state.daemon_connected = read_daemon_connected(state.state_path)
                 tail_new_deltas(state)
                 tail_new_selections(state)
                 resolve_pending_selection_texts(state)
