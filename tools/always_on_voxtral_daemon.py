@@ -69,6 +69,25 @@ def write_state(path: str, payload: dict) -> None:
     os.replace(tmp, path)
 
 
+def read_pid(path: str) -> int | None:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            raw = f.read().strip()
+        if not raw:
+            return None
+        return int(raw)
+    except Exception:
+        return None
+
+
+def is_pid_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
 def ws_host_port(url: str) -> tuple[str, int]:
     parsed = urlparse(url)
     host = parsed.hostname or "127.0.0.1"
@@ -104,6 +123,12 @@ async def run_daemon(args: argparse.Namespace) -> None:
     pid_path = os.path.join(runtime_dir, "daemon.pid")
 
     os.makedirs(runtime_dir, exist_ok=True)
+    existing_pid = read_pid(pid_path)
+    if existing_pid and existing_pid != os.getpid() and is_pid_running(existing_pid):
+        raise RuntimeError(
+            f"Another daemon instance is already running (pid={existing_pid}, pid file={pid_path})"
+        )
+
     write_text(live_text_path, "")
     append_text_line(timeline_day_path(runtime_dir), f"\n=== Session start {now_iso()} ===")
     with open(pid_path, "w", encoding="utf-8") as f:
@@ -302,6 +327,9 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
+    except RuntimeError as exc:
+        print(f"[daemon-error] {exc}", file=sys.stderr)
+        raise SystemExit(3)
     except ConnectionError as exc:
         print(f"[daemon-error] {exc}", file=sys.stderr)
         print("Hint: start voxmlx first: ./voice_control.sh start", file=sys.stderr)
