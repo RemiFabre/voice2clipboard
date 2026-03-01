@@ -5,12 +5,12 @@ Compare realtime and one-shot transcription paths on your machine with reproduci
 
 ## Main Script
 - `tools/benchmark_realtime_backends.py`
-- Wrapper: `run_benchmark_realtime_backends.sh`
+- Wrapper: `scripts/experiments/run_benchmark_realtime_backends.sh`
 
 ## Quick Run (discovered local recordings)
 ```bash
 cd /Users/remi/voice2clipboard
-./run_benchmark_realtime_backends.sh --backend voxmlx --backend faster
+./scripts/experiments/run_benchmark_realtime_backends.sh --backend voxmlx --backend faster
 ```
 
 ## Run with explicit manifest
@@ -21,7 +21,7 @@ cd /Users/remi/voice2clipboard
 2. Run:
 ```bash
 cd /Users/remi/voice2clipboard
-./run_benchmark_realtime_backends.sh \
+./scripts/experiments/run_benchmark_realtime_backends.sh \
   --manifest benchmarks/manifest_template.jsonl \
   --backend voxmlx \
   --backend faster \
