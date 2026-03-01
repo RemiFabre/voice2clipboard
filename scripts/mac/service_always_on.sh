@@ -14,7 +14,12 @@ bootout() {
 
 bootstrap() {
   local label="$1"
-  launchctl bootstrap "gui/${uid}" "$HOME/Library/LaunchAgents/${label}.plist"
+  launchctl bootstrap "gui/${uid}" "$HOME/Library/LaunchAgents/${label}.plist" >/dev/null 2>&1 || true
+}
+
+is_loaded() {
+  local label="$1"
+  launchctl print "gui/${uid}/${label}" >/dev/null 2>&1
 }
 
 kickstart() {
@@ -31,8 +36,12 @@ status_one() {
 
 case "$cmd" in
   start)
-    bootstrap "$VOXMLX_LABEL" || true
-    bootstrap "$DAEMON_LABEL" || true
+    if ! is_loaded "$VOXMLX_LABEL"; then
+      bootstrap "$VOXMLX_LABEL"
+    fi
+    if ! is_loaded "$DAEMON_LABEL"; then
+      bootstrap "$DAEMON_LABEL"
+    fi
     kickstart "$VOXMLX_LABEL"
     kickstart "$DAEMON_LABEL"
     ;;
