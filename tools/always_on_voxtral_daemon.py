@@ -36,6 +36,12 @@ class State:
     last_delta_at: float | None = None
 
 
+@dataclass
+class VoiceCaptureState:
+    active: bool = False
+    parts: list[str] | None = None
+
+
 def now_iso() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
@@ -85,15 +91,63 @@ def parse_phrases(raw: str) -> list[str]:
     return [p for p in parts if p]
 
 
-def detect_voice_command(segment: str, start_phrases: list[str], stop_phrases: list[str]) -> str | None:
+def detect_voice_command(segment: str, start_phrases: list[str], stop_phrases: list[str]) -> tuple[str, str] | None:
     norm = normalize_text(segment)
     for p in start_phrases:
         if norm.startswith(p):
-            return "start"
+            return "start", p
     for p in stop_phrases:
         if norm.startswith(p):
-            return "stop"
+            return "stop", p
     return None
+
+
+def strip_leading_phrase(raw_text: str, phrase: str) -> str:
+    # Case-insensitive, punctuation-tolerant strip at segment start.
+    # Example: "Roger start, hello" -> "hello"
+    words = [re.escape(w) for w in phrase.split()]
+    if not words:
+        return raw_text.strip()
+    pattern = r"^\W*" + r"\W+".join(words) + r"(?:\W+|$)"
+    return re.sub(pattern, "", raw_text, flags=re.IGNORECASE).strip()
+
+
+def play_cue(action: str) -> None:
+    sound = "/System/Library/Sounds/Pop.aiff" if action == "start" else "/System/Library/Sounds/Tink.aiff"
+    try:
+        subprocess.Popen(
+            ["afplay", sound],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception:
+        pass
+
+
+def copy_to_clipboard(text: str) -> bool:
+    payload = text.strip()
+    if not payload:
+        return False
+    try:
+        proc = subprocess.run(
+            ["pbcopy"],
+            input=payload.encode("utf-8"),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if proc.returncode == 0:
+            return True
+    except Exception:
+        pass
+    try:
+        import pyperclip  # type: ignore
+
+        pyperclip.copy(payload)
+        return True
+    except Exception:
+        return False
 
 
 def read_pid(path: str) -> int | None:
@@ -164,12 +218,11 @@ async def run_daemon(args: argparse.Namespace) -> None:
     state = State(started_at=time.time())
     start_phrases = parse_phrases(args.voice_start_phrases)
     stop_phrases = parse_phrases(args.voice_stop_phrases)
+    voice_capture = VoiceCaptureState(active=False, parts=[])
     marker_path = os.path.join(runtime_dir, "selection_marker.json")
-    command_lock = asyncio.Lock()
     last_command_at = 0.0
     stop_event = asyncio.Event()
     audio_q: asyncio.Queue[str] = asyncio.Queue(maxsize=256)
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     def _on_signal(_sig, _frame):
         stop_event_loop = asyncio.get_event_loop()
@@ -191,7 +244,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
         except asyncio.QueueFull:
             pass
 
-    async def run_marker_script(action: str, reason_text: str) -> None:
+    async def handle_voice_command(action: str, phrase: str, segment: str) -> None:
         nonlocal last_command_at
         if not args.voice_commands:
             return
@@ -203,46 +256,50 @@ async def run_daemon(args: argparse.Namespace) -> None:
             return
 
         marker_exists = os.path.exists(marker_path)
-        if action == "start" and marker_exists:
-            return
-        if action == "stop" and not marker_exists:
-            return
+        remainder = strip_leading_phrase(segment, phrase)
 
-        script_name = "always_on_mark_start.sh" if action == "start" else "always_on_mark_stop.sh"
-        script_path = os.path.join(repo_root, "scripts", "mac", script_name)
-        if not os.path.exists(script_path):
-            append_jsonl(
-                events_path,
-                {
-                    "ts": now_iso(),
-                    "voice_command": action,
-                    "status": "script_missing",
-                    "script": script_path,
-                },
-            )
-            return
-
-        async with command_lock:
+        if action == "start":
+            if voice_capture.active or marker_exists:
+                return
+            voice_capture.active = True
+            voice_capture.parts = []
+            if remainder:
+                voice_capture.parts.append(remainder)
+            play_cue("start")
             last_command_at = time.time()
-            proc = await asyncio.create_subprocess_exec(
-                script_path,
-                cwd=repo_root,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            out, err = await proc.communicate()
             append_jsonl(
                 events_path,
                 {
                     "ts": now_iso(),
                     "voice_command": action,
-                    "status": "ok" if proc.returncode == 0 else "error",
-                    "rc": proc.returncode,
-                    "trigger_text": reason_text,
-                    "stdout": (out or b"").decode("utf-8", errors="ignore").strip(),
-                    "stderr": (err or b"").decode("utf-8", errors="ignore").strip(),
+                    "status": "listening",
+                    "trigger_text": segment,
                 },
             )
+            return
+
+        # stop
+        if not voice_capture.active:
+            return
+        if remainder:
+            voice_capture.parts.append(remainder)
+        final_text = " ".join(x.strip() for x in (voice_capture.parts or []) if x.strip()).strip()
+        copied = copy_to_clipboard(final_text)
+        voice_capture.active = False
+        voice_capture.parts = []
+        play_cue("stop")
+        last_command_at = time.time()
+        append_jsonl(
+            events_path,
+            {
+                "ts": now_iso(),
+                "voice_command": action,
+                "status": "copied" if copied else "empty_or_copy_failed",
+                "copied_chars": len(final_text),
+                "trigger_text": segment,
+                "text": final_text,
+            },
+        )
 
     try:
         if not await wait_for_server(args.url, args.wait_server_s, args.wait_poll_s):
@@ -295,9 +352,13 @@ async def run_daemon(args: argparse.Namespace) -> None:
                     write_text(live_text_path, state.committed_text + "\n")
 
                     if args.voice_commands:
-                        action = detect_voice_command(seg, start_phrases, stop_phrases)
-                        if action:
-                            asyncio.create_task(run_marker_script(action, seg))
+                        detected = detect_voice_command(seg, start_phrases, stop_phrases)
+                        if detected:
+                            action, phrase = detected
+                            asyncio.create_task(handle_voice_command(action, phrase, seg))
+                        elif voice_capture.active and seg.strip():
+                            voice_capture.parts = voice_capture.parts or []
+                            voice_capture.parts.append(seg.strip())
 
             async def receiver_loop() -> None:
                 while not stop_event.is_set():
@@ -402,8 +463,16 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--commit-every", type=float, default=0.8)
     ap.add_argument("--segment-silence", type=float, default=0.9)
     ap.add_argument("--voice-commands", action="store_true", help="Enable start/stop by spoken keywords")
-    ap.add_argument("--voice-start-phrases", default="roger start", help="Comma-separated start phrases")
-    ap.add_argument("--voice-stop-phrases", default="roger stop", help="Comma-separated stop phrases")
+    ap.add_argument(
+        "--voice-start-phrases",
+        default="roger start,copy start",
+        help="Comma-separated start phrases",
+    )
+    ap.add_argument(
+        "--voice-stop-phrases",
+        default="roger stop,copy stop",
+        help="Comma-separated stop phrases",
+    )
     ap.add_argument("--voice-command-cooldown", type=float, default=1.0, help="Debounce between voice commands")
     ap.add_argument("--wait-server-s", type=float, default=15.0)
     ap.add_argument("--wait-poll-s", type=float, default=0.4)
