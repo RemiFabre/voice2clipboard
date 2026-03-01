@@ -131,7 +131,7 @@ def append_capture_snippet(voice_capture: VoiceCaptureState, snippet: str, epoch
     # First captured snippet should not start with punctuation/space from command boundary.
     if not (voice_capture.parts or []):
         text = re.sub(r"^[\s\.,;:!?-]+", "", text)
-    text = text.strip()
+    # Keep internal/edge spacing from stream chunks; normalize once at finalize.
     if not text:
         return
     voice_capture.parts = voice_capture.parts or []
@@ -344,7 +344,8 @@ async def run_daemon(args: argparse.Namespace) -> None:
         # stop
         if not voice_capture.active:
             return
-        final_text = " ".join(x.strip() for x in (voice_capture.parts or []) if x.strip()).strip()
+        raw_text = "".join(voice_capture.parts or [])
+        final_text = re.sub(r"\s+", " ", raw_text).strip()
         epochs = [float(e) for e in (voice_capture.part_epochs or []) if e]
         selection_start_epoch = min(epochs) if epochs else voice_capture.started_epoch
         selection_end_epoch = max(epochs) if epochs else time.time()
