@@ -3,8 +3,8 @@ set -euo pipefail
 
 RUNTIME_DIR="/Users/remi/voice2clipboard/runtime/always_on"
 MARKER_FILE="$RUNTIME_DIR/selection_marker.json"
-START_SH="/Users/remi/voice2clipboard/always_on_mark_start.sh"
-STOP_SH="/Users/remi/voice2clipboard/always_on_mark_stop.sh"
+START_SH="/Users/remi/voice2clipboard/scripts/mac/always_on_mark_start.sh"
+STOP_SH="/Users/remi/voice2clipboard/scripts/mac/always_on_mark_stop.sh"
 TOGGLE_LOG="$RUNTIME_DIR/toggle.log"
 LOCK_FILE="$RUNTIME_DIR/toggle.last"
 MIN_STOP_AGE_S="${VOICE2CLIP_MIN_STOP_AGE_S:-1.2}"
