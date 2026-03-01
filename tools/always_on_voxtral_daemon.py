@@ -209,7 +209,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
             return
 
         script_name = "always_on_mark_start.sh" if action == "start" else "always_on_mark_stop.sh"
-        script_path = os.path.join(repo_root, script_name)
+        script_path = os.path.join(repo_root, "scripts", "mac", script_name)
         if not os.path.exists(script_path):
             append_jsonl(
                 events_path,

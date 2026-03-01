@@ -3,11 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="/Users/remi/voice2clipboard"
 RUNTIME_DIR="$ROOT_DIR/runtime/always_on"
-SERVICE_SH="$ROOT_DIR/service_always_on.sh"
-START_SH="$ROOT_DIR/always_on_mark_start.sh"
-STOP_SH="$ROOT_DIR/always_on_mark_stop.sh"
-STATUS_SH="$ROOT_DIR/always_on_status.sh"
-INSTALL_SH="$ROOT_DIR/install_always_on_launchagents.sh"
+SCRIPTS_MAC_DIR="$ROOT_DIR/scripts/mac"
+SERVICE_SH="$SCRIPTS_MAC_DIR/service_always_on.sh"
+START_SH="$SCRIPTS_MAC_DIR/always_on_mark_start.sh"
+STOP_SH="$SCRIPTS_MAC_DIR/always_on_mark_stop.sh"
+STATUS_SH="$SCRIPTS_MAC_DIR/always_on_status.sh"
+INSTALL_SH="$SCRIPTS_MAC_DIR/install_always_on_launchagents.sh"
 
 usage() {
   cat <<'EOF'
@@ -157,7 +158,7 @@ case "$cmd" in
     tail -n 80 -f "$RUNTIME_DIR/live_text.txt" "$timeline"
     ;;
   preview)
-    "$ROOT_DIR/run_selection_preview_gui.sh"
+    "$SCRIPTS_MAC_DIR/run_selection_preview_gui.sh"
     ;;
   files)
     show_files

@@ -21,7 +21,7 @@ cat > "$VOXMLX_PLIST" <<EOF
   <array>
     <string>/bin/zsh</string>
     <string>-lc</string>
-    <string>cd ${ROOT_DIR} && ./run_voxmlx_server.sh</string>
+    <string>cd ${ROOT_DIR} &amp;&amp; ./scripts/mac/run_voxmlx_server.sh</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -48,7 +48,7 @@ cat > "$DAEMON_PLIST" <<EOF
   <array>
     <string>/bin/zsh</string>
     <string>-lc</string>
-    <string>cd ${ROOT_DIR} && ./run_always_on_voxtral_daemon.sh</string>
+    <string>cd ${ROOT_DIR} &amp;&amp; ./scripts/mac/run_always_on_voxtral_daemon.sh</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -69,4 +69,4 @@ echo " - $VOXMLX_PLIST"
 echo " - $DAEMON_PLIST"
 echo
 echo "Next:"
-echo "  ./service_always_on.sh reload"
+echo "  ./scripts/mac/service_always_on.sh reload"
