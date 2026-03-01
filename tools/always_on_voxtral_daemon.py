@@ -15,6 +15,7 @@ import json
 import os
 import re
 import signal
+import subprocess
 import sys
 import time
 import unicodedata
@@ -119,8 +120,18 @@ def find_voice_command(
 
 def play_cue(action: str) -> None:
     sound = "/System/Library/Sounds/Pop.aiff" if action == "start" else "/System/Library/Sounds/Tink.aiff"
+    beep_count = "1" if action == "start" else "2"
     # Immediate audible ack even if afplay spawn is delayed.
     print("\a", end="", flush=True)
+    try:
+        subprocess.Popen(
+            ["osascript", "-e", f"beep {beep_count}"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception:
+        pass
     try:
         subprocess.Popen(
             ["afplay", sound],
