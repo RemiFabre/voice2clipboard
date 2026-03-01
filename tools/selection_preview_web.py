@@ -29,6 +29,9 @@ class SharedState:
     file_pos: int = 0
     selections_file_pos: int = 0
     selected_ranges: list[tuple[float, float]] = field(default_factory=list)
+    selected_spans: list[tuple[int, int]] = field(default_factory=list)
+    pending_selection_texts: list[str] = field(default_factory=list)
+    selection_search_cursor: int = 0
     marker_active: bool = False
     marker_start_epoch: float | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -89,6 +92,40 @@ def tail_new_deltas(state: SharedState) -> None:
         if acc >= keep_chars:
             break
     state.entries = list(reversed(kept))
+    dropped = total_chars - sum(len(e.delta) for e in state.entries)
+    if dropped > 0:
+        shifted: list[tuple[int, int]] = []
+        for s, e in state.selected_spans:
+            ns = max(0, s - dropped)
+            ne = max(0, e - dropped)
+            if ne > ns:
+                shifted.append((ns, ne))
+        state.selected_spans = shifted
+        state.selection_search_cursor = max(0, state.selection_search_cursor - dropped)
+
+
+def full_text(state: SharedState) -> str:
+    return "".join(e.delta for e in state.entries)
+
+
+def resolve_pending_selection_texts(state: SharedState) -> None:
+    if not state.pending_selection_texts:
+        return
+    hay = full_text(state)
+    unresolved: list[str] = []
+    start_local_hint = max(0, state.selection_search_cursor)
+    for needle in state.pending_selection_texts:
+        s = hay.find(needle, start_local_hint)
+        if s < 0:
+            s = hay.find(needle)
+        if s < 0:
+            unresolved.append(needle)
+            continue
+        e = s + len(needle)
+        state.selected_spans.append((s, e))
+        state.selection_search_cursor = max(state.selection_search_cursor, e)
+        start_local_hint = max(0, e)
+    state.pending_selection_texts = unresolved
 
 
 def tail_new_selections(state: SharedState) -> None:
@@ -109,6 +146,11 @@ def tail_new_selections(state: SharedState) -> None:
                 continue
             start = obj.get("selection_start_epoch")
             end = obj.get("selection_end_epoch")
+            source = str(obj.get("source", ""))
+            sel_text = str(obj.get("selection_text", "")).strip()
+            if source == "voice_command" and sel_text:
+                state.pending_selection_texts.append(sel_text)
+                continue
             if start is None or end is None:
                 continue
             try:
@@ -129,15 +171,36 @@ def build_snapshot(state: SharedState) -> dict:
     with state.lock:
         active = state.marker_active
         start = state.marker_start_epoch
-        chunks = []
-        total = 0
-        selected = 0
+        text = full_text(state)
+        mask = [False] * len(text)
+
+        for s, e in state.selected_spans:
+            ls = max(0, min(len(mask), s))
+            le = max(0, min(len(mask), e))
+            for i in range(ls, le):
+                mask[i] = True
+
+        pos = 0
         for e in state.entries:
-            total += len(e.delta)
-            is_sel = in_selected_ranges(state, e.epoch) or bool(active and start is not None and e.epoch >= start)
-            if is_sel:
-                selected += len(e.delta)
-            chunks.append({"t": e.delta, "s": is_sel})
+            seg_start = pos
+            seg_end = pos + len(e.delta)
+            if in_selected_ranges(state, e.epoch) or bool(active and start is not None and e.epoch >= start):
+                for i in range(seg_start, seg_end):
+                    mask[i] = True
+            pos = seg_end
+
+        chunks = []
+        if text:
+            run_sel = mask[0]
+            run_start = 0
+            for i in range(1, len(text)):
+                if mask[i] != run_sel:
+                    chunks.append({"t": text[run_start:i], "s": run_sel})
+                    run_start = i
+                    run_sel = mask[i]
+            chunks.append({"t": text[run_start:], "s": run_sel})
+        total = len(text)
+        selected = sum(1 for x in mask if x)
     return {
         "marker_active": active,
         "marker_start_epoch": start,
@@ -204,6 +267,7 @@ def main() -> None:
                 state.marker_active, state.marker_start_epoch = read_marker(state.marker_path)
                 tail_new_deltas(state)
                 tail_new_selections(state)
+                resolve_pending_selection_texts(state)
             time.sleep(0.12)
 
     threading.Thread(target=updater, daemon=True).start()
