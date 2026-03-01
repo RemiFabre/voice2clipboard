@@ -40,6 +40,7 @@ class State:
 class VoiceCaptureState:
     active: bool = False
     parts: list[str] | None = None
+    part_epochs: list[float] | None = None
     started_epoch: float = 0.0
 
 
@@ -129,6 +130,8 @@ def strip_leading_phrase(raw_text: str, phrase: str) -> str:
 
 def play_cue(action: str) -> None:
     sound = "/System/Library/Sounds/Pop.aiff" if action == "start" else "/System/Library/Sounds/Tink.aiff"
+    # Immediate audible ack even if afplay spawn is delayed.
+    print("\a", end="", flush=True)
     try:
         subprocess.Popen(
             ["afplay", sound],
@@ -233,7 +236,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
     state = State(started_at=time.time())
     start_phrases = parse_phrases(args.voice_start_phrases)
     stop_phrases = parse_phrases(args.voice_stop_phrases)
-    voice_capture = VoiceCaptureState(active=False, parts=[])
+    voice_capture = VoiceCaptureState(active=False, parts=[], part_epochs=[])
     marker_path = os.path.join(runtime_dir, "selection_marker.json")
     selections_path = os.path.join(runtime_dir, "selections.jsonl")
     last_command_at = 0.0
@@ -260,7 +263,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
         except asyncio.QueueFull:
             pass
 
-    async def handle_voice_command(action: str, phrase: str, segment: str) -> None:
+    async def handle_voice_command(action: str, phrase: str, segment: str, seg_epoch: float) -> None:
         nonlocal last_command_at
         if not args.voice_commands:
             return
@@ -278,9 +281,11 @@ async def run_daemon(args: argparse.Namespace) -> None:
                 return
             voice_capture.active = True
             voice_capture.parts = []
+            voice_capture.part_epochs = []
             voice_capture.started_epoch = time.time()
             if remainder:
                 voice_capture.parts.append(remainder)
+                voice_capture.part_epochs.append(seg_epoch)
             write_state(
                 marker_path,
                 {
@@ -307,14 +312,18 @@ async def run_daemon(args: argparse.Namespace) -> None:
         # stop
         if not voice_capture.active:
             return
-        selection_start_epoch = voice_capture.started_epoch
-        selection_end_epoch = time.time()
         if remainder:
             voice_capture.parts.append(remainder)
+            voice_capture.part_epochs = voice_capture.part_epochs or []
+            voice_capture.part_epochs.append(seg_epoch)
         final_text = " ".join(x.strip() for x in (voice_capture.parts or []) if x.strip()).strip()
+        epochs = [float(e) for e in (voice_capture.part_epochs or []) if e]
+        selection_start_epoch = min(epochs) if epochs else voice_capture.started_epoch
+        selection_end_epoch = max(epochs) if epochs else time.time()
         copied = copy_to_clipboard(final_text)
         voice_capture.active = False
         voice_capture.parts = []
+        voice_capture.part_epochs = []
         voice_capture.started_epoch = 0.0
         if os.path.exists(marker_path):
             try:
@@ -381,6 +390,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
                     if not seg:
                         state.current_delta = ""
                         continue
+                    seg_epoch = float(state.last_delta_at or time.time())
 
                     state.committed_text = (state.committed_text + "\n" + seg).strip()
                     state.current_delta = ""
@@ -388,6 +398,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
                         segments_path,
                         {
                             "ts": now_iso(),
+                            "epoch": seg_epoch,
                             "text": seg,
                         },
                     )
@@ -398,10 +409,12 @@ async def run_daemon(args: argparse.Namespace) -> None:
                         detected = detect_voice_command(seg, start_phrases, stop_phrases)
                         if detected:
                             action, phrase = detected
-                            asyncio.create_task(handle_voice_command(action, phrase, seg))
+                            asyncio.create_task(handle_voice_command(action, phrase, seg, seg_epoch))
                         elif voice_capture.active and seg.strip():
                             voice_capture.parts = voice_capture.parts or []
                             voice_capture.parts.append(seg.strip())
+                            voice_capture.part_epochs = voice_capture.part_epochs or []
+                            voice_capture.part_epochs.append(seg_epoch)
 
             async def receiver_loop() -> None:
                 while not stop_event.is_set():
