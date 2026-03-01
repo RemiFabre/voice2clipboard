@@ -101,21 +101,27 @@ def phrase_pattern(phrase: str) -> re.Pattern[str]:
     return re.compile(r"\b" + r"\W+".join(words) + r"\b", flags=re.IGNORECASE)
 
 
-def find_voice_command(
+def find_voice_commands(
     segment: str,
     start_phrases: list[str],
     stop_phrases: list[str],
-) -> tuple[str, str, int, int] | None:
-    best: tuple[str, str, int, int] | None = None
+) -> list[tuple[str, str, int, int]]:
+    matches: list[tuple[str, str, int, int]] = []
     for action, phrases in (("start", start_phrases), ("stop", stop_phrases)):
         for phrase in phrases:
-            m = phrase_pattern(phrase).search(segment)
-            if not m:
-                continue
-            cand = (action, phrase, m.start(), m.end())
-            if best is None or cand[2] < best[2]:
-                best = cand
-    return best
+            for m in phrase_pattern(phrase).finditer(segment):
+                matches.append((action, phrase, m.start(), m.end()))
+    # Ordered left-to-right. When two phrases start at same char, prefer longer match.
+    matches.sort(key=lambda x: (x[2], -(x[3] - x[2])))
+    # Drop overlapping matches (keep earliest/longest winner from sort order).
+    filtered: list[tuple[str, str, int, int]] = []
+    last_end = -1
+    for m in matches:
+        if m[2] < last_end:
+            continue
+        filtered.append(m)
+        last_end = m[3]
+    return filtered
 
 
 def play_cue(action: str) -> None:
@@ -246,6 +252,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
         except OSError:
             pass
     last_command_at = 0.0
+    last_command_action = ""
     stop_event = asyncio.Event()
     audio_q: asyncio.Queue[str] = asyncio.Queue(maxsize=256)
 
@@ -272,35 +279,28 @@ async def run_daemon(args: argparse.Namespace) -> None:
     async def handle_voice_command(
         action: str,
         phrase: str,
-        segment: str,
+        trigger_text: str,
         seg_epoch: float,
-        span_start: int,
-        span_end: int,
     ) -> None:
-        nonlocal last_command_at
+        nonlocal last_command_at, last_command_action
         if not args.voice_commands:
             return
         if action not in {"start", "stop"}:
             return
 
         now = time.time()
-        if now - last_command_at < args.voice_command_cooldown:
+        # Debounce only repeated same-action spam; allow immediate start->stop transitions.
+        if action == last_command_action and (now - last_command_at) < args.voice_command_cooldown:
             return
 
         marker_exists = os.path.exists(marker_path)
-        before = segment[:span_start].strip()
-        after = segment[span_end:].strip()
         if action == "start":
             if voice_capture.active or marker_exists:
                 return
             voice_capture.active = True
             voice_capture.parts = []
             voice_capture.part_epochs = []
-            voice_capture.started_epoch = time.time()
-            # Start command captures only words spoken after the keyword.
-            if after:
-                voice_capture.parts.append(after)
-                voice_capture.part_epochs.append(seg_epoch)
+            voice_capture.started_epoch = seg_epoch
             write_state(
                 marker_path,
                 {
@@ -313,13 +313,14 @@ async def run_daemon(args: argparse.Namespace) -> None:
             )
             play_cue("start")
             last_command_at = time.time()
+            last_command_action = action
             append_jsonl(
                 events_path,
                 {
                     "ts": now_iso(),
                     "voice_command": action,
                     "status": "listening",
-                    "trigger_text": segment,
+                    "trigger_text": trigger_text,
                 },
             )
             return
@@ -327,11 +328,6 @@ async def run_daemon(args: argparse.Namespace) -> None:
         # stop
         if not voice_capture.active:
             return
-        # Stop command captures words spoken before the keyword.
-        if before:
-            voice_capture.parts.append(before)
-            voice_capture.part_epochs = voice_capture.part_epochs or []
-            voice_capture.part_epochs.append(seg_epoch)
         final_text = " ".join(x.strip() for x in (voice_capture.parts or []) if x.strip()).strip()
         epochs = [float(e) for e in (voice_capture.part_epochs or []) if e]
         selection_start_epoch = min(epochs) if epochs else voice_capture.started_epoch
@@ -357,6 +353,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
         )
         play_cue("stop")
         last_command_at = time.time()
+        last_command_action = action
         append_jsonl(
             events_path,
             {
@@ -364,7 +361,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
                 "voice_command": action,
                 "status": "copied" if copied else "empty_or_copy_failed",
                 "copied_chars": len(final_text),
-                "trigger_text": segment,
+                "trigger_text": trigger_text,
                 "text": final_text,
             },
         )
@@ -422,10 +419,25 @@ async def run_daemon(args: argparse.Namespace) -> None:
                     write_text(live_text_path, state.committed_text + "\n")
 
                     if args.voice_commands:
-                        detected = find_voice_command(seg, start_phrases, stop_phrases)
-                        if detected:
-                            action, phrase, s0, s1 = detected
-                            asyncio.create_task(handle_voice_command(action, phrase, seg, seg_epoch, s0, s1))
+                        commands = find_voice_commands(seg, start_phrases, stop_phrases)
+                        if commands:
+                            cursor = 0
+                            for action, phrase, s0, s1 in commands:
+                                between = seg[cursor:s0].strip()
+                                if voice_capture.active and between:
+                                    voice_capture.parts = voice_capture.parts or []
+                                    voice_capture.parts.append(between)
+                                    voice_capture.part_epochs = voice_capture.part_epochs or []
+                                    voice_capture.part_epochs.append(seg_epoch)
+                                trigger = seg[s0:s1]
+                                await handle_voice_command(action, phrase, trigger, seg_epoch)
+                                cursor = s1
+                            tail = seg[cursor:].strip()
+                            if voice_capture.active and tail:
+                                voice_capture.parts = voice_capture.parts or []
+                                voice_capture.parts.append(tail)
+                                voice_capture.part_epochs = voice_capture.part_epochs or []
+                                voice_capture.part_epochs.append(seg_epoch)
                         elif voice_capture.active and seg.strip():
                             voice_capture.parts = voice_capture.parts or []
                             voice_capture.parts.append(seg.strip())
