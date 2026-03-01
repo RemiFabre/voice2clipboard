@@ -124,6 +124,22 @@ def find_voice_commands(
     return filtered
 
 
+def append_capture_snippet(voice_capture: VoiceCaptureState, snippet: str, epoch: float) -> None:
+    text = snippet
+    if not text:
+        return
+    # First captured snippet should not start with punctuation/space from command boundary.
+    if not (voice_capture.parts or []):
+        text = re.sub(r"^[\s\.,;:!?-]+", "", text)
+    text = text.strip()
+    if not text:
+        return
+    voice_capture.parts = voice_capture.parts or []
+    voice_capture.part_epochs = voice_capture.part_epochs or []
+    voice_capture.parts.append(text)
+    voice_capture.part_epochs.append(epoch)
+
+
 def play_cue(action: str) -> None:
     sound = "/System/Library/Sounds/Pop.aiff" if action == "start" else "/System/Library/Sounds/Tink.aiff"
     beep_count = "1" if action == "start" else "2"
@@ -300,7 +316,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
             voice_capture.active = True
             voice_capture.parts = []
             voice_capture.part_epochs = []
-            voice_capture.started_epoch = seg_epoch
+            voice_capture.started_epoch = time.time()
             write_state(
                 marker_path,
                 {
@@ -361,7 +377,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
                 "voice_command": action,
                 "status": "copied" if copied else "empty_or_copy_failed",
                 "copied_chars": len(final_text),
-                "trigger_text": trigger_text,
+                    "trigger_text": trigger_text,
                 "text": final_text,
             },
         )
@@ -418,33 +434,11 @@ async def run_daemon(args: argparse.Namespace) -> None:
                     append_text_line(timeline_day_path(runtime_dir), f"[{now_iso()}] {seg}")
                     write_text(live_text_path, state.committed_text + "\n")
 
-                    if args.voice_commands:
-                        commands = find_voice_commands(seg, start_phrases, stop_phrases)
-                        if commands:
-                            cursor = 0
-                            for action, phrase, s0, s1 in commands:
-                                between = seg[cursor:s0].strip()
-                                if voice_capture.active and between:
-                                    voice_capture.parts = voice_capture.parts or []
-                                    voice_capture.parts.append(between)
-                                    voice_capture.part_epochs = voice_capture.part_epochs or []
-                                    voice_capture.part_epochs.append(seg_epoch)
-                                trigger = seg[s0:s1]
-                                await handle_voice_command(action, phrase, trigger, seg_epoch)
-                                cursor = s1
-                            tail = seg[cursor:].strip()
-                            if voice_capture.active and tail:
-                                voice_capture.parts = voice_capture.parts or []
-                                voice_capture.parts.append(tail)
-                                voice_capture.part_epochs = voice_capture.part_epochs or []
-                                voice_capture.part_epochs.append(seg_epoch)
-                        elif voice_capture.active and seg.strip():
-                            voice_capture.parts = voice_capture.parts or []
-                            voice_capture.parts.append(seg.strip())
-                            voice_capture.part_epochs = voice_capture.part_epochs or []
-                            voice_capture.part_epochs.append(seg_epoch)
+                    # Voice commands are parsed in realtime from transcript deltas in receiver_loop.
 
             async def receiver_loop() -> None:
+                cmd_tail = ""
+                cmd_guard = max(64, max((len(p) for p in start_phrases + stop_phrases), default=16) * 4)
                 while not stop_event.is_set():
                     raw = await ws.recv()
                     obj = json.loads(raw)
@@ -468,6 +462,27 @@ async def run_daemon(args: argparse.Namespace) -> None:
                             live = (state.committed_text + state.current_delta).strip()
                             if live:
                                 write_text(live_text_path, live + "\n")
+                            if args.voice_commands:
+                                cmd_tail += delta
+                                while True:
+                                    cmds = find_voice_commands(cmd_tail, start_phrases, stop_phrases)
+                                    if not cmds:
+                                        break
+                                    action, phrase, s0, s1 = cmds[0]
+                                    before = cmd_tail[:s0]
+                                    if voice_capture.active and before:
+                                        append_capture_snippet(voice_capture, before, time.time())
+                                    trigger = cmd_tail[s0:s1]
+                                    await handle_voice_command(action, phrase, trigger, time.time())
+                                    cmd_tail = cmd_tail[s1:]
+
+                                # Keep bounded tail while preserving cross-delta command matching.
+                                if voice_capture.active:
+                                    if len(cmd_tail) > cmd_guard:
+                                        append_capture_snippet(voice_capture, cmd_tail[:-cmd_guard], time.time())
+                                        cmd_tail = cmd_tail[-cmd_guard:]
+                                elif len(cmd_tail) > cmd_guard:
+                                    cmd_tail = cmd_tail[-cmd_guard:]
                     elif evt == "error":
                         append_jsonl(events_path, {"ts": now_iso(), "error": obj})
 
