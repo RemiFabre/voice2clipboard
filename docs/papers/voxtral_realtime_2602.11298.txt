@@ -1,0 +1,710 @@
+Voxtral Realtime
+Abstract
+We introduce V oxtral Realtime, a natively streaming automatic speech recognition
+model that matches offline transcription quality at sub-second latency. Unlike
+approaches that adapt offline models through chunking or sliding windows, V oxtral
+Realtime is trained end-to-end for streaming, with explicit alignment between
+audio and text streams. Our architecture builds on the Delayed Streams Modeling
+framework, introducing a new causal audio encoder and Ada RMS-Norm for
+improved delay conditioning. We scale pretraining to a large-scale dataset spanning
+13 languages. At a delay of 480ms, V oxtral Realtime achieves performance on par
+with Whisper, the most widely deployed offline transcription system. We release
+the model weights under the Apache 2.0 license.
+Webpage:https://mistral.ai/news/voxtral-transcribe-2
+Model weights:https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602
+240 480 960 2400
+Delay (ms, log scale)
+6
+7
+8
+9
+10
+11Word Error-Rate (%)
+Realtime
+Voxtral Realtime
+Scribe v2 Realtime
+Offline
+Whisper
+Voxtral Mini Transcribe V2
+Figure 1: Voxtral Realtime approaches offline accuracy at sub-second latency.Macro-average word error-
+rate (WER) vs. delay on the FLEURS multilingual benchmark for realtime and offline models. Lower is better.
+At 480 ms delay, V oxtral Realtime is competitive with Scribe v2 Realtime, the leading realtime API model,
+as well as Whisper, the most popular open-source offline model. It surpasses both baselines at 960 ms delay,
+approaching the performance of V oxtral Mini Transcribe V2, a state-of-the-art offline transcription model.
+arXiv:2602.11298v2  [cs.AI]  21 Feb 2026
+
+1 Introduction
+Automatic speech recognition (ASR) systems achieve strong performance in offline settings [Radford
+et al., 2023, Liu et al., 2025], where the entire audio input is available before transcription begins.
+However, many real-world applications—such as voice assistants, live captioning, and interactive
+speech interfaces—require transcriptions to be produced in real time while audio is streaming,
+under strict latency constraints. Bridging the gap between offline transcription quality and real-time
+streaming remains a central challenge in speech recognition [Graves, 2012, Zeghidour et al., 2025].
+A common approach to streaming adapts offline models by processing audio in short chunks as it
+arrives [Macháˇcek et al., 2023]. While effective at moderate latencies, this strategy has a fundamental
+limitation: offline models are typically trained with access to bidirectional acoustic context (and often
+full-sequence conditioning), whereas a streaming system must emit tokens before future audio is
+available. This training–inference mismatch becomes increasingly severe as latency is reduced, and
+often leads to degraded accuracy in low-delay regimes and out-of-distribution settings.
+Native streaming architectures address this by reformulating the learning problem so that each output
+token is predicted using only past inputs and a bounded amount of lookahead, making latency a tun-
+able constraint. This requires (i) an explicit alignment between input audio and output text (e.g., word-
+or frame-level alignments), and (ii) an architecture that processes new audio incrementally as it arrives.
+A common instantiation is a neural transducer (RNN-T) with a streaming encoder that limits right con-
+text through chunking, memory, and caching [Graves, 2012, Shi et al., 2020, Chen et al., 2021, Noroozi
+et al., 2024]. Delayed Streams Modeling (DSM) [Zeghidour et al., 2025] follows the same alignment-
+based principle, but replaces the transducer with a decoder-only model over aligned audio and text
+streams, enabling simpler designs that leverage pre-trained language decoders. DSM approaches
+offline accuracy at high delay settings. However, achieving offline-level performance at sub-second
+latency—particularly in multilingual and multi-domain settings—has remained an open challenge.
+We address this challenge by introducingVoxtral Realtime, a 4B parameter natively streaming ASR
+model that supports 13 languages. Concretely, our contributions are:
+• A causal audio encoder trained from scratch with modern architectural choices (RMSNorm,
+SwiGLU, RoPE, sliding window attention).
+• An adaptive RMS-Norm (Ada RMS-Norm) mechanism in the decoder, enabling a single
+model to operate at any delay that is a multiple of 80 ms.
+• Pretraining at scale on a large-scale dataset spanning 13 languages, enabling robust general-
+ization across languages and domains.
+At a delay of 480 ms, V oxtral Realtime achieves performance competitive with Whisper [Radford et al.,
+2023] and ElevenLabs Scribe v2 Realtime [ElevenLabs Team, 2026]. At higher delay settings (e.g.,
+960 ms), it matches or surpasses strong offline baselines such as V oxtral Mini Transcribe V2 on several
+English and multilingual benchmarks [Mistral AI Team, 2026]. These results demonstrate that offline-
+level transcription quality can be achieved within a fully streaming framework at sub-second latency.
+We release the resulting model as open weights under the Apache 2.0 license. The remainder of this
+report details the model architecture, training and inference methodology, and empirical evaluations
+that support these findings.
+2 Modeling
+V oxtral Realtime is a Transformer-based streaming ASR model that follows the stream-synchronous
+design of DSM. The model comprises (i) a causal audio encoder, (ii) a temporal adapter that
+downsamples encoder frames, and (iii) a Transformer decoder that generates text autoregressively.
+At each stream step, the decoder consumes a fused representation obtained by summing the current-
+step audio embedding with the embedding of the most recently generated text token. The overall
+architecture is summarized in Figure 2, with model dimensions outlined in Table 1.
+2
+
+Figure 2: Voxtral Realtime architecture and decoding scheme for a target delay τ= 80 ms.V oxtral
+Realtime consists of a causal audio encoder to embed the input audio stream, an MLP adapter layer to temporally
+downsample the audio embeddings, and a text decoder to auto-regressively generate the output text stream. The
+downsampled audio embeddings from the adapter and the embeddings of previously generated tokens have the
+same frame-rate of 12.5Hz, with each frame representing 80ms of audio. These are summed and processed by
+the text decoder, which predicts one token per frame. The decoder emits a padding token [P] while waiting
+for sufficient acoustic evidence. Once a word is acoustically complete and the target delay τ has elapsed, a
+word-boundary token[W]is emitted to initiate generation, followed by the corresponding subword tokens.
+Table 1: Voxtral Realtime configuration. For the decoder, we use grouped-query attention (GQA) [Ainslie
+et al., 2023]; the number in parentheses indicates KV heads. Sliding window sizes are in frames (encoder) and
+tokens (decoder).
+Component Layers Dimension Heads Sliding Window Parameters
+Audio Encoder 32 1280 32 750 970M
+Adapter MLP 1 1280×4→3072 — — 25M
+Language Decoder 26 3072 32 (8 KV) 8192 3.4B
+Total— — — — 4.4B
+2.1 Audio Encoder
+Audio encoders for offline ASR systems are typically trained with bidirectional attention [Baevski
+et al., 2020, Radford et al., 2023], since the full audio signal is available. However, in real-time
+settings the encoder must produce representations causally, attending only to current and past inputs.
+Therefore, we define a causal audio encoder architecture and train it from scratch. The waveform is
+converted to a log-Mel spectrogram [Davis and Mermelstein, 1980] with 128 Mel bins and a hop
+length of 160 samples (10 ms at 16 kHz). Features are processed by a causal convolutional stem with
+2x temporal downsampling, followed by a stack of causal self-attention layers. The encoder emits
+one embedding every 20 ms (50 Hz).
+The convolutional stem induces a finite history dependency: the output at step t depends on the pre-
+vious four input frames (two kernel-3 convolutions, including a strided downsampling layer). During
+streaming inference, we maintain a 4-frame history buffer to compute the current encoder state exactly.
+In the Transformer backbone, we adopt RMSNorm, SwiGLU and RoPE—architectural choices that
+have been shown to improve training stability and downstream performance [Zhang and Sennrich,
+2019, Shazeer, 2020, Su et al., 2023, Touvron et al., 2023]. The self-attention uses a sliding window of
+3
+
+Table 2: Whisper vs. Voxtral Realtime encoder architectures.V oxtral Realtime is a fully causal encoder that
+leverages modern architectural choices with a 750 frame sliding window.
+Model Attention Norm FFN Pos-Enc Window Params (M)
+Whisper Bidirectional LayerNorm GELU Sinusoidal Fixed 640
+V oxtral Realtime Causal RMSNorm SwiGLU RoPE Sliding 970
+750 frames (15 s at 50 Hz) [Child et al., 2019, Beltagy et al., 2020], bounding memory while enabling
+unbounded streaming. The differences in relation to the Whisper encoder are summarized in Table 2.
+2.2 Adapter Layer
+To reduce the effective sequence length processed by the language decoder, we insert a lightweight
+adapter layer between the audio encoder and the decoder. This adapter consists of a single MLP that
+temporally downsamples the encoder outputs, reducing computational cost in the language decoder
+while preserving relevant acoustic information.
+Following V oxtral [Liu et al., 2025], we apply a downsampling factor of 4x, resulting in an effective
+frame rate of 12.5 Hz. Therefore, each downsampled audio embedding represents 80 ms of audio.
+2.3 Language Decoder
+The language decoder is a decoder-only Transformer that operates synchronously with the adapter
+stream, closely following the delayed-streams decoding scheme of DSM [Zeghidour et al., 2025]. At
+each adapter step (80 ms), the model performs one autoregressive decoding step. The emitted token
+can be either a text token or a non-emitting placeholder. The placeholder allows the model to “wait”
+when acoustic evidence is insufficient, deferring text emission until the target delay has elapsed. This
+mechanism enables the model to learn emission timing end-to-end, without external voice activity
+decection (V AD) or forced alignments. The construction of training targets is described in Section 3.
+We condition the decoder on a target streaming delay τ, which specifies a minimum offset between
+acoustic evidence and the earliest time at which corresponding text tokens may be produced, using an
+Adaptive RMSNorm (AdaRMSNorm) mechanism. τ is embedded as a sinusoidal embedding and
+projected using a small MLP with a GELU activation to a vector g(τ)∈R d, where d is the model
+dimension. This conditioning is injected additively in the normalized space on the feed-forward
+branch of every Transformer block; the attention branch remains unconditioned.
+Specifically, given hidden statesx, a block computes:
+rattn = Attn(RMSNorm(x)), h=x+r attn,
+rffn = FFN(RMSNorm(h)⊙(1.0 +g(τ))), y=h+r ffn.
+To minimize the additional parameter count, we use an inner-dimension of 32 for the MLP in g(τ) ,
+which introduces 5M extra parameters for the 4.4B model. In Section 6.1, we show that this form of
+additive conditioning is more effective than alternative time-conditioning strategies.
+The decoder uses sliding window attention with a left-context of 8192 tokens. Together with the
+encoder’s sliding window, this supports arbitrarily long streams with bounded memory.
+3 Training
+3.1 Target Construction
+Training a streaming ASR model requires supervision that aligns a continuous audio stream with a dis-
+crete text stream. We leverage(audio,text,word-level timestamps) tuples to build frame-synchronous
+target sequences for the language decoder.
+In addition to the base subword vocabulary, we introduce two special symbols: a padding token
+[P] and a word-boundary token [W]. Training targets are constructed such that the decoder emits
+exactly one token per downsampled audio frame (80 ms). For frames in which no text emission is
+4
+
+warranted–either because no word is currently underway or because the current word is acoustically
+incomplete–the target token is [P]. Once a word has been fully observed and the specified target
+delay has elapsed, a [W] token is emitted to mark the onset of text generation, followed by the
+subword tokens corresponding to the word itself.
+When consecutive words share the same emission frame, no additional [W] token is inserted; the
+subword tokens of the next word follow directly. We demonstrate in Section 6.2 that this grouping is
+crucial for retaining the text-modeling capabilities of the language decoder.
+This target construction induces an implicit alignment between the audio and text streams. The
+emission frame of the [W] token defines a grouping point that associates a segment of the audio stream
+with the subsequent text tokens. The model learns this alignment end-to-end from data, without
+relying on forced alignments or explicit decoding policies. At inference time, the same learned
+mechanism governs whether the decoder emits a non-emitting token or initiates text generation at
+each audio frame.
+3.2 Delay Sampling
+During training, the target delay τ is sampled uniformly from 80 ms to 2400 ms in 80 ms increments
+(i.e., 1 to 30 adapter frames). This exposes the model to a range of latency-accuracy tradeoffs,
+enabling a single model to operate at any delay within this range at inference time via the Ada
+RMS-Norm conditioning mechanism (Section 2.3).
+3.3 Optimization
+We initialize the encoder and adapter randomly and the decoder from Ministral 3B [Liu et al., 2026].
+Training proceeds in two phases:
+1. Encoder warm-up (5% of training):The decoder is frozen and only the encoder and
+adapter are trained. This prevents the randomly initialized encoder from destabilizing the pre-
+trained decoder representations before it has learned to produce useful audio embeddings.
+2.End-to-end (95% of training):The full model is trained jointly.
+We use the AdamW optimizer [Loshchilov and Hutter, 2019] with a batch size of 370 hours. For the
+encoder warm-up, we use a learning rate of4×10 −4, and for the end-to-end phase6×10 −5.
+We observed that logit magnitudes in the language decoder grew unboundedly over training. Since
+we tie the language modeling head and text embedding matrices, this caused text embedding norms
+to grow proportionally, while audio embedding norms steadily diminished. The resulting imbalance
+caused the model to increasingly rely on the text stream and ignore audio. We address this by applying
+a z-loss penalty on the logit norm [de Brébisson and Vincent, 2016, Chowdhery et al., 2022], which
+encourages the softmax normalizer to remain close to zero. This allows the audio and text embedding
+norms to converge to stable values.
+4 Inference and Serving in vLLM
+While low theoretical transcription delay is critical, practical deployments must maintain low latency
+under realistic conditions (e.g., batching, concurrency, and network overhead). In collaboration
+with the library authors and community contributors, we contribute realtime serving to the vLLM
+framework [Kwon et al., 2023] by combining (i) a paged-attention backend for temporally heteroge-
+neous encoder/decoder KV caches, (ii) resumable streaming sessions that preserve KV state across
+incremental updates, and (iii) a WebSocket-based realtime endpoint for incremental audio ingestion
+and token output streaming. Together, these features enable serving V oxtral Realtime with low
+operational complexity while achieving high throughput.
+4.1 Paged Attention with Temporally Heterogeneous KV Caches
+V oxtral Realtime requires maintaining two KV caches during inference—one for the audio encoder
+and one for the language decoder—each with a different frame rate. Specifically, the encoder operates
+at 50 Hz and the language decoder at 12.5 Hz, the difference due top= 4 temporal pooling applied
+5
+
+by the adapter. Thus, one decoder step corresponds to four new encoder KV positions. Standard
+paged-attention implementations assume a single, uniform KV-position increment per step, which
+leads to inconsistent block indexing unless the metadata is adapted.
+To support this efficiently, we implement a custom attention-metadata backend that stretches the
+encoder-side KV-cache block size by the pooling factor (p= 4 ) and applies the same scaling to the
+associated indexing metadata (sequence lengths and query offsets), while expanding the slot mapping
+so that each original slot ID maps to a contiguous range ofp slots. This keeps vLLM’s paged-attention
+indexing consistent across the encoder and decoder and allows both KV caches to share a unified
+paged-attention allocation, preserving the performance benefits of vLLM’s optimized KV paging.
+4.2 Asynchronous Streaming Input with Resumable Requests
+Most serving frameworks assume the full input is available before decoding begins, which prevents
+true realtime operation when input arrives continuously. In vLLM, incremental generation is enabled
+viaresumable requests: a streaming session persists an anchor request whose KV blocks are reused
+across incremental updates, so newly arrived input can be appended while reusing previously com-
+puted KV states. In our deployment, we pipeline I/O and compute: while the server buffers the next
+80 ms audio increment, it concurrently performs a one-token decoding step, so the next update can be
+appended and processed immediately when the chunk arrives.
+To stream output tokens while audio continues to arrive, vLLM pairs its existing async output genera-
+tor with a new async input generator, enabling full-duplex streaming (ingest and emit concurrently)
+rather than a turn-based “send-then-decode” loop. A schematic is provided in Appendix A.2.
+4.3 WebSocket-Based Realtime API
+To make streaming sessions accessible in production, we contribute a realtime WebSocket API to
+vLLM. The API provides a bidirectional endpoint for incremental audio ingestion and output token
+streaming. Clients append audio chunks to an input buffer and periodically commit increments; the
+server converts these events into resumable session updates for the vLLM engine and streams back
+token deltas over the same persistent connection with low per-message overhead.
+5 Results
+We evaluate V oxtral Realtime across English and multilingual benchmarks, comparing against offline
+systems, realtime APIs, and open-source streaming models. Figure 1 illustrates the latency–accuracy
+trade-off of V oxtral Realtime on the FLEURS multilingual benchmark over 13 languages. Full results
+for each language are presented in Table 7.
+At a delay of 480 ms, V oxtral Realtime approaches the accuracy of Scribe v2 Realtime, the industry-
+leading realtime API model, as well as Whisper [Radford et al., 2023], the most widely adopted
+offline ASR system. Increasing the delay to 960 ms further closes the gap, with V oxtral Realtime
+surpassing past both Scribe v2 Realtime and Whisper. At a higher delay of 2400 ms, the model
+continues to improve, achieving accuracy within 1% of V oxtral Mini Transcribe V2, a state-of-the-art
+offline transcription model.
+Table 3 reports macro-average WER across four benchmark categories: English short-form, English
+long-form, FLEURS, and Mozilla Common V oice (MCV). English results are macro-averaged across
+tasks, while FLEURS and MCV results are averaged across languages. Full results for each task are
+presented in Appendix A.1.
+Across all benchmark categories, V oxtral Realtime substantially outperforms existing open-source
+streaming baselines at comparable latencies. Prior natively streaming approaches such as DSM
+achieve competitive accuracy only at substantially higher delays, while Nemotron Streaming [Noroozi
+et al., 2024] exhibits a more limited latency–accuracy trade-off and reduced robustness, particularly
+in long-form settings. In contrast, V oxtral Realtime consistently improves as latency increases and
+maintains strong performance across distributions. Notably, V oxtral Realtime supports 13 languages,
+while other recent open-source models such as DSM support only English and French.
+6
+
+Table 3: Macro-average WER (%) across benchmark categories.. English Short and Long results are
+averaged across tasks; MCV and FLEURS results are averaged across languages. The definition of "target delay"
+differs across Realtime APIs and is a function of the audio input. Hence, we omit the delay for the APIs.Bold
+indicates the best realtime result. — indicates that the multilingual task is unsupported for a mono or bilingual
+model.
+WER (%)
+Model Delay (ms) En-Short En-Long FLEURS MCV
+Offline
+Whisper — 8.39 7.97 8.23 14.25
+V oxtral Mini Transcribe V2 — 7.27 7.11 5.90 8.07
+Realtime API
+GPT-4o mini Transcribe — 7.93 7.97 7.95 12.85
+Scribe v2 Realtime —7.337.43 8.34 20.85
+Realtime Open-Source
+DSM 1B En-Fr 500 12.26 13.83 — —
+DSM 2.6B En 2500 8.11 7.72 — —
+Nemotron Streaming 560 9.59 14.29 — —
+1120 9.41 13.02 — —
+V oxtral Realtime 240 9.95 9.29 10.80 19.22
+480 8.47 7.73 8.72 15.24
+960 7.94 7.13 7.70 11.99
+2400 7.726.93 6.73 10.47
+Taken together, these results demonstrate that V oxtral Realtime achieves offline-level transcription
+quality at sub-second latency with a natively streaming architecture.
+6 Analysis
+In this Section, we ablate three design choices: the delay-conditioning mechanism, the target
+construction scheme, and the degree of left-padding.
+6.1 Ada RMS-Norm
+There are multiple strategies available to incorporate delay conditioning into the model. DSM sums a
+sinusoidal delay embedding with the combined audio-text embedding. Alternatively, special tokens
+can be injected in the text stream to indicate the target delay, though this requires repeating the token
+at sliding-window boundaries. A third approach using Ada RMS-Norm injects the delay into the
+decoder’s residual stream (Section 2.3).
+Figure 3 plots WER results for three languages in the FLEURS dataset for the three conditioning
+methods outlined above. Summing and special tokens perform comparably, whereas Ada RMS-Norm
+leads to faster convergence and lower overall WER.
+6.2 Word Grouping
+In Section 3.1, we describe the construction of the target tokens during training. Figure 4 compares
+two target schemes: inserting a word-boundary token [W] between consecutive words in the same
+emission frame, or grouping them without a boundary. Grouping results in much faster convergence
+and lower overall WERs. It preserves the subword sequences seen during language model pretraining,
+allowing the decoder to retain its learned text distributions.
+7
+
+0.10 0.15 0.20 0.25 0.30
+Fraction Trained
+0.0500
+0.0525
+0.0550
+0.0575
+0.0600
+0.0625
+0.0650WER (%)
+Sum
+Special T okens
+Ada RMS-Norm
+(a)English
+0.10 0.15 0.20 0.25 0.30
+Fraction Trained
+0.070
+0.075
+0.080
+0.085
+0.090
+0.095
+0.100WER (%)
+Sum
+Special T okens
+Ada RMS-Norm (b)French
+0.10 0.15 0.20 0.25 0.30
+Fraction Trained
+0.06
+0.07
+0.08
+0.09
+0.10WER (%)
+Sum
+Special T okens
+Ada RMS-Norm (c)German
+Figure 3: Ablation of delay-conditioning mechanisms.Word error-rate on three languages from the FLEURS
+dataset as a function of training progress. Ada RMS-Norm consistently improves convergence speed and final
+accuracy compared to alternative conditioning strategies.
+0.050 0.075 0.100 0.125 0.150 0.175 0.200
+Fraction Trained
+0.10
+0.15
+0.20
+0.25
+0.30
+0.35WER (%)
+Per-word
+Per-group
+(a)English
+0.050 0.075 0.100 0.125 0.150 0.175 0.200
+Fraction Trained
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7WER (%)
+Per-word
+Per-group (b)French
+0.050 0.075 0.100 0.125 0.150 0.175 0.200
+Fraction Trained
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8WER (%)
+Per-word
+Per-group (c)German
+Figure 4: Ablation of target construction schemes.Word error-rate on three languages from the FLEURS
+dataset as a function of training progress. Inserting a single word-boundary token [W] per-group better preserves
+the capabilities of the pre-trained language decoder than inserting a[W]per-word.
+6.3 Left-Padding
+During inference, we explored inserting additional left-padding before the first audio frame. This does
+not affect streaming delay, as it only increases the size of the prefill step. We pad the audio stream
+with zeros (equivalent to silence) and the text stream with the corresponding number of[P]tokens.
+Table 4 shows the WER results across the four benchmark categories as the amount of padding is
+increased. Increasing the left-padding from 0 to 16 frames improves results across task categories.
+Further increasing to 32 frames yields additional gains all bar MCV . We hypothesize that left-padding
+introduces initial tokens that serve a similar role to attention sinks [Xiao et al., 2024], but leave
+investigating this to future works.
+7 Conclusion
+We introduced V oxtral Realtime, a natively streaming speech transcription model that incorporates a
+causal encoder, Ada RMS-Norm conditioning, and a training pattern that leverage the pre-trained
+capabilities of the language decoder.
+By achieving near-offline performance at sub-second latency, V oxtral Realtime enables practical
+real-time applications such as live transcription, voice assistants, and interactive speech interfaces
+without sacrificing accuracy or language coverage. We release V oxtral Realtime as open weights
+under the Apache 2.0 license to support further research and deployment of high-quality streaming
+ASR systems.
+Core contributors
+Alexander H. Liu, Andy Ehrenberg, Andy Lo, Chen-Yo Sun, Guillaume Lample, Jean-Malo Delignon,
+Khyathi Raghavi Chandu, Patrick von Platen, Pavankumar Reddy Muddireddy, Rohin Arora, Sanchit
+Gandhi, Sandeep Subramanian, Soham Ghosh, Srijan Mishra.
+8
+
+Table 4: Effect of left-padding on transcription accuracy.Macro-average WER (%) across benchmark
+categories for different degrees of left-padding.
+Padding Frames En-Short En-Long FLEURS MCV
+0 9.10 10.98 9.06 16.03
+16 8.53 7.93 8.87 15.12
+32 8.47 7.73 8.72 15.24
+Contributors
+Abhinav Rastogi, Adrien Sadé, Alan Jeffares, Albert Jiang, Alexandre Cahill, Alexandre Gavaudan,
+Alexandre Sablayrolles, Amélie Héliou, Amos You, Andrew Bai, Angele Lenglemetz, Anmol
+Agarwal, Anton Eliseev, Antonia Calvi, Arjun Majumdar, Avi Sooriyarachchi, Baptiste Bout, Baptiste
+Rozière, Baudouin De Monicault, Benjamin Tibi, Charlotte Cronjäger, Clémence Lanfranchi, Connor
+Chen, Corentin Barreau, Corentin Sautier, Cyprien Courtot, Darius Dabert, Diego de las Casas,
+Elizaveta Demyanenko, Elliot Chane-Sane, Enguerrand Paquin, Etienne Goffinet, Fabien Niel, Faruk
+Ahmed, Federico Baldassarre, Gabrielle Berrada, Gaëtan Ecrepont, Gauthier Guinet, Genevieve
+Hayes, Georgii Novikov, Giada Pistilli, Guillaume Kunsch, Guillaume Martin, Guillaume Raille,
+Gunjan Dhanuka, Gunshi Gupta, Han Zhou, Harshil Shah, Hope McGovern, Hugo Thimonier,
+Indraneel Mukherjee, Irene Zhang, Jaeyoung Kim, Jan Ludziejewski, Jason Rute, Joachim Studnia,
+John Harvill, Jonas Amar, Joséphine Delas, Josselin Somerville Roberts, Julien Tauran, Karmesh
+Yadav, Kartik Khandelwal, Kilian Tep, Kush Jain, Laurence Aitchison, Laurent Fainsin, Léonard
+Blier, Lingxiao Zhao, Louis Martin, Lucile Saulnier, Luyu Gao, Maarten Buyl, Manan Sharma,
+Margaret Jennings, Marie Pellat, Mark Prins, Martin Alexandre, Mathieu Poirée, Mathilde Guillaumin,
+Matthieu Dinot, Matthieu Futeral, Maxime Darrin, Maximilian Augustin, Mert Unsal, Mia Chiquier,
+Minh-Quang Pham, Nathan Grinsztajn, Neha Gupta, Olivier Bousquet, Olivier Duchenne, Patricia
+Wang, Paul Jacob, Paul Wambergue, Paula Kurylowicz, Philippe Pinel, Philomène Chagniot, Pierre
+Stock, Piotr Miło´s, Prateek Gupta, Pravesh Agrawal, Quentin Torroba, Ram Ramrakhya, Rishi Shah,
+Romain Sauvestre, Roman Soletskyi, Rosalie Millner, Rupert Menneer, Sagar Vaze, Samuel Barry,
+Samuel Humeau, Sean Cha, Shashwat Verma, Siddhant Waghjale, Siddharth Gandhi, Simon Lepage,
+Sumukh Aithal, Szymon Antoniak, Teven Le Scao, Théo Cachet, Theo Simon Sorg, Thibaut Lavril,
+Thomas Chabal, Thomas Foubert, Thomas Robert, Thomas Wang, Tim Lawson, Tom Bewley, Tom
+Edwards, Tyler Wang, Umar Jamil, Umberto Tomasini, Valeriia Nemychnikova, Van Phung, Vedant
+Nanda, Victor Jouault, Vincent Maladière, Virgile Richard, Vladislav Bataev, Wassim Bouaziz,
+Wen-Ding Li, William Havard, William Marshall, Xinghui Li, Xingran Guo, Xinyu Yang, Yannic
+Neuhaus, Yassine El Ouahidi, Yassir Bendou, Yihan Wang, Yimu Pan, Zaccharie Ramzi, Zhenlin Xu.
+7.1 Acknowledgements
+We would like to thank Joshua Deng, Yu Luo from Meta AI, and Nick Hill, Nicolò Lucchesi, Chen
+Zhang, Cyrus Leung, and Roger Wang from the vLLM team for their support and contributions in
+integrating V oxtral Realtime to the vLLM framework.
+We are grateful to Salvatore Sanfilippo, Awni Hannun, Prince Canuma, TrevorS, Eustache Le Bihan
+and the open-source community for their contributions of V oxtral Realtime to additional frameworks.
+9
+
+References
+Joshua Ainslie, James Lee-Thorp, Michiel de Jong, Yury Zemlyanskiy, Federico Lebrón, and Sumit
+Sanghai. GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Check-
+points, 2023. URLhttps://arxiv.org/abs/2305.13245.
+Alexei Baevski, Henry Zhou, Abdelrahman Mohamed, and Michael Auli. wav2vec 2.0: A Framework
+for Self-Supervised Learning of Speech Representations, 2020. URL https://arxiv.org/abs/
+2006.11477.
+Iz Beltagy, Matthew E. Peters, and Arman Cohan. Longformer: The Long-Document Transformer,
+2020. URLhttps://arxiv.org/abs/2004.05150.
+Guoguo Chen, Shuzhou Chai, Guanbo Wang, Jiayu Du, Wei-Qiang Zhang, Chao Weng, Dan Su,
+Daniel Povey, Jan Trmal, Junbo Zhang, Mingjie Jin, Sanjeev Khudanpur, Shinji Watanabe, Shuai-
+jiang Zhao, Wei Zou, Xiangang Li, Xuchen Yao, Yongqing Wang, Yujun Wang, Zhao You, and
+Zhiyong Yan. GigaSpeech: An Evolving, Multi-domain ASR Corpus with 10,000 Hours of
+Transcribed Audio.arXiv e-prints, art. arXiv:2106.06909, June 2021.
+Xie Chen, Yu Wu, Zhenghao Wang, Shujie Liu, and Jinyu Li. Developing real-time streaming
+transformer transducer for speech recognition on large-scale dataset. InICASSP 2021-2021 IEEE
+International Conference on Acoustics, Speech and Signal Processing (ICASSP), pages 5904–5908.
+IEEE, 2021.
+Rewon Child, Scott Gray, Alec Radford, and Ilya Sutskever. Generating Long Sequences with Sparse
+Transformers, 2019. URLhttps://arxiv.org/abs/1904.10509.
+Aakanksha Chowdhery, Sharan Narang, Jacob Devlin, Maarten Bosma, Gaurav Mishra, Adam
+Roberts, Paul Barham, Hyung Won Chung, Charles Sutton, Sebastian Gehrmann, Parker Schuh,
+Kensen Shi, Sasha Tsvyashchenko, Joshua Maynez, Abhishek Rao, Parker Barnes, Yi Tay, Noam
+Shazeer, Vinodkumar Prabhakaran, Emily Reif, Nan Du, Ben Hutchinson, Reiner Pope, James
+Bradbury, Jacob Austin, Michael Isard, Guy Gur-Ari, Pengcheng Yin, Toju Duke, Anselm Lev-
+skaya, Sanjay Ghemawat, Sunipa Dev, Henryk Michalewski, Xavier Garcia, Vedant Misra, Kevin
+Robinson, Liam Fedus, Denny Zhou, Daphne Ippolito, David Luan, Hyeontaek Lim, Barret Zoph,
+Alexander Spiridonov, Ryan Sepassi, David Dohan, Shivani Agrawal, Mark Omernick, Andrew M.
+Dai, Thanumalayan Sankaranarayana Pillai, Marie Pellat, Aitor Lewkowycz, Erica Moreira, Rewon
+Child, Oleksandr Polozov, Katherine Lee, Zongwei Zhou, Xuezhi Wang, Brennan Saeta, Mark
+Diaz, Orhan Firat, Michele Catasta, Jason Wei, Kathy Meier-Hellstern, Douglas Eck, Jeff Dean,
+Slav Petrov, and Noah Fiedel. PaLM: Scaling Language Modeling with Pathways, 2022. URL
+https://arxiv.org/abs/2204.02311.
+Steven B Davis and Paul Mermelstein. Comparison of Parametric Representations for Monosyllabic
+Word Recognition in Continuously Spoken Sentences.IEEE Transactions on Acoustics, Speech,
+and Signal Processing, 28(4):357–366, 1980.
+Alexandre de Brébisson and Pascal Vincent. The Z-loss: a shift and scale invariant classification loss
+belonging to the Spherical Family, 2016. URLhttps://arxiv.org/abs/1604.08859.
+Miguel Del Rio, Natalie Delworth, Ryan Westerman, Michelle Huang, Nishchal Bhandari, Joseph
+Palakapilly, Quinten McNamara, Joshua Dong, Piotr ˙Zelasko, and Miguel Jetté. Earnings-21: A
+Practical Benchmark for ASR in the Wild. InProc. Interspeech 2021, pages 3465–3469, 2021.
+doi: 10.21437/Interspeech.2021-1915.
+Miguel Del Rio, Peter Ha, Quinten McNamara, Corey Miller, and Shipra Chandra. Earnings-22: A
+Practical Benchmark for Accents in the Wild.arXiv e-prints, art. arXiv:2203.15591, March 2022.
+ElevenLabs Team. Introducing Scribe v2, January 2026. URL https://elevenlabs.io/blog/i
+ntroducing-scribe-v2. Accessed: 2026-02-06.
+J.J. Godfrey, E.C. Holliman, and J. McDaniel. SWITCHBOARD: telephone speech corpus for
+research and development. In[Proceedings] ICASSP-92: 1992 IEEE International Conference on
+Acoustics, Speech, and Signal Processing, volume 1, pages 517–520 vol.1, 1992. doi: 10.1109/IC
+ASSP.1992.225858.
+10
+
+Alex Graves. Sequence Transduction with Recurrent Neural Networks, 2012. URL https://arxi
+v.org/abs/1211.3711.
+François Hernandez, Vincent Nguyen, Sahar Ghannay, Natalia Tomashenko, and Yannick Estève.
+TED-LIUM 3: Twice as Much Data and Corpus Repartition for Experiments on Speaker Adaptation,
+page 198–208. Springer International Publishing, 2018. ISBN 9783319995793. doi: 10.1007/97
+8-3-319-99579-3_21. URLhttp://dx.doi.org/10.1007/978-3-319-99579-3_21.
+Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin Zheng, Cody Hao Yu, Joseph E.
+Gonzalez, Hao Zhang, and Ion Stoica. Efficient Memory Management for Large Language Model
+Serving with PagedAttention. InProceedings of the ACM SIGOPS 29th Symposium on Operating
+Systems Principles, 2023.
+Alexander H. Liu, Andy Ehrenberg, Andy Lo, Clément Denoix, Corentin Barreau, Guillaume
+Lample, Jean-Malo Delignon, Khyathi Raghavi Chandu, Patrick von Platen, Pavankumar Reddy
+Muddireddy, Sanchit Gandhi, Soham Ghosh, Srijan Mishra, Thomas Foubert, Abhinav Rastogi,
+Adam Yang, Albert Q. Jiang, Alexandre Sablayrolles, Amélie Héliou, Amélie Martin, Anmol
+Agarwal, Antoine Roux, Arthur Darcet, Arthur Mensch, Baptiste Bout, Baptiste Rozière, Bau-
+douin De Monicault, Chris Bamford, Christian Wallenwein, Christophe Renaudin, Clémence
+Lanfranchi, Darius Dabert, Devendra Singh Chaplot, Devon Mizelle, Diego de las Casas, Elliot
+Chane-Sane, Emilien Fugier, Emma Bou Hanna, Gabrielle Berrada, Gauthier Delerce, Gauthier
+Guinet, Georgii Novikov, Guillaume Martin, Himanshu Jaju, Jan Ludziejewski, Jason Rute,
+Jean-Hadrien Chabran, Jessica Chudnovsky, Joachim Studnia, Joep Barmentlo, Jonas Amar, Jos-
+selin Somerville Roberts, Julien Denize, Karan Saxena, Karmesh Yadav, Kartik Khandelwal,
+Kush Jain, Lélio Renard Lavaud, Léonard Blier, Lingxiao Zhao, Louis Martin, Lucile Saulnier,
+Luyu Gao, Marie Pellat, Mathilde Guillaumin, Mathis Felardos, Matthieu Dinot, Maxime Darrin,
+Maximilian Augustin, Mickaël Seznec, Neha Gupta, Nikhil Raghuraman, Olivier Duchenne, Patri-
+cia Wang, Patryk Saffer, Paul Jacob, Paul Wambergue, Paula Kurylowicz, Philomène Chagniot,
+Pierre Stock, Pravesh Agrawal, Rémi Delacourt, Romain Sauvestre, Roman Soletskyi, Sagar
+Vaze, Sandeep Subramanian, Saurabh Garg, Shashwat Dalal, Siddharth Gandhi, Sumukh Aithal,
+Szymon Antoniak, Teven Le Scao, Thibault Schueller, Thibaut Lavril, Thomas Robert, Thomas
+Wang, Timothée Lacroix, Tom Bewley, Valeriia Nemychnikova, Victor Paltz, Virgile Richard,
+Wen-Ding Li, William Marshall, Xuanyu Zhang, Yihan Wan, and Yunhao Tang. V oxtral, 2025.
+URLhttps://arxiv.org/abs/2507.13264.
+Alexander H. Liu, Kartik Khandelwal, Sandeep Subramanian, Victor Jouault, Abhinav Rastogi,
+Adrien Sadé, Alan Jeffares, Albert Jiang, Alexandre Cahill, Alexandre Gavaudan, Alexandre
+Sablayrolles, Amélie Héliou, Amos You, Andy Ehrenberg, Andy Lo, Anton Eliseev, Antonia Calvi,
+Avinash Sooriyarachchi, Baptiste Bout, Baptiste Rozière, Baudouin De Monicault, Clémence
+Lanfranchi, Corentin Barreau, Cyprien Courtot, Daniele Grattarola, Darius Dabert, Diego de las
+Casas, Elliot Chane-Sane, Faruk Ahmed, Gabrielle Berrada, Gaëtan Ecrepont, Gauthier Guinet,
+Georgii Novikov, Guillaume Kunsch, Guillaume Lample, Guillaume Martin, Gunshi Gupta, Jan
+Ludziejewski, Jason Rute, Joachim Studnia, Jonas Amar, Joséphine Delas, Josselin Somerville
+Roberts, Karmesh Yadav, Khyathi Chandu, Kush Jain, Laurence Aitchison, Laurent Fainsin,
+Léonard Blier, Lingxiao Zhao, Louis Martin, Lucile Saulnier, Luyu Gao, Maarten Buyl, Mar-
+garet Jennings, Marie Pellat, Mark Prins, Mathieu Poirée, Mathilde Guillaumin, Matthieu Dinot,
+Matthieu Futeral, Maxime Darrin, Maximilian Augustin, Mia Chiquier, Michel Schimpf, Nathan
+Grinsztajn, Neha Gupta, Nikhil Raghuraman, Olivier Bousquet, Olivier Duchenne, Patricia Wang,
+Patrick von Platen, Paul Jacob, Paul Wambergue, Paula Kurylowicz, Pavankumar Reddy Mud-
+direddy, Philomène Chagniot, Pierre Stock, Pravesh Agrawal, Quentin Torroba, Romain Sauvestre,
+Roman Soletskyi, Rupert Menneer, Sagar Vaze, Samuel Barry, Sanchit Gandhi, Siddhant Waghjale,
+Siddharth Gandhi, Soham Ghosh, Srijan Mishra, Sumukh Aithal, Szymon Antoniak, Teven Le
+Scao, Théo Cachet, Theo Simon Sorg, Thibaut Lavril, Thiziri Nait Saada, Thomas Chabal, Thomas
+Foubert, Thomas Robert, Thomas Wang, Tim Lawson, Tom Bewley, Tom Bewley, Tom Ed-
+wards, Umar Jamil, Umberto Tomasini, Valeriia Nemychnikova, Van Phung, Vincent Maladière,
+Virgile Richard, Wassim Bouaziz, Wen-Ding Li, William Marshall, Xinghui Li, Xinyu Yang,
+Yassine El Ouahidi, Yihan Wang, Yunhao Tang, and Zaccharie Ramzi. Ministral 3, 2026. URL
+https://arxiv.org/abs/2601.08584.
+Ilya Loshchilov and Frank Hutter. Decoupled Weight Decay Regularization, 2019. URL https:
+//arxiv.org/abs/1711.05101.
+11
+
+Dominik Macháˇcek, Raj Dabre, and Ondˇrej Bojar. Turning Whisper into Real-Time Transcription
+System. In Sriparna Saha and Herry Sujaini, editors,Proceedings of the 13th International
+Joint Conference on Natural Language Processing and the 3rd Conference of the Asia-Pacific
+Chapter of the Association for Computational Linguistics: System Demonstrations, pages 17–
+24, Bali, Indonesia, November 2023. Association for Computational Linguistics. URL https:
+//aclanthology.org/2023.ijcnlp-demo.3.
+Mistral AI Team. V oxtral Transcribe 2, February 2026. URLhttps://mistral.ai/news/voxt
+ral-transcribe-2. Accessed: 2026-02-06.
+Vahid Noroozi, Somshubra Majumdar, Ankur Kumar, Jagadeesh Balam, and Boris Ginsburg. Stateful
+Conformer with Cache-based Inference for Streaming Automatic Speech Recognition, 2024. URL
+https://arxiv.org/abs/2312.17279.
+Patrick K. O’Neill, Vitaly Lavrukhin, Somshubra Majumdar, Vahid Noroozi, Yuekai Zhang, Oleksii
+Kuchaiev, Jagadeesh Balam, Yuliya Dovzhenko, Keenan Freyberg, Michael D. Shulman, Boris
+Ginsburg, Shinji Watanabe, and Georg Kucsko. SPGISpeech: 5,000 Hours of Transcribed Financial
+Audio for Fully Formatted End-to-End Speech Recognition. InProc. Interspeech 2021, pages
+1434–1438, 2021. doi: 10.21437/Interspeech.2021-1860.
+Vassil Panayotov, Guoguo Chen, Daniel Povey, and Sanjeev Khudanpur. Librispeech: An ASR corpus
+based on public domain audio books. In2015 IEEE International Conference on Acoustics, Speech
+and Signal Processing (ICASSP), pages 5206–5210, 2015. doi: 10.1109/ICASSP.2015.7178964.
+Alec Radford, Jong Wook Kim, Tao Xu, Greg Brockman, Christine McLeavey, and Ilya Sutskever.
+Robust Speech Recognition via Large-Scale Weak Supervision. InInternational Conference on
+Machine Learning, pages 28492–28518. PMLR, 2023.
+Noam Shazeer. GLU Variants Improve Transformer, 2020. URL https://arxiv.org/abs/2002
+.05202.
+Yangyang Shi, Yongqiang Wang, Chunyang Wu, Ching feng Yeh, Julian Chan, Frank Zhang, Duc
+Le, and Michael L. Seltzer. Emformer: Efficient Memory Transformer Based Acoustic Model
+for Low Latency Streaming Speech Recognition.ICASSP 2021 - 2021 IEEE International
+Conference on Acoustics, Speech and Signal Processing (ICASSP), pages 6783–6787, 2020. URL
+https://api.semanticscholar.org/CorpusID:224818050.
+Jianlin Su, Yu Lu, Shengfeng Pan, Ahmed Murtadha, Bo Wen, and Yunfeng Liu. RoFormer: Enhanced
+Transformer with Rotary Position Embedding, 2023. URL https://arxiv.org/abs/2104.0
+9864.
+Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, Marie-Anne Lachaux, Timothée
+Lacroix, Baptiste Rozière, Naman Goyal, Eric Hambro, Faisal Azhar, Aurelien Rodriguez, Armand
+Joulin, Edouard Grave, and Guillaume Lample. LLaMA: Open and Efficient Foundation Language
+Models, 2023. URLhttps://arxiv.org/abs/2302.13971.
+Emmanuel Vincent, Shinji Watanabe, Aditya Arie Nugraha, Jon Barker, and Ricard Marxer. An
+Analysis of Environment, Microphone and Data Simulation Mismatches in Robust Speech
+Recognition.Comput. Speech Lang., 46(C):535–557, nov 2017. ISSN 0885-2308. doi:
+10.1016/j.csl.2016.11.005. URLhttps://doi.org/10.1016/j.csl.2016.11.005.
+Changhan Wang, Morgane Riviere, Ann Lee, Anne Wu, Chaitanya Talnikar, Daniel Haziza, Mary
+Williamson, Juan Pino, and Emmanuel Dupoux. V oxPopuli: A Large-Scale Multilingual Speech
+Corpus for Representation Learning, Semi-Supervised Learning and Interpretation. InPro-
+ceedings of the 59th Annual Meeting of the Association for Computational Linguistics and
+the 11th International Joint Conference on Natural Language Processing (Volume 1: Long Pa-
+pers), pages 993–1003, Online, August 2021. Association for Computational Linguistics. doi:
+10.18653/v1/2021.acl-long.80. URLhttps://aclanthology.org/2021.acl-long.80.
+Guangxuan Xiao, Yuandong Tian, Beidi Chen, Song Han, and Mike Lewis. Efficient Streaming
+Language Models with Attention Sinks, 2024. URLhttps://arxiv.org/abs/2309.17453.
+12
+
+Neil Zeghidour, Eugene Kharitonov, Manu Orsini, Václav V olhejn, Gabriel de Marmiesse, Edouard
+Grave, Patrick Pérez, Laurent Mazaré, and Alexandre Défossez. Streaming Sequence-to-Sequence
+Learning with Delayed Streams Modeling, 2025. URL https://arxiv.org/abs/2509.08753.
+Biao Zhang and Rico Sennrich. Root Mean Square Layer Normalization. In H. Wallach, H. Larochelle,
+A. Beygelzimer, F. d'Alché-Buc, E. Fox, and R. Garnett, editors,Advances in Neural Information
+Processing Systems, volume 32. Curran Associates, Inc., 2019. URL https://proceedings.ne
+urips.cc/paper_files/paper/2019/file/1e8a19426224ca89e83cef47f1e7f53b-Pap
+er.pdf.
+13
+
+A Appendix
+A.1 Speech Recognition Results
+Table 5 shows a task-breakdown of short-form English speech recognition results for LibriSpeech Test Clean [Panayotov et al., 2015], LibriSpeech Test Other,
+GigaSpeech [Chen et al., 2021], V oxPopuli [Wang et al., 2021], SwitchBoard [Godfrey et al., 1992], CallHome, CHiME-4 [Vincent et al., 2017], SPGISpeech
+[O’Neill et al., 2021], TED-LIUM [Hernandez et al., 2018] and Earnings-22 [Del Rio et al., 2022].
+Table 5:English Short-Form WER (%) results. We report scores for LibriSpeech Test Clean (LS-C), LibriSpeech Test Other (LS-O), GigaSpeech (GS), V oxPopuli (VP), SwitchBoard
+(SB), CallHome (CH), CHiME-4 (C-4), SPGISPeech (SPGI), TED-LIUM (TED) and Earnings-22 (E22).
+Model Delay (ms) LS-C LS-O GS VP SB CH C-4 SPGI TED E22 A VG
+Offline
+Whisper — 1.84 3.66 11.60 9.58 13.14 14.58 10.88 3.15 3.83 11.63 8.39
+V oxtral Mini Transcribe V2 — 1.60 3.24 10.39 6.81 11.54 12.74 10.42 1.74 3.50 10.67 7.27
+Realtime API
+GPT-4o mini Transcribe — 1.94 4.48 10.67 6.79 11.15 15.54 11.08 2.87 4.07 10.69 7.93
+Scribe v2 Realtime — 1.75 4.01 10.29 6.01 11.54 11.87 11.59 2.04 2.63 11.52 7.33
+Realtime Open-Source
+DSM 1B En-Fr 500 3.64 11.44 12.09 11.51 12.46 16.62 28.84 4.63 4.58 16.76 12.26
+DSM 2.6B En 2500 1.71 4.46 10.39 6.51 12.53 12.02 16.75 1.95 3.08 11.72 8.11
+Nemotron Streaming 560 2.42 5.12 11.87 7.09 13.82 17.30 18.64 2.64 4.50 12.48 9.59
+1120 2.38 4.94 11.84 7.02 13.35 17.74 17.37 2.62 4.50 12.33 9.41
+V oxtral Realtime 240 2.49 7.15 12.10 10.52 13.26 14.66 18.07 3.31 4.53 13.39 9.95
+480 2.08 5.54 11.05 7.87 11.90 13.59 15.00 1.96 3.96 11.71 8.47
+960 1.96 4.59 10.51 7.23 11.44 13.34 13.17 2.36 3.55 11.24 7.94
+2400 1.82 4.03 10.60 7.06 11.55 13.44 12.18 2.11 3.57 10.80 7.72
+For English long-form, we report Meanwhile [Radford et al., 2023] and the long-form version of TED-LIUM. We also take the one-hour long earnings calls from
+Earnings-21 [Del Rio et al., 2021] and Earnings-22 [Del Rio et al., 2022], and segment them into shorter, 10 minute variants.
+Tables 7 and 8 show the per-language breakdown of error-rate scores for the FLEURS and Mozilla Common V oice benchmarks respectively.
+14
+
+Table 6:English Long-Form WER (%) results. We report scores for Meanwhile (MW), Earnings-21 (E21), Earnings-22 (E22), and TED-LIUM (TED).
+Model Delay (ms) MW E21 E22 TED A VG
+Offline
+Whisper — 5.80 9.88 13.07 3.11 7.97
+V oxtral Mini Transcribe V2 — 4.08 9.81 11.69 2.86 7.11
+Realtime API
+GPT-4o mini Transcribe — 5.21 9.92 12.58 4.17 7.97
+Scribe v2 Realtime — 3.62 10.72 13.22 2.18 7.43
+Realtime Open-Source
+DSM 1B En-Fr 500 7.36 14.58 21.43 11.92 13.83
+DSM 2.6B En 2500 5.29 10.52 12.18 2.89 7.72
+Nemotron Streaming 560 8.25 20.92 23.53 4.46 14.29
+1120 7.43 18.75 21.65 4.25 13.02
+V oxtral Realtime 240 5.76 12.56 14.84 4.00 9.29
+480 5.05 10.46 12.46 2.94 7.73
+960 4.14 9.86 11.63 2.86 7.13
+2400 4.03 9.52 11.31 2.86 6.93
+15
+
+Table 7:FLEURS error-rate results by language. We report scores for Arabic (ar), German (de), English (en), Spanish (es), French (fr), Hindi (hi), Italian (it), Japanese (ja), Korean
+(ko), Dutch (nl), Portuguese (pt), Russian (ru), and Chinese (zh). For Chinese and Japanese we report character error-rate (CER). For all other languages, we report WER.
+Model Delay (ms) ar de en es fr hi it ja ko nl pt ru zh A VG
+Offline
+Whisper — 15.44 5.46 4.00 2.81 5.55 28.87 2.71 4.97 14.30 5.87 3.90 5.13 7.94 8.23
+V oxtral Mini Transcribe V2 — 13.54 3.54 3.32 2.63 4.32 10.33 2.17 4.14 12.29 4.78 3.56 4.75 7.30 5.90
+Realtime API
+GPT-4o mini Transcribe — 13.99 4.07 3.65 3.41 5.84 8.39 2.82 9.89 19.46 6.00 5.04 5.30 15.43 7.95
+Scribe v2 Realtime — 19.53 4.31 3.54 3.23 5.12 12.62 2.33 10.92 11.90 6.72 3.75 7.68 16.82 8.34
+Realtime Open-Source
+DSM 1B En-Fr 500 — — 9.56 — 16.31 — — — — — — — — —
+DSM 2.6B En 2500 — — 6.11 — — — — — — — — — — —
+Nemotron Streaming 560 — — 6.11 — — — — — — — — — — —
+1120 — — 5.72 — — — — — — — — — — —
+V oxtral Realtime 240 23.95 8.15 5.91 4.59 8.00 14.26 4.41 15.17 17.56 9.23 7.51 7.87 13.84 10.80
+480 22.53 6.19 4.90 3.31 6.42 12.88 3.27 9.59 15.74 7.07 5.03 6.02 10.45 8.72
+960 20.32 4.87 4.34 2.98 5.68 11.82 2.46 6.80 14.90 6.76 4.57 5.56 8.99 7.70
+2400 14.71 4.15 4.05 2.71 5.23 10.73 2.37 5.50 14.30 5.91 3.93 5.41 8.48 6.73
+16
+
+Table 8:Mozilla Common V oice error-rate results by language. For Chinese and Japanese we report CER. For all other languages, we report WER. For fairness, we omit Arabic from
+the macro-average in Tables 3 and 4, since all models score in excess of 45%.
+Model Delay (ms) ar de en es fr hi it ja ko nl pt ru zh A VG
+Offline
+Whisper — 50.58 6.25 22.91 5.66 11.33 46.75 6.81 15.80 20.86 5.83 7.17 6.76 14.88 14.25
+V oxtral Mini Transcribe V2 — 46.06 4.35 8.61 3.93 7.21 10.26 4.15 12.87 20.29 4.38 6.58 5.18 9.04 8.07
+Realtime API
+GPT-4o mini Transcribe — 51.06 6.05 10.89 5.54 9.77 23.90 5.75 18.53 32.90 7.89 9.70 8.49 14.81 12.85
+Scribe v2 Realtime — 60.60 16.60 19.43 15.93 15.74 35.78 14.04 24.70 26.98 9.06 19.77 13.16 38.97 20.85
+Realtime Open-Source
+DSM 1B En-Fr 500 — — 34.93 — 24.29 — — — — — — — — —
+DSM 2.6B En 2500 — — 18.27 — — — — — — — — — — —
+Nemotron Streaming 560 — — 12.33 — — — — — — — — — — —
+1120 — — 11.92 — — — — — — — — — — —
+V oxtral Realtime 240 55.10 11.13 19.63 9.05 14.51 20.05 10.62 27.25 33.47 11.86 15.27 13.90 43.93 19.22
+480 48.64 8.70 15.18 6.05 11.51 17.22 7.80 20.87 31.37 8.97 11.25 11.03 32.92 15.24
+960 48.68 6.85 12.49 5.12 9.80 15.04 6.05 16.77 27.24 6.36 8.00 8.65 21.51 11.99
+2400 50.35 5.66 10.51 4.56 9.05 13.19 4.96 15.45 25.26 5.18 7.22 7.64 17.00 10.47
+17
+
+A.2 vLLM Realtime Inference
+Figure 5: Voxtral streaming session via vLLM resumable requests.A session is created with an anchor
+request that includes the initial buffered audio (e.g., the firstτ ms plus padding tokens to enforce the target delay)
+and runs a one-token decoder step. Each subsequent update is sent as a resumable request that appends the
+next 80 ms audio chunk together with the previously emitted token ID, allowing the engine to reuse cached KV
+states and emit the next token incrementally. This request–decode–update loop enables low-latency, continuous
+transcription with full-duplex streaming-input/streaming-output.
+18
