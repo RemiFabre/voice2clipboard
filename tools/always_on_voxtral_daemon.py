@@ -13,9 +13,11 @@ import asyncio
 import base64
 import json
 import os
+import re
 import signal
 import sys
 import time
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from urllib.parse import urlparse
@@ -67,6 +69,31 @@ def write_state(path: str, payload: dict) -> None:
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
     os.replace(tmp, path)
+
+
+def normalize_text(text: str) -> str:
+    lowered = text.lower()
+    deaccented = "".join(
+        ch for ch in unicodedata.normalize("NFKD", lowered) if not unicodedata.combining(ch)
+    )
+    cleaned = re.sub(r"[^a-z0-9\s]+", " ", deaccented)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def parse_phrases(raw: str) -> list[str]:
+    parts = [normalize_text(x) for x in raw.split(",")]
+    return [p for p in parts if p]
+
+
+def detect_voice_command(segment: str, start_phrases: list[str], stop_phrases: list[str]) -> str | None:
+    norm = normalize_text(segment)
+    for p in start_phrases:
+        if norm.startswith(p):
+            return "start"
+    for p in stop_phrases:
+        if norm.startswith(p):
+            return "stop"
+    return None
 
 
 def read_pid(path: str) -> int | None:
@@ -135,8 +162,14 @@ async def run_daemon(args: argparse.Namespace) -> None:
         f.write(str(os.getpid()))
 
     state = State(started_at=time.time())
+    start_phrases = parse_phrases(args.voice_start_phrases)
+    stop_phrases = parse_phrases(args.voice_stop_phrases)
+    marker_path = os.path.join(runtime_dir, "selection_marker.json")
+    command_lock = asyncio.Lock()
+    last_command_at = 0.0
     stop_event = asyncio.Event()
     audio_q: asyncio.Queue[str] = asyncio.Queue(maxsize=256)
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     def _on_signal(_sig, _frame):
         stop_event_loop = asyncio.get_event_loop()
@@ -157,6 +190,59 @@ async def run_daemon(args: argparse.Namespace) -> None:
             loop.call_soon_threadsafe(audio_q.put_nowait, payload)
         except asyncio.QueueFull:
             pass
+
+    async def run_marker_script(action: str, reason_text: str) -> None:
+        nonlocal last_command_at
+        if not args.voice_commands:
+            return
+        if action not in {"start", "stop"}:
+            return
+
+        now = time.time()
+        if now - last_command_at < args.voice_command_cooldown:
+            return
+
+        marker_exists = os.path.exists(marker_path)
+        if action == "start" and marker_exists:
+            return
+        if action == "stop" and not marker_exists:
+            return
+
+        script_name = "always_on_mark_start.sh" if action == "start" else "always_on_mark_stop.sh"
+        script_path = os.path.join(repo_root, script_name)
+        if not os.path.exists(script_path):
+            append_jsonl(
+                events_path,
+                {
+                    "ts": now_iso(),
+                    "voice_command": action,
+                    "status": "script_missing",
+                    "script": script_path,
+                },
+            )
+            return
+
+        async with command_lock:
+            last_command_at = time.time()
+            proc = await asyncio.create_subprocess_exec(
+                script_path,
+                cwd=repo_root,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            out, err = await proc.communicate()
+            append_jsonl(
+                events_path,
+                {
+                    "ts": now_iso(),
+                    "voice_command": action,
+                    "status": "ok" if proc.returncode == 0 else "error",
+                    "rc": proc.returncode,
+                    "trigger_text": reason_text,
+                    "stdout": (out or b"").decode("utf-8", errors="ignore").strip(),
+                    "stderr": (err or b"").decode("utf-8", errors="ignore").strip(),
+                },
+            )
 
     try:
         if not await wait_for_server(args.url, args.wait_server_s, args.wait_poll_s):
@@ -207,6 +293,11 @@ async def run_daemon(args: argparse.Namespace) -> None:
                     )
                     append_text_line(timeline_day_path(runtime_dir), f"[{now_iso()}] {seg}")
                     write_text(live_text_path, state.committed_text + "\n")
+
+                    if args.voice_commands:
+                        action = detect_voice_command(seg, start_phrases, stop_phrases)
+                        if action:
+                            asyncio.create_task(run_marker_script(action, seg))
 
             async def receiver_loop() -> None:
                 while not stop_event.is_set():
@@ -310,6 +401,10 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--blocksize", type=int, default=2048)
     ap.add_argument("--commit-every", type=float, default=0.8)
     ap.add_argument("--segment-silence", type=float, default=0.9)
+    ap.add_argument("--voice-commands", action="store_true", help="Enable start/stop by spoken keywords")
+    ap.add_argument("--voice-start-phrases", default="roger start", help="Comma-separated start phrases")
+    ap.add_argument("--voice-stop-phrases", default="roger stop", help="Comma-separated stop phrases")
+    ap.add_argument("--voice-command-cooldown", type=float, default=1.0, help="Debounce between voice commands")
     ap.add_argument("--wait-server-s", type=float, default=15.0)
     ap.add_argument("--wait-poll-s", type=float, default=0.4)
     return ap.parse_args()

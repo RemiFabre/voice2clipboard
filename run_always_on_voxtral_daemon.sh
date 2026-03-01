@@ -20,4 +20,18 @@ fi
 source "$VENV"
 cd "$ROOT_DIR"
 
-python tools/always_on_voxtral_daemon.py --runtime-dir "$RUNTIME_DIR" >>"$LOG_FILE" 2>&1
+EXTRA_ARGS=()
+if [[ "${VOICE2CLIP_VOICE_COMMANDS:-1}" == "1" ]]; then
+  EXTRA_ARGS+=(--voice-commands)
+fi
+if [[ -n "${VOICE2CLIP_VOICE_START_PHRASES:-}" ]]; then
+  EXTRA_ARGS+=(--voice-start-phrases "$VOICE2CLIP_VOICE_START_PHRASES")
+fi
+if [[ -n "${VOICE2CLIP_VOICE_STOP_PHRASES:-}" ]]; then
+  EXTRA_ARGS+=(--voice-stop-phrases "$VOICE2CLIP_VOICE_STOP_PHRASES")
+fi
+if [[ -n "${VOICE2CLIP_VOICE_COMMAND_COOLDOWN:-}" ]]; then
+  EXTRA_ARGS+=(--voice-command-cooldown "$VOICE2CLIP_VOICE_COMMAND_COOLDOWN")
+fi
+
+python tools/always_on_voxtral_daemon.py --runtime-dir "$RUNTIME_DIR" "${EXTRA_ARGS[@]}" >>"$LOG_FILE" 2>&1
