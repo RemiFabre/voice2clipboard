@@ -93,39 +93,28 @@ def parse_phrases(raw: str) -> list[str]:
     return [p for p in parts if p]
 
 
-def detect_voice_command(segment: str, start_phrases: list[str], stop_phrases: list[str]) -> tuple[str, str] | None:
-    norm = normalize_text(segment)
-    words = norm.split()
-    max_prefix_skip = 2
-
-    def matches(phrase: str) -> bool:
-        pwords = phrase.split()
-        if not pwords:
-            return False
-        for i in range(0, min(max_prefix_skip, len(words)) + 1):
-            if words[i:i + len(pwords)] == pwords:
-                return True
-        return False
-
-    for p in start_phrases:
-        if matches(p):
-            return "start", p
-    for p in stop_phrases:
-        if matches(p):
-            return "stop", p
-    return None
-
-
-def strip_leading_phrase(raw_text: str, phrase: str) -> str:
-    # Case-insensitive, punctuation-tolerant strip for first command occurrence.
-    # Examples:
-    # - "Roger start, hello" -> "hello"
-    # - "ok, copy start hello" -> "ok, hello"
+def phrase_pattern(phrase: str) -> re.Pattern[str]:
     words = [re.escape(w) for w in phrase.split()]
     if not words:
-        return raw_text.strip()
-    pattern = r"\b" + r"\W+".join(words) + r"\b(?:\W+|$)"
-    return re.sub(pattern, " ", raw_text, count=1, flags=re.IGNORECASE).strip()
+        return re.compile(r"$^")
+    return re.compile(r"\b" + r"\W+".join(words) + r"\b", flags=re.IGNORECASE)
+
+
+def find_voice_command(
+    segment: str,
+    start_phrases: list[str],
+    stop_phrases: list[str],
+) -> tuple[str, str, int, int] | None:
+    best: tuple[str, str, int, int] | None = None
+    for action, phrases in (("start", start_phrases), ("stop", stop_phrases)):
+        for phrase in phrases:
+            m = phrase_pattern(phrase).search(segment)
+            if not m:
+                continue
+            cand = (action, phrase, m.start(), m.end())
+            if best is None or cand[2] < best[2]:
+                best = cand
+    return best
 
 
 def play_cue(action: str) -> None:
@@ -263,7 +252,14 @@ async def run_daemon(args: argparse.Namespace) -> None:
         except asyncio.QueueFull:
             pass
 
-    async def handle_voice_command(action: str, phrase: str, segment: str, seg_epoch: float) -> None:
+    async def handle_voice_command(
+        action: str,
+        phrase: str,
+        segment: str,
+        seg_epoch: float,
+        span_start: int,
+        span_end: int,
+    ) -> None:
         nonlocal last_command_at
         if not args.voice_commands:
             return
@@ -275,7 +271,8 @@ async def run_daemon(args: argparse.Namespace) -> None:
             return
 
         marker_exists = os.path.exists(marker_path)
-        remainder = strip_leading_phrase(segment, phrase)
+        before = segment[:span_start].strip()
+        after = segment[span_end:].strip()
         if action == "start":
             if voice_capture.active or marker_exists:
                 return
@@ -283,8 +280,9 @@ async def run_daemon(args: argparse.Namespace) -> None:
             voice_capture.parts = []
             voice_capture.part_epochs = []
             voice_capture.started_epoch = time.time()
-            if remainder:
-                voice_capture.parts.append(remainder)
+            # Start command captures only words spoken after the keyword.
+            if after:
+                voice_capture.parts.append(after)
                 voice_capture.part_epochs.append(seg_epoch)
             write_state(
                 marker_path,
@@ -312,8 +310,9 @@ async def run_daemon(args: argparse.Namespace) -> None:
         # stop
         if not voice_capture.active:
             return
-        if remainder:
-            voice_capture.parts.append(remainder)
+        # Stop command captures words spoken before the keyword.
+        if before:
+            voice_capture.parts.append(before)
             voice_capture.part_epochs = voice_capture.part_epochs or []
             voice_capture.part_epochs.append(seg_epoch)
         final_text = " ".join(x.strip() for x in (voice_capture.parts or []) if x.strip()).strip()
@@ -406,10 +405,10 @@ async def run_daemon(args: argparse.Namespace) -> None:
                     write_text(live_text_path, state.committed_text + "\n")
 
                     if args.voice_commands:
-                        detected = detect_voice_command(seg, start_phrases, stop_phrases)
+                        detected = find_voice_command(seg, start_phrases, stop_phrases)
                         if detected:
-                            action, phrase = detected
-                            asyncio.create_task(handle_voice_command(action, phrase, seg, seg_epoch))
+                            action, phrase, s0, s1 = detected
+                            asyncio.create_task(handle_voice_command(action, phrase, seg, seg_epoch, s0, s1))
                         elif voice_capture.active and seg.strip():
                             voice_capture.parts = voice_capture.parts or []
                             voice_capture.parts.append(seg.strip())
