@@ -88,6 +88,27 @@ Look for:
 
 So `start/stop` control the **background services**, not marker windows.
 
+## Voice command markers (hands-free)
+By default, the daemon also supports spoken marker control:
+- `roger start` -> starts capture selection
+- `roger stop` -> stops selection and copies to clipboard
+
+These actions call the same scripts as manual marker commands, so cues/sounds stay consistent.
+
+Customize phrases with env vars before starting services:
+```bash
+export VOICE2CLIP_VOICE_START_PHRASES="roger start,copy start"
+export VOICE2CLIP_VOICE_STOP_PHRASES="roger stop,copy stop"
+export VOICE2CLIP_VOICE_COMMAND_COOLDOWN=1.0
+./voice_control.sh restart
+```
+
+Disable voice command mode:
+```bash
+export VOICE2CLIP_VOICE_COMMANDS=0
+./voice_control.sh restart
+```
+
 ## How to stop everything
 Use:
 

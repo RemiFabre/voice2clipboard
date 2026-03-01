@@ -30,6 +30,11 @@ cd /Users/remi/voice2clipboard
 ./voice_control.sh mark-stop
 ```
 
+Voice-command mode is enabled by default in daemon service:
+- say `roger start` to begin selection
+- say `roger stop` to end selection and copy
+- uses same sounds as manual start/stop scripts
+
 5. Stop everything:
 ```bash
 ./voice_control.sh stop
