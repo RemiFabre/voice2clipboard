@@ -40,6 +40,7 @@ class State:
 class VoiceCaptureState:
     active: bool = False
     parts: list[str] | None = None
+    started_epoch: float = 0.0
 
 
 def now_iso() -> str:
@@ -93,23 +94,37 @@ def parse_phrases(raw: str) -> list[str]:
 
 def detect_voice_command(segment: str, start_phrases: list[str], stop_phrases: list[str]) -> tuple[str, str] | None:
     norm = normalize_text(segment)
+    words = norm.split()
+    max_prefix_skip = 2
+
+    def matches(phrase: str) -> bool:
+        pwords = phrase.split()
+        if not pwords:
+            return False
+        for i in range(0, min(max_prefix_skip, len(words)) + 1):
+            if words[i:i + len(pwords)] == pwords:
+                return True
+        return False
+
     for p in start_phrases:
-        if norm.startswith(p):
+        if matches(p):
             return "start", p
     for p in stop_phrases:
-        if norm.startswith(p):
+        if matches(p):
             return "stop", p
     return None
 
 
 def strip_leading_phrase(raw_text: str, phrase: str) -> str:
-    # Case-insensitive, punctuation-tolerant strip at segment start.
-    # Example: "Roger start, hello" -> "hello"
+    # Case-insensitive, punctuation-tolerant strip for first command occurrence.
+    # Examples:
+    # - "Roger start, hello" -> "hello"
+    # - "ok, copy start hello" -> "ok, hello"
     words = [re.escape(w) for w in phrase.split()]
     if not words:
         return raw_text.strip()
-    pattern = r"^\W*" + r"\W+".join(words) + r"(?:\W+|$)"
-    return re.sub(pattern, "", raw_text, flags=re.IGNORECASE).strip()
+    pattern = r"\b" + r"\W+".join(words) + r"\b(?:\W+|$)"
+    return re.sub(pattern, " ", raw_text, count=1, flags=re.IGNORECASE).strip()
 
 
 def play_cue(action: str) -> None:
@@ -220,6 +235,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
     stop_phrases = parse_phrases(args.voice_stop_phrases)
     voice_capture = VoiceCaptureState(active=False, parts=[])
     marker_path = os.path.join(runtime_dir, "selection_marker.json")
+    selections_path = os.path.join(runtime_dir, "selections.jsonl")
     last_command_at = 0.0
     stop_event = asyncio.Event()
     audio_q: asyncio.Queue[str] = asyncio.Queue(maxsize=256)
@@ -257,14 +273,24 @@ async def run_daemon(args: argparse.Namespace) -> None:
 
         marker_exists = os.path.exists(marker_path)
         remainder = strip_leading_phrase(segment, phrase)
-
         if action == "start":
             if voice_capture.active or marker_exists:
                 return
             voice_capture.active = True
             voice_capture.parts = []
+            voice_capture.started_epoch = time.time()
             if remainder:
                 voice_capture.parts.append(remainder)
+            write_state(
+                marker_path,
+                {
+                    "started_at": now_iso(),
+                    "started_epoch": voice_capture.started_epoch,
+                    "selection_start_epoch": voice_capture.started_epoch,
+                    "boundary_pad_s": 0.0,
+                    "source": "voice_command",
+                },
+            )
             play_cue("start")
             last_command_at = time.time()
             append_jsonl(
@@ -281,12 +307,29 @@ async def run_daemon(args: argparse.Namespace) -> None:
         # stop
         if not voice_capture.active:
             return
+        selection_start_epoch = voice_capture.started_epoch
+        selection_end_epoch = time.time()
         if remainder:
             voice_capture.parts.append(remainder)
         final_text = " ".join(x.strip() for x in (voice_capture.parts or []) if x.strip()).strip()
         copied = copy_to_clipboard(final_text)
         voice_capture.active = False
         voice_capture.parts = []
+        voice_capture.started_epoch = 0.0
+        if os.path.exists(marker_path):
+            try:
+                os.remove(marker_path)
+            except OSError:
+                pass
+        append_jsonl(
+            selections_path,
+            {
+                "selection_start_epoch": selection_start_epoch,
+                "selection_end_epoch": selection_end_epoch,
+                "selection_text": final_text,
+                "source": "voice_command",
+            },
+        )
         play_cue("stop")
         last_command_at = time.time()
         append_jsonl(
@@ -485,6 +528,10 @@ def main() -> None:
     print(f"URL: {args.url}")
     print(f"Model: {args.model}")
     print(f"Runtime dir: {args.runtime_dir}")
+    if args.voice_commands:
+        print(f"Voice commands: ON start={args.voice_start_phrases!r} stop={args.voice_stop_phrases!r}")
+    else:
+        print("Voice commands: OFF")
     asyncio.run(run_daemon(args))
 
 
