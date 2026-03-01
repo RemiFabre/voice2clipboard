@@ -362,7 +362,8 @@ async def run_daemon(args: argparse.Namespace) -> None:
         raw_text = "".join(voice_capture.parts or [])
         final_text = normalize_captured_text(raw_text)
         epochs = [float(e) for e in (voice_capture.part_epochs or []) if e]
-        selection_start_epoch = min(epochs) if epochs else voice_capture.started_epoch
+        # Keep preview/window semantics stable: selection always starts at the start trigger time.
+        selection_start_epoch = voice_capture.started_epoch
         selection_end_epoch = max(epochs) if epochs else time.time()
         copied = copy_to_clipboard(final_text)
         voice_capture.active = False
