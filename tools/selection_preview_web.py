@@ -48,6 +48,13 @@ class SharedState:
 def read_marker(path: str) -> tuple[bool, float | None]:
     if not os.path.exists(path):
         return False, None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            obj = json.load(f)
+        start = obj.get("selection_start_epoch", obj.get("started_epoch"))
+        return True, float(start) if start is not None else None
+    except Exception:
+        return False, None
 
 
 def read_daemon_connected(path: str) -> bool:
@@ -59,13 +66,6 @@ def read_daemon_connected(path: str) -> bool:
         return bool(obj.get("connected", False))
     except Exception:
         return False
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            obj = json.load(f)
-        start = obj.get("selection_start_epoch", obj.get("started_epoch"))
-        return True, float(start) if start is not None else None
-    except Exception:
-        return False, None
 
 
 def tail_new_deltas(state: SharedState) -> None:
