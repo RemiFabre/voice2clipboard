@@ -239,6 +239,12 @@ async def run_daemon(args: argparse.Namespace) -> None:
     voice_capture = VoiceCaptureState(active=False, parts=[], part_epochs=[])
     marker_path = os.path.join(runtime_dir, "selection_marker.json")
     selections_path = os.path.join(runtime_dir, "selections.jsonl")
+    if os.path.exists(marker_path):
+        try:
+            os.remove(marker_path)
+            append_jsonl(events_path, {"ts": now_iso(), "event": "stale_marker_cleared"})
+        except OSError:
+            pass
     last_command_at = 0.0
     stop_event = asyncio.Event()
     audio_q: asyncio.Queue[str] = asyncio.Queue(maxsize=256)
