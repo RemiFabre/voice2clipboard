@@ -3,7 +3,7 @@ set -euo pipefail
 
 METAL_VENV="$HOME/.venv-vllm-metal"
 if [[ ! -d "$METAL_VENV" ]]; then
-  echo "Missing $METAL_VENV. Run ./setup_voxtral_runtime.sh first." >&2
+  echo "Missing $METAL_VENV. Run ./experiments/vllm_voxtral/setup_voxtral_runtime.sh first." >&2
   exit 1
 fi
 
@@ -84,4 +84,4 @@ PY
 
 echo
 echo "Runtime upgrade complete."
-echo "Next: ./run_voxtral_realtime_server.sh"
+echo "Next: ./experiments/vllm_voxtral/run_voxtral_realtime_server.sh"

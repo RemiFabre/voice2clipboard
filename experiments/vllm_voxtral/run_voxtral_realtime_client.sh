@@ -8,4 +8,4 @@ VENV="/Users/remi/.virtualenvs/voice2clipboard/bin/activate"
 source "$VENV"
 cd "$ROOT_DIR"
 
-python voxtral_realtime_client.py "$@"
+python experiments/vllm_voxtral/voxtral_realtime_client.py "$@"

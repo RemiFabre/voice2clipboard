@@ -29,5 +29,5 @@ pip install -r "$ROOT_DIR/requirements_voxtral.txt"
 echo
 echo "Setup complete."
 echo "Next:"
-echo "  1) cd $ROOT_DIR && ./run_voxtral_realtime_server.sh"
-echo "  2) cd $ROOT_DIR && ./run_voxtral_realtime_client.sh"
+echo "  1) cd $ROOT_DIR && ./experiments/vllm_voxtral/run_voxtral_realtime_server.sh"
+echo "  2) cd $ROOT_DIR && ./experiments/vllm_voxtral/run_voxtral_realtime_client.sh"

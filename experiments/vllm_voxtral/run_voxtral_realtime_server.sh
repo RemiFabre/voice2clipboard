@@ -15,7 +15,7 @@ fi
 
 if ! command -v vllm >/dev/null 2>&1; then
   echo "vllm CLI not found. Install vllm/vllm-metal first." >&2
-  echo "See /Users/remi/voice2clipboard/VOXTRAL_REALTIME_DEEP_DIVE.md" >&2
+  echo "See /Users/remi/voice2clipboard/docs/research/VOXTRAL_REALTIME_DEEP_DIVE.md" >&2
   exit 1
 fi
 
