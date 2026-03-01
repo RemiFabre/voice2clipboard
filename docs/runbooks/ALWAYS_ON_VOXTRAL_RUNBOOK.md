@@ -12,13 +12,13 @@ Keep local dictation always running, write transcript continuously to file, and 
 ### Terminal A: start local server
 ```bash
 cd /Users/remi/voice2clipboard
-./run_voxmlx_server.sh
+./scripts/mac/run_voxmlx_server.sh
 ```
 
 ### Terminal B: start always-on daemon
 ```bash
 cd /Users/remi/voice2clipboard
-./run_always_on_voxtral_daemon.sh
+./scripts/mac/run_always_on_voxtral_daemon.sh
 ```
 
 ## Marker Workflow
@@ -26,19 +26,19 @@ cd /Users/remi/voice2clipboard
 ### Start selection window
 ```bash
 cd /Users/remi/voice2clipboard
-./always_on_mark_start.sh
+./scripts/mac/always_on_mark_start.sh
 ```
 
 ### Stop selection window and copy to clipboard
 ```bash
 cd /Users/remi/voice2clipboard
-./always_on_mark_stop.sh
+./scripts/mac/always_on_mark_stop.sh
 ```
 
 ### Status
 ```bash
 cd /Users/remi/voice2clipboard
-./always_on_status.sh
+./scripts/mac/always_on_status.sh
 ```
 
 ## Runtime Artifacts
@@ -54,8 +54,8 @@ cd /Users/remi/voice2clipboard
 - Default behavior keeps macOS notifications enabled.
 - To reduce UI overhead while testing latency:
 ```bash
-VOICE2CLIP_NOTIFY=0 /Users/remi/voice2clipboard/always_on_mark_start.sh
-VOICE2CLIP_NOTIFY=0 /Users/remi/voice2clipboard/always_on_mark_stop.sh
+VOICE2CLIP_NOTIFY=0 /Users/remi/voice2clipboard/scripts/mac/always_on_mark_start.sh
+VOICE2CLIP_NOTIFY=0 /Users/remi/voice2clipboard/scripts/mac/always_on_mark_stop.sh
 ```
 
 ## Suggested Hotkeys (skhd)
@@ -63,10 +63,10 @@ Add these to `~/.config/skhd/skhdrc`:
 
 ```txt
 # Start interval marker
-cmd + shift - 9 : /Users/remi/voice2clipboard/always_on_mark_start.sh
+cmd + shift - 9 : /Users/remi/voice2clipboard/scripts/mac/always_on_mark_start.sh
 
 # Stop interval marker + copy to clipboard
-cmd + shift - 0 : /Users/remi/voice2clipboard/always_on_mark_stop.sh
+cmd + shift - 0 : /Users/remi/voice2clipboard/scripts/mac/always_on_mark_stop.sh
 ```
 
 Reload skhd:
@@ -83,15 +83,15 @@ launchctl kickstart -k gui/$(id -u)/com.koekeishiya.skhd
 Install plist files:
 ```bash
 cd /Users/remi/voice2clipboard
-./install_always_on_launchagents.sh
+./scripts/mac/install_always_on_launchagents.sh
 ```
 
 Manage services:
 ```bash
-./service_always_on.sh reload
-./service_always_on.sh status
-./service_always_on.sh stop
-./service_always_on.sh start
+./scripts/mac/service_always_on.sh reload
+./scripts/mac/service_always_on.sh status
+./scripts/mac/service_always_on.sh stop
+./scripts/mac/service_always_on.sh start
 ```
 
 This manages two services:

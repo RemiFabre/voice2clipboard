@@ -20,7 +20,7 @@ You do **not** need to run the manual client.
 ## Current production path
 - Realtime backend: `voxmlx` server (local).
 - Always-on capture daemon: `tools/always_on_voxtral_daemon.py`.
-- Marker-based clipboard capture: `always_on_mark_start.sh` / `always_on_mark_stop.sh`.
+- Marker-based clipboard capture: `scripts/mac/always_on_mark_start.sh` / `scripts/mac/always_on_mark_stop.sh`.
 - Unified control entrypoint: `voice_control.sh`.
 
 ## One command set (use these)
@@ -205,15 +205,15 @@ Clipboard marker selection note:
 ## Code modules: stable vs exploration
 Stable operational modules:
 - `voice_control.sh`
-- `service_always_on.sh`
-- `install_always_on_launchagents.sh`
-- `run_voxmlx_server.sh`
-- `run_always_on_voxtral_daemon.sh`
+- `scripts/mac/service_always_on.sh`
+- `scripts/mac/install_always_on_launchagents.sh`
+- `scripts/mac/run_voxmlx_server.sh`
+- `scripts/mac/run_always_on_voxtral_daemon.sh`
 - `tools/always_on_voxtral_daemon.py`
 - `tools/always_on_capture.py`
-- `always_on_mark_start.sh`
-- `always_on_mark_stop.sh`
-- `always_on_status.sh`
+- `scripts/mac/always_on_mark_start.sh`
+- `scripts/mac/always_on_mark_stop.sh`
+- `scripts/mac/always_on_status.sh`
 
 Exploration/benchmark/research area:
 - `benchmarks/`

@@ -47,8 +47,8 @@ Use this when you want to tweak daemon params manually.
 
 ```bash
 cd /Users/remi/voice2clipboard
-./service_always_on.sh stop
-./run_voxmlx_server.sh
+./voice_control.sh stop
+./scripts/mac/run_voxmlx_server.sh
 ```
 
 In a second terminal:
@@ -86,15 +86,11 @@ Legacy scripts are now under:
 
 ## Compatibility wrappers kept at repo root
 
-To avoid breaking older commands, these still work and forward to their new locations:
-- `./run_benchmark_realtime_backends.sh`
-- `./run_benchmark_full_mac.sh`
-- `./run_voxtral_realtime_server.sh`
-- `./run_voxtral_realtime_client.sh`
-- `./setup_voxtral_runtime.sh`
-- `./fix_voxtral_runtime.sh`
-- `./stop_voxtral_realtime_server.sh`
-- `./wait_voxtral_server_ready.sh`
+Only `./voice_control.sh` is kept at repo root for daily usage.
+
+Other command scripts moved to:
+- `scripts/mac/` (production macOS operations)
+- `scripts/experiments/` (benchmarking and vLLM experiment entrypoints)
 
 ## Runbooks
 
