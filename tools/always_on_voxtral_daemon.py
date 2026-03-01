@@ -140,6 +140,21 @@ def append_capture_snippet(voice_capture: VoiceCaptureState, snippet: str, epoch
     voice_capture.part_epochs.append(epoch)
 
 
+def normalize_captured_text(text: str) -> str:
+    # Start cleanly after wake phrase punctuation.
+    out = re.sub(r"^[\s\.,;:!?-]+", "", text)
+    out = re.sub(r"\s+", " ", out).strip()
+    # End should not dangle on comma.
+    out = re.sub(r",+\s*$", "", out).strip()
+    # Sentence should start with a capital letter when possible.
+    chars = list(out)
+    for i, ch in enumerate(chars):
+        if ch.isalpha():
+            chars[i] = ch.upper()
+            break
+    return "".join(chars)
+
+
 def play_cue(action: str) -> None:
     sound = "/System/Library/Sounds/Pop.aiff" if action == "start" else "/System/Library/Sounds/Tink.aiff"
     beep_count = "1" if action == "start" else "2"
@@ -345,7 +360,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
         if not voice_capture.active:
             return
         raw_text = "".join(voice_capture.parts or [])
-        final_text = re.sub(r"\s+", " ", raw_text).strip()
+        final_text = normalize_captured_text(raw_text)
         epochs = [float(e) for e in (voice_capture.part_epochs or []) if e]
         selection_start_epoch = min(epochs) if epochs else voice_capture.started_epoch
         selection_end_epoch = max(epochs) if epochs else time.time()
