@@ -112,7 +112,7 @@ def is_pid_running(pid: int) -> bool:
 
 def cmd_start(runtime_dir: str) -> int:
     marker_path = os.path.join(runtime_dir, "selection_marker.json")
-    boundary_pad_s = env_float("VOICE2CLIP_BOUNDARY_PAD_S", env_float("VOICE2CLIP_TRANSCRIPT_LAG_S", 0.66))
+    boundary_pad_s = env_float("VOICE2CLIP_BOUNDARY_PAD_S", env_float("VOICE2CLIP_TRANSCRIPT_LAG_S", 1.5))
     started_epoch = time.time()
     payload = {
         "started_at": now_iso(),
@@ -138,7 +138,7 @@ def cmd_stop(runtime_dir: str) -> int:
         print("No selection marker found. Run start first.")
         return 1
 
-    boundary_pad_s = float(marker.get("boundary_pad_s", env_float("VOICE2CLIP_BOUNDARY_PAD_S", env_float("VOICE2CLIP_TRANSCRIPT_LAG_S", 0.66))))
+    boundary_pad_s = float(marker.get("boundary_pad_s", env_float("VOICE2CLIP_BOUNDARY_PAD_S", env_float("VOICE2CLIP_TRANSCRIPT_LAG_S", 1.5))))
     pressed_stop_epoch = time.time()
 
     # Symmetric boundary compensation: same pad for start and stop.
