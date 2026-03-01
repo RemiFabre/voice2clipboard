@@ -94,17 +94,6 @@ def parse_phrases(raw: str) -> list[str]:
     return [p for p in parts if p]
 
 
-def expand_stop_phrase_aliases(phrases: list[str]) -> list[str]:
-    out = set(phrases)
-    for p in phrases:
-        # Common ASR confusion: "stop" -> "end" (e.g., "copy end").
-        if " stop" in p:
-            out.add(p.replace(" stop", " end"))
-        if p.endswith(" stop"):
-            out.add(p[: -len(" stop")] + " end")
-    return sorted(out)
-
-
 def phrase_pattern(phrase: str) -> re.Pattern[str]:
     words = [re.escape(w) for w in phrase.split()]
     if not words:
@@ -283,7 +272,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
 
     state = State(started_at=time.time())
     start_phrases = parse_phrases(args.voice_start_phrases)
-    stop_phrases = expand_stop_phrase_aliases(parse_phrases(args.voice_stop_phrases))
+    stop_phrases = parse_phrases(args.voice_stop_phrases)
     voice_capture = VoiceCaptureState(active=False, parts=[], part_epochs=[])
     marker_path = os.path.join(runtime_dir, "selection_marker.json")
     selections_path = os.path.join(runtime_dir, "selections.jsonl")
