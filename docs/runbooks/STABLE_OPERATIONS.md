@@ -8,7 +8,7 @@ This is the single operational guide for daily usage.
 - `always-on daemon`:
   - this is your persistent microphone capture + transcription worker.
   - it acts as the realtime client to the server and writes transcript files.
-- `manual realtime client` (`run_voxtral_realtime_client.sh`):
+- `manual realtime client` (`./run_voxtral_realtime_client.sh`, compatibility wrapper):
   - optional testing tool only; not required for daily always-on workflow.
 
 For your default workflow, you need:
@@ -171,7 +171,7 @@ Clipboard marker selection note:
 - Marker boundaries use symmetric lag compensation:
   - start boundary uses `press_start + boundary_pad`
   - stop boundary uses `press_stop + boundary_pad`
-  - default: `boundary_pad=0.66s`
+  - default: `boundary_pad=1.5s`
   - override via env var:
     - `VOICE2CLIP_BOUNDARY_PAD_S`
 
@@ -196,8 +196,9 @@ Stable operational modules:
 
 Exploration/benchmark/research area:
 - `benchmarks/`
-- `docs/` files not named as runbook/operations
-- `VOXTRAL_*`, `RESEARCH_*`, `LOCALVOXTRAL_*`
+- `docs/research/`
+- `experiments/benchmarks/`
+- `experiments/vllm_voxtral/`
 - benchmark scripts in `tools/benchmark_*` and related manifests
 
 ## Recommended daily flow
