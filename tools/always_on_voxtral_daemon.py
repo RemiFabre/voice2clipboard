@@ -18,6 +18,7 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from urllib.parse import urlparse
 
 import numpy as np
 import sounddevice as sd
@@ -68,6 +69,31 @@ def write_state(path: str, payload: dict) -> None:
     os.replace(tmp, path)
 
 
+def ws_host_port(url: str) -> tuple[str, int]:
+    parsed = urlparse(url)
+    host = parsed.hostname or "127.0.0.1"
+    port = parsed.port or (443 if parsed.scheme == "wss" else 80)
+    return host, port
+
+
+async def wait_for_server(url: str, timeout_s: float, interval_s: float) -> bool:
+    if timeout_s <= 0:
+        return True
+    host, port = ws_host_port(url)
+    deadline = time.time() + timeout_s
+    while True:
+        try:
+            conn = asyncio.open_connection(host, port)
+            reader, writer = await asyncio.wait_for(conn, timeout=1.0)
+            writer.close()
+            await writer.wait_closed()
+            return True
+        except Exception:
+            if time.time() >= deadline:
+                return False
+            await asyncio.sleep(max(0.05, interval_s))
+
+
 async def run_daemon(args: argparse.Namespace) -> None:
     runtime_dir = args.runtime_dir
     events_path = os.path.join(runtime_dir, "events.jsonl")
@@ -108,6 +134,12 @@ async def run_daemon(args: argparse.Namespace) -> None:
             pass
 
     try:
+        if not await wait_for_server(args.url, args.wait_server_s, args.wait_poll_s):
+            host, port = ws_host_port(args.url)
+            raise ConnectionError(
+                f"Realtime server not reachable at {host}:{port} after {args.wait_server_s:.1f}s"
+            )
+
         async with websockets.connect(args.url, max_size=10 * 1024 * 1024) as ws:
             state.connected = True
             await ws.send(json.dumps({"type": "session.update", "model": args.model, "temperature": 0.0}))
@@ -253,6 +285,8 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--blocksize", type=int, default=2048)
     ap.add_argument("--commit-every", type=float, default=0.8)
     ap.add_argument("--segment-silence", type=float, default=0.9)
+    ap.add_argument("--wait-server-s", type=float, default=15.0)
+    ap.add_argument("--wait-poll-s", type=float, default=0.4)
     return ap.parse_args()
 
 
@@ -268,5 +302,9 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
+    except ConnectionError as exc:
+        print(f"[daemon-error] {exc}", file=sys.stderr)
+        print("Hint: start voxmlx first: ./voice_control.sh start", file=sys.stderr)
+        raise SystemExit(2)
     except KeyboardInterrupt:
         pass
