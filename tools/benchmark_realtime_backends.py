@@ -336,7 +336,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--manifest", help="JSONL manifest with audio/reference entries")
     ap.add_argument("--backend", action="append", choices=["voxmlx", "faster", "mlx"], help="Backend(s) to run")
     ap.add_argument("--model-whisper", default="medium", help="Whisper model size for faster/mlx")
-    ap.add_argument("--voxmlx-url", default="ws://127.0.0.1:8000/v1/realtime")
+    ap.add_argument("--voxmlx-url", default="ws://127.0.0.1:8010/v1/realtime")
     ap.add_argument("--voxmlx-model", default="mistralai/Voxtral-Mini-4B-Realtime-2602")
     ap.add_argument("--chunk-ms", type=int, default=80)
     ap.add_argument("--commit-every", type=float, default=0.7)

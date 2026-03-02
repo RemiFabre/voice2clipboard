@@ -571,7 +571,7 @@ async def run_daemon(args: argparse.Namespace) -> None:
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Always-on Voxtral dictation daemon")
-    ap.add_argument("--url", default="ws://127.0.0.1:8000/v1/realtime")
+    ap.add_argument("--url", default="ws://127.0.0.1:8010/v1/realtime")
     ap.add_argument("--model", default="voxtral-mini-latest")
     ap.add_argument("--runtime-dir", default="runtime/always_on")
     ap.add_argument("--samplerate", type=int, default=16000)

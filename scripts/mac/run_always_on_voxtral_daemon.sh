@@ -6,6 +6,8 @@ VENV="/Users/remi/.virtualenvs/voice2clipboard/bin/activate"
 LOG_FILE="/Users/remi/voice2clipboard/logs/always_on_voxtral_daemon.log"
 RUNTIME_DIR="/Users/remi/voice2clipboard/runtime/always_on"
 PID_FILE="${RUNTIME_DIR}/daemon.pid"
+VOXMLX_HOST="${VOXMLX_HOST:-127.0.0.1}"
+VOXMLX_PORT="${VOXMLX_PORT:-8010}"
 
 mkdir -p "$(dirname "$LOG_FILE")" "$RUNTIME_DIR"
 
@@ -21,6 +23,7 @@ source "$VENV"
 cd "$ROOT_DIR"
 
 EXTRA_ARGS=()
+EXTRA_ARGS+=(--url "ws://${VOXMLX_HOST}:${VOXMLX_PORT}/v1/realtime")
 if [[ "${VOICE2CLIP_VOICE_COMMANDS:-1}" == "1" ]]; then
   EXTRA_ARGS+=(--voice-commands)
 fi
