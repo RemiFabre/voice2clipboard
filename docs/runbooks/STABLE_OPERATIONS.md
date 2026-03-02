@@ -4,7 +4,7 @@ This is the single operational guide for daily usage.
 
 ## Mental model (what runs)
 - `voxmlx server`:
-  - process that hosts the realtime model endpoint at `ws://127.0.0.1:8000/v1/realtime`.
+  - process that hosts the realtime model endpoint at `ws://127.0.0.1:8010/v1/realtime`.
 - `always-on daemon`:
   - this is your persistent microphone capture + transcription worker.
   - it acts as the realtime client to the server and writes transcript files.
@@ -75,7 +75,7 @@ Use:
 
 Look for:
 - LaunchAgent loaded/running (`com.voice2clipboard.voxmlx`)
-- TCP check (best-effort): `voxmlx 127.0.0.1:8000 (best-effort): up`
+- TCP check (best-effort): `voxmlx 127.0.0.1:8010 (best-effort): up`
 
 ## What `start` and `stop` do
 - `./voice_control.sh start`

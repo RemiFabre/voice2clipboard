@@ -165,7 +165,7 @@ def make_audio_callback(loop, queue, samplerate, channels):
 
 async def main():
     parser = argparse.ArgumentParser(description="Voxtral realtime websocket mic client")
-    parser.add_argument("--url", default="ws://127.0.0.1:8000/v1/realtime")
+    parser.add_argument("--url", default="ws://127.0.0.1:8010/v1/realtime")
     parser.add_argument("--model", default="mistralai/Voxtral-Mini-4B-Realtime-2602")
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--samplerate", type=int, default=16000)

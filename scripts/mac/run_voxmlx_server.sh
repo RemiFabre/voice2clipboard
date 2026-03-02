@@ -6,7 +6,7 @@ set -euo pipefail
 
 MODEL="${VOXMLX_MODEL:-T0mSIlver/Voxtral-Mini-4B-Realtime-2602-MLX-4bit}"
 HOST="${VOXMLX_HOST:-127.0.0.1}"
-PORT="${VOXMLX_PORT:-8000}"
+PORT="${VOXMLX_PORT:-8010}"
 LOG_FILE="${VOXMLX_SERVER_LOG:-/Users/remi/voice2clipboard/logs/voxmlx_server.log}"
 PY="${PYTHON_BIN:-python3}"
 

@@ -9,6 +9,8 @@ START_SH="$SCRIPTS_MAC_DIR/always_on_mark_start.sh"
 STOP_SH="$SCRIPTS_MAC_DIR/always_on_mark_stop.sh"
 STATUS_SH="$SCRIPTS_MAC_DIR/always_on_status.sh"
 INSTALL_SH="$SCRIPTS_MAC_DIR/install_always_on_launchagents.sh"
+VOXMLX_HOST="${VOXMLX_HOST:-127.0.0.1}"
+VOXMLX_PORT="${VOXMLX_PORT:-8010}"
 
 usage() {
   cat <<'EOF'
@@ -83,7 +85,7 @@ case "$cmd" in
     "$STATUS_SH" || true
     echo
     echo "== TCP check =="
-    echo "voxmlx 127.0.0.1:8000 (best-effort): $(check_tcp 127.0.0.1 8000)"
+    echo "voxmlx ${VOXMLX_HOST}:${VOXMLX_PORT} (best-effort): $(check_tcp "$VOXMLX_HOST" "$VOXMLX_PORT")"
     ;;
   start)
     "$SERVICE_SH" start

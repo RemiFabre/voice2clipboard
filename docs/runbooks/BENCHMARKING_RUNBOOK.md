@@ -79,7 +79,7 @@ Per backend/audio item:
 - `wer`, `cer` (if reference text provided)
 
 ## Important
-- `voxmlx` benchmark requires running local websocket server at `ws://127.0.0.1:8000/v1/realtime`.
+- `voxmlx` benchmark requires running local websocket server at `ws://127.0.0.1:8010/v1/realtime`.
 - In this environment, `mlx` backend may fail due MLX Metal runtime crash.
 
 ## Output Files
