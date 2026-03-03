@@ -3,6 +3,7 @@ set -euo pipefail
 
 VOXMLX_LABEL="com.voice2clipboard.voxmlx"
 DAEMON_LABEL="com.voice2clipboard.alwayson"
+RUNTIME_DIR="/Users/remi/voice2clipboard/runtime/always_on"
 
 cmd="${1:-status}"
 uid="$(id -u)"
@@ -27,6 +28,11 @@ kickstart() {
   launchctl kickstart -k "gui/${uid}/${label}" >/dev/null 2>&1 || true
 }
 
+kill_stray_daemon() {
+  pkill -f "tools/always_on_voxtral_daemon.py" >/dev/null 2>&1 || true
+  rm -f "${RUNTIME_DIR}/daemon.pid" >/dev/null 2>&1 || true
+}
+
 status_one() {
   local label="$1"
   echo "== $label =="
@@ -36,6 +42,7 @@ status_one() {
 
 case "$cmd" in
   start)
+    kill_stray_daemon
     if ! is_loaded "$VOXMLX_LABEL"; then
       bootstrap "$VOXMLX_LABEL"
     fi
@@ -48,10 +55,12 @@ case "$cmd" in
   stop)
     bootout "$DAEMON_LABEL"
     bootout "$VOXMLX_LABEL"
+    kill_stray_daemon
     ;;
   reload)
     bootout "$DAEMON_LABEL"
     bootout "$VOXMLX_LABEL"
+    kill_stray_daemon
     bootstrap "$VOXMLX_LABEL"
     bootstrap "$DAEMON_LABEL"
     kickstart "$VOXMLX_LABEL"
