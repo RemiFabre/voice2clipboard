@@ -13,6 +13,8 @@ UNINSTALL_SH="$SCRIPTS_MAC_DIR/uninstall_always_on_launchagents.sh"
 CLEAR_LOGS_SH="$SCRIPTS_MAC_DIR/clear_runtime_logs.sh"
 VOXMLX_HOST="${VOXMLX_HOST:-127.0.0.1}"
 VOXMLX_PORT="${VOXMLX_PORT:-8010}"
+START_TIMEOUT_S="${VOICE2CLIP_START_TIMEOUT_S:-180}"
+START_POLL_S="${VOICE2CLIP_START_POLL_S:-1}"
 
 usage() {
   cat <<'EOF'
@@ -79,6 +81,108 @@ show_files() {
   ls -lh "$RUNTIME_DIR/timeline"/*.txt 2>/dev/null || echo "none yet"
 }
 
+read_daemon_runtime() {
+  python3 - "$RUNTIME_DIR/state.json" "$RUNTIME_DIR/daemon.pid" <<'PY'
+import json, os, signal, sys
+
+state_path, pid_path = sys.argv[1], sys.argv[2]
+
+connected = False
+ts = ""
+pid = ""
+pid_running = False
+
+if os.path.exists(state_path):
+    try:
+        with open(state_path, "r", encoding="utf-8") as f:
+            state = json.load(f)
+        connected = bool(state.get("connected"))
+        ts = str(state.get("ts", ""))
+    except Exception:
+        pass
+
+if os.path.exists(pid_path):
+    try:
+        with open(pid_path, "r", encoding="utf-8") as f:
+            pid = f.read().strip()
+        if pid:
+            os.kill(int(pid), 0)
+            pid_running = True
+    except Exception:
+        pid_running = False
+
+print(f"{int(connected)}|{int(pid_running)}|{pid}|{ts}")
+PY
+}
+
+wait_for_stack_ready() {
+  local timeout_s="$1"
+  local poll_s="$2"
+  local deadline shell_now tcp_state runtime_state connected pid_running pid ts
+
+  echo "Starting background services..."
+  echo "Waiting for realtime server at ${VOXMLX_HOST}:${VOXMLX_PORT} ..."
+  deadline="$(python3 - "$timeout_s" <<'PY'
+import sys, time
+print(time.time() + float(sys.argv[1]))
+PY
+)"
+  while true; do
+    tcp_state="$(check_tcp "$VOXMLX_HOST" "$VOXMLX_PORT")"
+    if [[ "$tcp_state" == "up" ]]; then
+      echo "Realtime server reachable."
+      break
+    fi
+    shell_now="$(python3 - <<'PY'
+import time
+print(time.time())
+PY
+)"
+    if python3 - "$shell_now" "$deadline" <<'PY'
+import sys
+sys.exit(0 if float(sys.argv[1]) < float(sys.argv[2]) else 1)
+PY
+    then
+      printf "."
+      sleep "$poll_s"
+    else
+      echo
+      echo "Timed out waiting for realtime server." >&2
+      echo "Check /Users/remi/voice2clipboard/logs/voxmlx_server.log" >&2
+      return 1
+    fi
+  done
+
+  echo "Waiting for daemon connection ..."
+  while true; do
+    runtime_state="$(read_daemon_runtime)"
+    IFS='|' read -r connected pid_running pid ts <<<"$runtime_state"
+    if [[ "$connected" == "1" && "$pid_running" == "1" ]]; then
+      echo "Daemon connected (pid=${pid:-unknown})."
+      return 0
+    fi
+    shell_now="$(python3 - <<'PY'
+import time
+print(time.time())
+PY
+)"
+    if python3 - "$shell_now" "$deadline" <<'PY'
+import sys
+sys.exit(0 if float(sys.argv[1]) < float(sys.argv[2]) else 1)
+PY
+    then
+      printf "."
+      sleep "$poll_s"
+    else
+      echo
+      echo "Timed out waiting for daemon connection." >&2
+      echo "State file: /Users/remi/voice2clipboard/runtime/always_on/state.json" >&2
+      echo "Log file: /Users/remi/voice2clipboard/logs/always_on_voxtral_daemon.log" >&2
+      return 1
+    fi
+  done
+}
+
 cmd="${1:-status}"
 
 case "$cmd" in
@@ -93,16 +197,19 @@ case "$cmd" in
     ;;
   start)
     "$SERVICE_SH" start
+    wait_for_stack_ready "$START_TIMEOUT_S" "$START_POLL_S"
     ;;
   stop)
     "$SERVICE_SH" stop
     ;;
   restart)
     "$SERVICE_SH" reload
+    wait_for_stack_ready "$START_TIMEOUT_S" "$START_POLL_S"
     ;;
   enable-autostart)
     "$INSTALL_SH"
     "$SERVICE_SH" reload
+    wait_for_stack_ready "$START_TIMEOUT_S" "$START_POLL_S"
     ;;
   disable-autostart)
     "$UNINSTALL_SH"

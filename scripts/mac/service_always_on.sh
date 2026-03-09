@@ -4,6 +4,9 @@ set -euo pipefail
 VOXMLX_LABEL="com.voice2clipboard.voxmlx"
 DAEMON_LABEL="com.voice2clipboard.alwayson"
 RUNTIME_DIR="/Users/remi/voice2clipboard/runtime/always_on"
+LAUNCH_DIR="$HOME/Library/LaunchAgents"
+VOXMLX_PLIST="${LAUNCH_DIR}/${VOXMLX_LABEL}.plist"
+DAEMON_PLIST="${LAUNCH_DIR}/${DAEMON_LABEL}.plist"
 
 cmd="${1:-status}"
 uid="$(id -u)"
@@ -15,7 +18,13 @@ bootout() {
 
 bootstrap() {
   local label="$1"
-  launchctl bootstrap "gui/${uid}" "$HOME/Library/LaunchAgents/${label}.plist" >/dev/null 2>&1 || true
+  local plist="$2"
+  if [[ ! -f "$plist" ]]; then
+    echo "Missing LaunchAgent plist: $plist" >&2
+    echo "Install it with ./voice_control.sh enable-autostart" >&2
+    return 1
+  fi
+  launchctl bootstrap "gui/${uid}" "$plist" >/dev/null 2>&1
 }
 
 is_loaded() {
@@ -44,10 +53,10 @@ case "$cmd" in
   start)
     kill_stray_daemon
     if ! is_loaded "$VOXMLX_LABEL"; then
-      bootstrap "$VOXMLX_LABEL"
+      bootstrap "$VOXMLX_LABEL" "$VOXMLX_PLIST"
     fi
     if ! is_loaded "$DAEMON_LABEL"; then
-      bootstrap "$DAEMON_LABEL"
+      bootstrap "$DAEMON_LABEL" "$DAEMON_PLIST"
     fi
     kickstart "$VOXMLX_LABEL"
     kickstart "$DAEMON_LABEL"
@@ -61,8 +70,8 @@ case "$cmd" in
     bootout "$DAEMON_LABEL"
     bootout "$VOXMLX_LABEL"
     kill_stray_daemon
-    bootstrap "$VOXMLX_LABEL"
-    bootstrap "$DAEMON_LABEL"
+    bootstrap "$VOXMLX_LABEL" "$VOXMLX_PLIST"
+    bootstrap "$DAEMON_LABEL" "$DAEMON_PLIST"
     kickstart "$VOXMLX_LABEL"
     kickstart "$DAEMON_LABEL"
     ;;
