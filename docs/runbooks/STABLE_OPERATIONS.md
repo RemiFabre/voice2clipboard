@@ -32,6 +32,7 @@ From `/Users/remi/voice2clipboard`:
 ./voice_control.sh stop
 ./voice_control.sh restart
 ./voice_control.sh enable-autostart
+./voice_control.sh disable-autostart
 ./voice_control.sh mark-start
 ./voice_control.sh mark-stop
 ./voice_control.sh mark-status
@@ -65,6 +66,16 @@ Desired behavior for your setup:
 - server + daemon auto-start
 - transcript files start updating without manual launch
 - only use `mark-start` / `mark-stop` when you want clipboard capture windows
+
+To disable boot/login auto-start again:
+
+```bash
+./voice_control.sh disable-autostart
+```
+
+This unloads the LaunchAgents and removes:
+- `~/Library/LaunchAgents/com.voice2clipboard.voxmlx.plist`
+- `~/Library/LaunchAgents/com.voice2clipboard.alwayson.plist`
 
 ## How to check if server is running
 Use:
