@@ -10,6 +10,7 @@ STOP_SH="$SCRIPTS_MAC_DIR/always_on_mark_stop.sh"
 STATUS_SH="$SCRIPTS_MAC_DIR/always_on_status.sh"
 INSTALL_SH="$SCRIPTS_MAC_DIR/install_always_on_launchagents.sh"
 UNINSTALL_SH="$SCRIPTS_MAC_DIR/uninstall_always_on_launchagents.sh"
+CLEAR_LOGS_SH="$SCRIPTS_MAC_DIR/clear_runtime_logs.sh"
 VOXMLX_HOST="${VOXMLX_HOST:-127.0.0.1}"
 VOXMLX_PORT="${VOXMLX_PORT:-8010}"
 
@@ -32,6 +33,7 @@ Capture markers:
   mark-clear        Clear active marker
 
 Logs and diagnostics:
+  clear-logs        Stop services and erase logs/transcript history
   logs              Tail key logs
   files             Show key runtime files
   live              Open live transcript files in VS Code
@@ -104,6 +106,9 @@ case "$cmd" in
     ;;
   disable-autostart)
     "$UNINSTALL_SH"
+    ;;
+  clear-logs)
+    "$CLEAR_LOGS_SH"
     ;;
   mark-start)
     "$START_SH"

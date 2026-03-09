@@ -33,6 +33,7 @@ From `/Users/remi/voice2clipboard`:
 ./voice_control.sh restart
 ./voice_control.sh enable-autostart
 ./voice_control.sh disable-autostart
+./voice_control.sh clear-logs
 ./voice_control.sh mark-start
 ./voice_control.sh mark-stop
 ./voice_control.sh mark-status
@@ -133,6 +134,31 @@ Use:
 This stops:
 - realtime server LaunchAgent
 - always-on daemon LaunchAgent
+
+## How to erase logs and transcript history
+Use:
+
+```bash
+./voice_control.sh clear-logs
+```
+
+This first stops the background services, then removes repo-managed runtime history:
+- `logs/*.log`
+- `runtime/always_on/events.jsonl`
+- `runtime/always_on/segments.jsonl`
+- `runtime/always_on/deltas.jsonl`
+- `runtime/always_on/selections.jsonl`
+- `runtime/always_on/live_text.txt`
+- `runtime/always_on/last_selection.txt`
+- `runtime/always_on/feedback_latency.jsonl`
+- `runtime/always_on/toggle.log`
+- `runtime/always_on/toggle.last`
+- `runtime/always_on/state.json`
+- `runtime/always_on/selection_marker.json`
+- `runtime/always_on/daemon.pid`
+- `runtime/always_on/timeline/*.txt`
+
+It does not remove code, benchmarks, or documentation files elsewhere in the repo.
 
 ## How to view transcript live (default verification)
 Use:
