@@ -93,12 +93,14 @@ Look for:
 - `./voice_control.sh start`
   - starts LaunchAgent for server (`com.voice2clipboard.voxmlx`)
   - starts LaunchAgent for daemon (`com.voice2clipboard.alwayson`)
+  - blocks until the realtime server is reachable and the daemon is connected
 - `./voice_control.sh stop`
   - stops both LaunchAgents above
 - `./voice_control.sh restart`
-  - reloads both (stop + start)
+  - reloads both (stop + start), then blocks until ready
 
 So `start/stop` control the **background services**, not marker windows.
+If `disable-autostart` removed the LaunchAgent plist files, `start` now fails with a clear error instead of silently doing nothing.
 
 ## Voice command markers (hands-free)
 By default, the daemon also supports spoken marker control:
