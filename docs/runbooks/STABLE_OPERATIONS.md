@@ -78,6 +78,10 @@ This unloads the LaunchAgents and removes:
 - `~/Library/LaunchAgents/com.voice2clipboard.voxmlx.plist`
 - `~/Library/LaunchAgents/com.voice2clipboard.alwayson.plist`
 
+Manual `start` still works after this. The service definitions are also kept in:
+- `/Users/remi/voice2clipboard/runtime/launchagents/com.voice2clipboard.voxmlx.plist`
+- `/Users/remi/voice2clipboard/runtime/launchagents/com.voice2clipboard.alwayson.plist`
+
 ## How to check if server is running
 Use:
 
@@ -100,7 +104,6 @@ Look for:
   - reloads both (stop + start), then blocks until ready
 
 So `start/stop` control the **background services**, not marker windows.
-If `disable-autostart` removed the LaunchAgent plist files, `start` now fails with a clear error instead of silently doing nothing.
 
 ## Voice command markers (hands-free)
 By default, the daemon also supports spoken marker control:
