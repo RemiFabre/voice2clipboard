@@ -9,6 +9,7 @@ START_SH="$SCRIPTS_MAC_DIR/always_on_mark_start.sh"
 STOP_SH="$SCRIPTS_MAC_DIR/always_on_mark_stop.sh"
 STATUS_SH="$SCRIPTS_MAC_DIR/always_on_status.sh"
 INSTALL_SH="$SCRIPTS_MAC_DIR/install_always_on_launchagents.sh"
+UNINSTALL_SH="$SCRIPTS_MAC_DIR/uninstall_always_on_launchagents.sh"
 VOXMLX_HOST="${VOXMLX_HOST:-127.0.0.1}"
 VOXMLX_PORT="${VOXMLX_PORT:-8010}"
 
@@ -22,6 +23,7 @@ Core:
   stop              Stop background services
   restart           Restart background services
   enable-autostart  Install LaunchAgents and reload services
+  disable-autostart Stop services and remove LaunchAgents
 
 Capture markers:
   mark-start        Start capture selection window
@@ -99,6 +101,9 @@ case "$cmd" in
   enable-autostart)
     "$INSTALL_SH"
     "$SERVICE_SH" reload
+    ;;
+  disable-autostart)
+    "$UNINSTALL_SH"
     ;;
   mark-start)
     "$START_SH"
