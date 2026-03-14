@@ -63,8 +63,6 @@ EOF
 osascript <<EOF >>"$LOG_FILE" 2>&1
 tell application "iTerm2"
     create window with default profile command "/bin/bash $WORKER_SCRIPT"
-    delay 0.2
-    hide
 end tell
 EOF
 

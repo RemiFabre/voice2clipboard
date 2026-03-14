@@ -9,6 +9,9 @@ LOG_FILE="/tmp/voice2clipboard_quick_autopaste.log"
 
 export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
 
+# Keep the worker terminal informative while still preserving a logfile.
+exec > >(tee -a "$LOG_FILE") 2>&1
+
 cleanup() {
   rm -f "$LOCK_FILE" "$META_FILE"
 }
@@ -28,7 +31,17 @@ if [[ -n "${target_iterm_session:-}" ]]; then
   ARGS+=(--target-iterm-session "$target_iterm_session")
 fi
 
-env VOICE2CLIPBOARD_BACKEND=mlx python apps/linux/legacy_whisper/voice_transcriber.py "${ARGS[@]}" >>"$LOG_FILE" 2>&1 &
+echo "voice2clipboard MLX quick mode"
+echo "Started: ${started_at:-unknown}"
+echo "Target app: ${target_app:-unknown}"
+if [[ -n "${target_iterm_session:-}" ]]; then
+  echo "Target iTerm session: $target_iterm_session"
+fi
+echo "Backend: mlx-whisper ${ARGS[*]}"
+echo "Press the same shortcut again to stop recording."
+echo
+
+env VOICE2CLIPBOARD_BACKEND=mlx python apps/linux/legacy_whisper/voice_transcriber.py "${ARGS[@]}" &
 CHILD_PID=$!
 echo "$CHILD_PID" > "$LOCK_FILE"
 wait "$CHILD_PID"
