@@ -600,27 +600,51 @@ def _escape_applescript_string(s):
 
 def mac_paste_and_submit(target_window, use_shift_paste=False):
     escaped_window = _escape_applescript_string(target_window) if target_window else ""
-    modifier_clause = "{command down, shift down}" if use_shift_paste else "command down"
-    activate_clause = ""
     if target_window:
         activate_clause = f'tell application "{escaped_window}" to activate\n    delay 0.5\n'
-    script = f'''
+    else:
+        activate_clause = ""
+    if use_shift_paste:
+        script = f'''
 {activate_clause}tell application "System Events"
-    keystroke "v" using {modifier_clause}
+    keystroke "v" using {{command down, shift down}}
     delay 0.3
     key code 36
 end tell
 '''.strip()
+        submit_mode = "keystroke_shift_paste"
+    elif target_window:
+        script = f'''
+{activate_clause}tell application "System Events"
+    tell process "{escaped_window}"
+        click menu item "Paste" of menu "Edit" of menu bar 1
+    end tell
+    delay 0.2
+    key code 36
+end tell
+'''.strip()
+        submit_mode = "menu_paste"
+    else:
+        script = '''
+tell application "System Events"
+    keystroke "v" using command down
+    delay 0.3
+    key code 36
+end tell
+'''.strip()
+        submit_mode = "keystroke_paste"
     append_quick_send_trace(
         "mac_submit_begin",
         target_window=target_window,
         use_shift_paste=use_shift_paste,
+        submit_mode=submit_mode,
     )
     subprocess.check_call(["osascript", "-e", script])
     append_quick_send_trace(
         "mac_submit_end",
         target_window=target_window,
         use_shift_paste=use_shift_paste,
+        submit_mode=submit_mode,
     )
 
 
