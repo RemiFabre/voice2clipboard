@@ -6,10 +6,10 @@ set -euo pipefail
 # - second press: stop capture, transcribe, and send to original app/session
 
 ROOT_DIR="/Users/remi/voice2clipboard"
-VENV="/Users/remi/.virtualenvs/voice2clipboard/bin/activate"
 LOCK_FILE="/tmp/voice2clipboard_quick_autopaste.pid"
 META_FILE="/tmp/voice2clipboard_quick_autopaste.meta"
 LOG_FILE="/tmp/voice2clipboard_quick_autopaste.log"
+WORKER_SCRIPT="${ROOT_DIR}/scripts/mac/legacy_mlx_toggle_autopaste_worker.sh"
 
 # Karabiner launches shell commands in a minimal, non-login environment.
 # Add Homebrew and common local bins explicitly so mlx-whisper can find ffmpeg.
@@ -54,26 +54,26 @@ if [[ "$ORIGINAL_APP" == "iTerm2" ]]; then
   TARGET_ITERM_SESSION="$(get_iterm_session_id)"
 fi
 
-{
-  echo "started_at=$(date -Iseconds)"
-  echo "target_app=$ORIGINAL_APP"
-  echo "target_iterm_session=$TARGET_ITERM_SESSION"
-} > "$META_FILE"
+cat > "$META_FILE" <<EOF
+started_at=$(date -Iseconds)
+target_app=$ORIGINAL_APP
+target_iterm_session=$TARGET_ITERM_SESSION
+EOF
 
-cleanup() {
-  rm -f "$LOCK_FILE" "$META_FILE"
-}
-trap cleanup EXIT
+osascript <<EOF >>"$LOG_FILE" 2>&1
+tell application "iTerm2"
+    create window with default profile command "/bin/bash $WORKER_SCRIPT"
+    delay 0.2
+    hide
+end tell
+EOF
 
-source "$VENV"
-cd "$ROOT_DIR"
+for _ in {1..50}; do
+  if [[ -f "$LOCK_FILE" ]]; then
+    exit 0
+  fi
+  sleep 0.1
+done
 
-ARGS=(--quick --target-window "$ORIGINAL_APP")
-if [[ -n "$TARGET_ITERM_SESSION" ]]; then
-  ARGS+=(--target-iterm-session "$TARGET_ITERM_SESSION")
-fi
-
-env VOICE2CLIPBOARD_BACKEND=mlx python apps/linux/legacy_whisper/voice_transcriber.py "${ARGS[@]}" >>"$LOG_FILE" 2>&1 &
-CHILD_PID=$!
-echo "$CHILD_PID" > "$LOCK_FILE"
-wait "$CHILD_PID"
+echo "Timed out waiting for quick-autopaste worker to start." >>"$LOG_FILE"
+exit 1
