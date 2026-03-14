@@ -14,6 +14,7 @@ import requests
 import json
 import signal
 import socket
+import uuid
 from pynput import keyboard as pynput_keyboard
 from faster_whisper import WhisperModel
 import sys
@@ -34,6 +35,7 @@ OLLAMA_MODEL = "gemma:2b"
 MLX_HELPER_SOCKET = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_SOCKET", "/tmp/voice2clipboard_mlx_helper.sock")
 MLX_HELPER_STATE = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_STATE", "/tmp/voice2clipboard_mlx_helper_state.json")
 MLX_HELPER_WAIT_TIMEOUT_S = float(os.getenv("VOICE2CLIPBOARD_MLX_HELPER_WAIT_TIMEOUT_S", "120"))
+QUICK_SEND_TRACE_PATH = os.getenv("VOICE2CLIPBOARD_QUICK_SEND_TRACE", "/tmp/voice2clipboard_quick_send_trace.jsonl")
 
 
 def playsound(path, block=False):
@@ -86,6 +88,37 @@ def write_quick_send_marker(marker_path, value):
     os.makedirs(os.path.dirname(marker_path), exist_ok=True)
     with open(marker_path, "w") as f:
         f.write(value)
+
+
+def claim_quick_send_marker(marker_path, value):
+    if not marker_path:
+        return True
+    os.makedirs(os.path.dirname(marker_path), exist_ok=True)
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+    try:
+        fd = os.open(marker_path, flags)
+    except FileExistsError:
+        return False
+    with os.fdopen(fd, "w") as f:
+        f.write(value)
+    return True
+
+
+def clear_quick_send_marker(marker_path):
+    if marker_path and os.path.exists(marker_path):
+        os.remove(marker_path)
+
+
+def append_quick_send_trace(event, **fields):
+    payload = {
+        "ts": datetime.now().isoformat(),
+        "event": event,
+        "pid": os.getpid(),
+        "recording_dir": os.path.dirname(current_audio_path) if current_audio_path else None,
+    }
+    payload.update(fields)
+    with open(QUICK_SEND_TRACE_PATH, "a") as f:
+        f.write(json.dumps(payload, ensure_ascii=True) + "\n")
 
 
 SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
@@ -578,7 +611,17 @@ def mac_paste_and_submit(target_window, use_shift_paste=False):
     key code 36
 end tell
 '''.strip()
+    append_quick_send_trace(
+        "mac_submit_begin",
+        target_window=target_window,
+        use_shift_paste=use_shift_paste,
+    )
     subprocess.check_call(["osascript", "-e", script])
+    append_quick_send_trace(
+        "mac_submit_end",
+        target_window=target_window,
+        use_shift_paste=use_shift_paste,
+    )
 
 
 def send_text_to_iterm_session(text, session_id):
@@ -617,40 +660,102 @@ def target_uses_shift_paste(target_window):
 def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None):
     """Paste text at current cursor position and press Enter."""
     marker_path = current_quick_send_marker_path()
-    if marker_path and os.path.exists(marker_path):
+    send_id = str(uuid.uuid4())
+    append_quick_send_trace(
+        "send_attempt",
+        send_id=send_id,
+        marker_path=marker_path,
+        target_window=target_window,
+        target_iterm_session=target_iterm_session,
+    )
+    if not claim_quick_send_marker(
+        marker_path,
+        f"claimed\nsend_id={send_id}\npid={os.getpid()}\n",
+    ):
+        append_quick_send_trace(
+            "send_skipped_marker_exists",
+            send_id=send_id,
+            marker_path=marker_path,
+            target_window=target_window,
+            target_iterm_session=target_iterm_session,
+        )
         print("⚠️ Quick-send already completed for this recording; skipping duplicate send.")
         return
 
-    text_with_disclaimer = format_quick_text(text)
-    pyperclip.copy(text_with_disclaimer)
-
-    if IS_MAC and target_iterm_session:
-        print("🔄 Sending text directly to original iTerm session...")
-        try:
-            send_text_to_iterm_session(text_with_disclaimer, target_iterm_session)
-            write_quick_send_marker(marker_path, "iterm_session\n")
-            print("📨 Sent to iTerm session.")
-            return
-        except Exception as e:
-            print(f"⚠️ Direct iTerm send failed ({e}); falling back to clipboard paste.")
-
-    if IS_MAC:
-        if target_window:
-            print(f"🔄 Refocusing original window ({target_window})...")
-        mac_paste_and_submit(
-            target_window,
-            use_shift_paste=target_uses_shift_paste(target_window),
+    try:
+        text_with_disclaimer = format_quick_text(text)
+        pyperclip.copy(text_with_disclaimer)
+        append_quick_send_trace(
+            "clipboard_copied",
+            send_id=send_id,
+            text_length=len(text_with_disclaimer),
         )
-    else:
-        if target_window:
-            print(f"🔄 Refocusing original window ({target_window})...")
-            subprocess.call(['xdotool', 'windowactivate', '--sync', target_window])
-            time.sleep(0.5)
-        pyautogui.hotkey("ctrl", "shift", "v")
-        time.sleep(0.3)
-        pyautogui.press("enter")
-    write_quick_send_marker(marker_path, "clipboard_paste\n")
-    print("📨 Pasted and sent.")
+
+        if IS_MAC and target_iterm_session:
+            print("🔄 Sending text directly to original iTerm session...")
+            try:
+                append_quick_send_trace(
+                    "iterm_direct_send_begin",
+                    send_id=send_id,
+                    target_iterm_session=target_iterm_session,
+                )
+                send_text_to_iterm_session(text_with_disclaimer, target_iterm_session)
+                write_quick_send_marker(
+                    marker_path,
+                    f"iterm_session\nsend_id={send_id}\npid={os.getpid()}\n",
+                )
+                append_quick_send_trace(
+                    "iterm_direct_send_end",
+                    send_id=send_id,
+                    target_iterm_session=target_iterm_session,
+                )
+                print("📨 Sent to iTerm session.")
+                return
+            except Exception as e:
+                append_quick_send_trace(
+                    "iterm_direct_send_failed",
+                    send_id=send_id,
+                    target_iterm_session=target_iterm_session,
+                    error=str(e),
+                )
+                print(f"⚠️ Direct iTerm send failed ({e}); falling back to clipboard paste.")
+
+        if IS_MAC:
+            if target_window:
+                print(f"🔄 Refocusing original window ({target_window})...")
+            mac_paste_and_submit(
+                target_window,
+                use_shift_paste=target_uses_shift_paste(target_window),
+            )
+        else:
+            if target_window:
+                print(f"🔄 Refocusing original window ({target_window})...")
+                subprocess.call(['xdotool', 'windowactivate', '--sync', target_window])
+                time.sleep(0.5)
+            pyautogui.hotkey("ctrl", "shift", "v")
+            time.sleep(0.3)
+            pyautogui.press("enter")
+        write_quick_send_marker(
+            marker_path,
+            f"clipboard_paste\nsend_id={send_id}\npid={os.getpid()}\n",
+        )
+        append_quick_send_trace(
+            "generic_send_complete",
+            send_id=send_id,
+            target_window=target_window,
+            target_iterm_session=target_iterm_session,
+        )
+        print("📨 Pasted and sent.")
+    except Exception as e:
+        clear_quick_send_marker(marker_path)
+        append_quick_send_trace(
+            "send_failed",
+            send_id=send_id,
+            target_window=target_window,
+            target_iterm_session=target_iterm_session,
+            error=str(e),
+        )
+        raise
 
 
 def post_transcription_menu(text):
