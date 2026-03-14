@@ -75,6 +75,14 @@ def current_quick_send_marker_path():
     return None
 
 
+def write_quick_send_marker(marker_path, value):
+    if not marker_path:
+        return
+    os.makedirs(os.path.dirname(marker_path), exist_ok=True)
+    with open(marker_path, "w") as f:
+        f.write(value)
+
+
 SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
 QUICK_MODE_PREFIX = "[Voice] "
 MAC_SOUNDS = {
@@ -464,6 +472,22 @@ def _escape_applescript_string(s):
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
+def mac_paste_and_submit(target_window, use_shift_paste=False):
+    escaped_window = _escape_applescript_string(target_window) if target_window else ""
+    modifier_clause = "{command down, shift down}" if use_shift_paste else "command down"
+    activate_clause = ""
+    if target_window:
+        activate_clause = f'tell application "{escaped_window}" to activate\n    delay 0.5\n'
+    script = f'''
+{activate_clause}tell application "System Events"
+    keystroke "v" using {modifier_clause}
+    delay 0.3
+    key code 36
+end tell
+'''.strip()
+    subprocess.check_call(["osascript", "-e", script])
+
+
 def send_text_to_iterm_session(text, session_id):
     one_line = " ".join(text.splitlines())
     escaped_session = _escape_applescript_string(session_id)
@@ -511,43 +535,28 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
         print("🔄 Sending text directly to original iTerm session...")
         try:
             send_text_to_iterm_session(text_with_disclaimer, target_iterm_session)
-            if marker_path:
-                with open(marker_path, "w") as f:
-                    f.write("iterm_session\n")
+            write_quick_send_marker(marker_path, "iterm_session\n")
             print("📨 Sent to iTerm session.")
             return
         except Exception as e:
             print(f"⚠️ Direct iTerm send failed ({e}); falling back to clipboard paste.")
 
-    # Refocus original window if provided
-    if target_window:
-        print(f"🔄 Refocusing original window ({target_window})...")
-        if IS_MAC:
-            subprocess.call(['osascript', '-e', f'tell application "{target_window}" to activate'])
-        else:
-            subprocess.call(['xdotool', 'windowactivate', '--sync', target_window])
-        time.sleep(0.5)
-
     if IS_MAC:
-        if target_uses_shift_paste(target_window):
-            subprocess.call([
-                'osascript',
-                '-e',
-                'tell application "System Events" to keystroke "v" using {command down, shift down}'
-            ])
-        else:
-            subprocess.call([
-                'osascript',
-                '-e',
-                'tell application "System Events" to keystroke "v" using command down'
-            ])
+        if target_window:
+            print(f"🔄 Refocusing original window ({target_window})...")
+        mac_paste_and_submit(
+            target_window,
+            use_shift_paste=target_uses_shift_paste(target_window),
+        )
     else:
+        if target_window:
+            print(f"🔄 Refocusing original window ({target_window})...")
+            subprocess.call(['xdotool', 'windowactivate', '--sync', target_window])
+            time.sleep(0.5)
         pyautogui.hotkey("ctrl", "shift", "v")
-    time.sleep(0.3)
-    pyautogui.press("enter")
-    if marker_path:
-        with open(marker_path, "w") as f:
-            f.write("clipboard_paste\n")
+        time.sleep(0.3)
+        pyautogui.press("enter")
+    write_quick_send_marker(marker_path, "clipboard_paste\n")
     print("📨 Pasted and sent.")
 
 
