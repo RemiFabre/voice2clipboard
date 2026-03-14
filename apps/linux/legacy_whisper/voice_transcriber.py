@@ -52,17 +52,20 @@ callback_enabled = True
 stop_requested_by_signal = False
 RECORDING_FILENAME = "recorded.wav"  # fallback only
 TRANSCRIPTION_FILENAME = "transcription.txt"
+STATS_FILENAME = "stats.json"
 current_audio_path = None
 current_transcript_path = None
+current_stats_path = None
 
 
 def generate_paths():
     now = datetime.now()
     base_folder = os.path.join("recordings", now.strftime("%Y-%m-%d"), now.strftime("%H-%M-%S"))
     os.makedirs(base_folder, exist_ok=True)
-    global current_audio_path, current_transcript_path
+    global current_audio_path, current_transcript_path, current_stats_path
     current_audio_path = os.path.join(base_folder, "audio.wav")
     current_transcript_path = os.path.join(base_folder, "transcript.txt")
+    current_stats_path = os.path.join(base_folder, STATS_FILENAME)
     return current_audio_path
 
 
@@ -267,6 +270,20 @@ def transcribe_audio(filename):
     print(f" - Saved to             : {current_transcript_path}")
     with open(current_transcript_path, "w") as f:
         f.write(text)
+    stats = {
+        "input_duration_seconds": round(duration_sec, 4),
+        "real_time_factor": round(rtf, 4),
+        "transcription_time_seconds": round(end - start, 4),
+        "output_text_length_chars": len(text),
+        "audio_path": current_audio_path,
+        "transcript_path": current_transcript_path,
+        "transcribed_at": datetime.now().isoformat(),
+        "backend": TRANSCRIBE_BACKEND,
+        "model_size": MODEL_SIZE,
+    }
+    if current_stats_path:
+        with open(current_stats_path, "w") as f:
+            json.dump(stats, f, indent=2)
     return text
 
 
