@@ -11,6 +11,10 @@ LOCK_FILE="/tmp/voice2clipboard_quick_autopaste.pid"
 META_FILE="/tmp/voice2clipboard_quick_autopaste.meta"
 LOG_FILE="/tmp/voice2clipboard_quick_autopaste.log"
 
+# Karabiner launches shell commands in a minimal, non-login environment.
+# Add Homebrew and common local bins explicitly so mlx-whisper can find ffmpeg.
+export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
+
 get_frontmost_app() {
   osascript -e 'tell application "System Events" to get name of first process whose frontmost is true' | tr -d '\r'
 }
