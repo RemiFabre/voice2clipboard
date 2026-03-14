@@ -567,27 +567,11 @@ def _escape_applescript_string(s):
 
 def mac_paste_and_submit(target_window, use_shift_paste=False):
     escaped_window = _escape_applescript_string(target_window) if target_window else ""
-    target_name = (target_window or "").strip().lower()
     modifier_clause = "{command down, shift down}" if use_shift_paste else "command down"
     activate_clause = ""
     if target_window:
         activate_clause = f'tell application "{escaped_window}" to activate\n    delay 0.5\n'
-    if target_name == "codex" and not use_shift_paste:
-        script = f'''
-{activate_clause}tell application "System Events"
-    tell process "{escaped_window}"
-        try
-            click menu item "Paste" of menu "Edit" of menu bar item "Edit" of menu bar 1
-        on error
-            keystroke "v" using command down
-        end try
-    end tell
-    delay 0.3
-    key code 36
-end tell
-'''.strip()
-    else:
-        script = f'''
+    script = f'''
 {activate_clause}tell application "System Events"
     keystroke "v" using {modifier_clause}
     delay 0.3
