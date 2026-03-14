@@ -36,6 +36,7 @@ MLX_HELPER_SOCKET = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_SOCKET", "/tmp/voice2c
 MLX_HELPER_STATE = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_STATE", "/tmp/voice2clipboard_mlx_helper_state.json")
 MLX_HELPER_WAIT_TIMEOUT_S = float(os.getenv("VOICE2CLIPBOARD_MLX_HELPER_WAIT_TIMEOUT_S", "120"))
 QUICK_SEND_TRACE_PATH = os.getenv("VOICE2CLIPBOARD_QUICK_SEND_TRACE", "/tmp/voice2clipboard_quick_send_trace.jsonl")
+STOP_REQUEST_FILE = os.getenv("VOICE2CLIPBOARD_STOP_REQUEST_FILE", "/tmp/voice2clipboard_quick_autopaste.stop")
 
 
 def playsound(path, block=False):
@@ -119,6 +120,10 @@ def append_quick_send_trace(event, **fields):
     payload.update(fields)
     with open(QUICK_SEND_TRACE_PATH, "a") as f:
         f.write(json.dumps(payload, ensure_ascii=True) + "\n")
+
+
+def stop_request_active():
+    return bool(STOP_REQUEST_FILE) and os.path.exists(STOP_REQUEST_FILE)
 
 
 SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
@@ -212,7 +217,7 @@ def audio_is_effectively_silent(filename):
 
 
 def record_audio(filename, quick_mode=False):
-    global duration_sec, recording, callback_enabled, start_time
+    global duration_sec, recording, callback_enabled, start_time, stop_requested_by_signal
     q = queue.Queue()
 
     def _callback(indata, frames, time_info, status):
@@ -237,6 +242,10 @@ def record_audio(filename, quick_mode=False):
             start_time = time.time()
             try:
                 while recording:
+                    if quick_mode and stop_request_active():
+                        stop_requested_by_signal = True
+                        recording = False
+                        continue
                     try:
                         file.write(q.get(timeout=0.1))
                     except queue.Empty:

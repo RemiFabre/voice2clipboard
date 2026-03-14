@@ -6,6 +6,7 @@ VENV="/Users/remi/.virtualenvs/voice2clipboard/bin/activate"
 LOCK_FILE="/tmp/voice2clipboard_quick_autopaste.pid"
 META_FILE="/tmp/voice2clipboard_quick_autopaste.meta"
 LOG_FILE="/tmp/voice2clipboard_quick_autopaste.log"
+STOP_FILE="/tmp/voice2clipboard_quick_autopaste.stop"
 HELPER_CTL="${ROOT_DIR}/scripts/mac/mlx_whisper_helper_ctl.sh"
 
 export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
@@ -14,7 +15,7 @@ export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 cleanup() {
-  rm -f "$LOCK_FILE" "$META_FILE"
+  rm -f "$LOCK_FILE" "$META_FILE" "$STOP_FILE"
 }
 trap cleanup EXIT
 
@@ -76,6 +77,7 @@ env \
   VOICE2CLIPBOARD_BACKEND=mlx \
   VOICE2CLIPBOARD_MLX_HELPER=1 \
   VOICE2CLIPBOARD_HELPER_LAUNCH_STATE="${helper_launch_state:-unknown}" \
+  VOICE2CLIPBOARD_STOP_REQUEST_FILE="$STOP_FILE" \
   python apps/linux/legacy_whisper/voice_transcriber.py "${ARGS[@]}" &
 CHILD_PID=$!
 echo "$CHILD_PID" > "$LOCK_FILE"

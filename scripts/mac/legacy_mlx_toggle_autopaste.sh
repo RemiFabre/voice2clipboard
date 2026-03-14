@@ -9,6 +9,7 @@ ROOT_DIR="/Users/remi/voice2clipboard"
 LOCK_FILE="/tmp/voice2clipboard_quick_autopaste.pid"
 META_FILE="/tmp/voice2clipboard_quick_autopaste.meta"
 LOG_FILE="/tmp/voice2clipboard_quick_autopaste.log"
+STOP_FILE="/tmp/voice2clipboard_quick_autopaste.stop"
 WORKER_SCRIPT="${ROOT_DIR}/scripts/mac/legacy_mlx_toggle_autopaste_worker.sh"
 HELPER_CTL="${ROOT_DIR}/scripts/mac/mlx_whisper_helper_ctl.sh"
 
@@ -36,6 +37,7 @@ EOF
 
 request_stop() {
   local pid="$1"
+  : > "$STOP_FILE"
   kill -TERM "$pid" >/dev/null 2>&1 || true
   osascript -e 'display notification "Voice capture stop requested." with title "voice2clipboard"' >/dev/null 2>&1 || true
 }
@@ -46,8 +48,10 @@ if [[ -f "$LOCK_FILE" ]]; then
     request_stop "$EXISTING_PID"
     exit 0
   fi
-  rm -f "$LOCK_FILE" "$META_FILE"
+  rm -f "$LOCK_FILE" "$META_FILE" "$STOP_FILE"
 fi
+
+rm -f "$STOP_FILE"
 
 ORIGINAL_APP="$(get_frontmost_app)"
 TARGET_ITERM_SESSION=""
