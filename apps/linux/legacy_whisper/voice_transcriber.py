@@ -75,7 +75,6 @@ MAC_SOUNDS = {
     "done": "/System/Library/Sounds/Glass.aiff",
 }
 TERMINAL_LIKE_APPS = {
-    "codex",
     "iterm",
     "iterm2",
     "terminal",
@@ -85,6 +84,8 @@ TERMINAL_LIKE_APPS = {
     "wezterm",
     "ghostty",
 }
+
+SILENCE_RMS_THRESHOLD = 1e-6
 
 
 def print_help():
@@ -138,6 +139,21 @@ def play_feedback(event, block=False):
 
 def format_quick_text(text):
     return f"{QUICK_MODE_PREFIX}{text.strip()}"
+
+
+def audio_is_effectively_silent(filename):
+    try:
+        audio, _samplerate = sf.read(filename)
+    except Exception:
+        return False
+
+    if getattr(audio, "ndim", 1) > 1:
+        audio = audio[:, 0]
+    if len(audio) == 0:
+        return True
+
+    rms = float(np.sqrt(np.mean(audio.astype(np.float64) ** 2)))
+    return rms <= SILENCE_RMS_THRESHOLD
 
 
 def record_audio(filename, quick_mode=False):
@@ -203,6 +219,11 @@ def transcribe_audio(filename):
     play_feedback("transcribe_start")
     print("🧠 Transcribing...")
     start = time.time()
+    if audio_is_effectively_silent(filename):
+        raise RuntimeError(
+            "Recorded audio is silent. On macOS this usually means the recorder "
+            "was launched from a process without microphone access."
+        )
     text = transcribe_with_best_backend(filename)
     end = time.time()
 
