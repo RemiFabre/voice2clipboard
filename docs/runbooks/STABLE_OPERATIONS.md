@@ -254,10 +254,17 @@ Stable operational modules:
 - `scripts/mac/install_always_on_launchagents.sh`
 - `scripts/mac/run_voxmlx_server.sh`
 - `scripts/mac/run_always_on_voxtral_daemon.sh`
+- `scripts/mac/legacy_mlx_toggle_autopaste.sh`
 - `tools/always_on_voxtral_daemon.py`
 - `tools/always_on_capture.py`
 - `scripts/mac/always_on_mark_start.sh`
 - `scripts/mac/always_on_mark_stop.sh`
+
+Separate legacy local dictation path:
+- `scripts/mac/legacy_mlx_toggle_autopaste.sh`
+  - first press: start recording
+  - second press: stop, transcribe with local `mlx-whisper`, and send to the originally focused app/session
+  - intended action-script wrapper: `/Users/remi/bin/voice_toggle_autopaste.sh`
 - `scripts/mac/always_on_status.sh`
 
 Exploration/benchmark/research area:
