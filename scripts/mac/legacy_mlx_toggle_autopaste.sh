@@ -10,6 +10,7 @@ LOCK_FILE="/tmp/voice2clipboard_quick_autopaste.pid"
 META_FILE="/tmp/voice2clipboard_quick_autopaste.meta"
 LOG_FILE="/tmp/voice2clipboard_quick_autopaste.log"
 WORKER_SCRIPT="${ROOT_DIR}/scripts/mac/legacy_mlx_toggle_autopaste_worker.sh"
+HELPER_CTL="${ROOT_DIR}/scripts/mac/mlx_whisper_helper_ctl.sh"
 
 # Karabiner launches shell commands in a minimal, non-login environment.
 # Add Homebrew and common local bins explicitly so mlx-whisper can find ffmpeg.
@@ -53,11 +54,13 @@ TARGET_ITERM_SESSION=""
 if [[ "$ORIGINAL_APP" == "iTerm2" ]]; then
   TARGET_ITERM_SESSION="$(get_iterm_session_id)"
 fi
+HELPER_LAUNCH_STATE="$("$HELPER_CTL" start)"
 
 cat > "$META_FILE" <<EOF
 started_at=$(date -Iseconds)
 target_app=$ORIGINAL_APP
 target_iterm_session=$TARGET_ITERM_SESSION
+helper_launch_state=$HELPER_LAUNCH_STATE
 EOF
 
 osascript <<EOF >>"$LOG_FILE" 2>&1
