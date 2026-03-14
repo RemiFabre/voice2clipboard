@@ -80,3 +80,7 @@ env \
 CHILD_PID=$!
 echo "$CHILD_PID" > "$LOCK_FILE"
 wait "$CHILD_PID"
+
+echo
+echo "Stopping MLX helper for this run..."
+"$HELPER_CTL" stop >/dev/null 2>&1 || true
