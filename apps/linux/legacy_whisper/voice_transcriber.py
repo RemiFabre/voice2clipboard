@@ -66,6 +66,12 @@ def generate_paths():
     return current_audio_path
 
 
+def current_quick_send_marker_path():
+    if current_audio_path:
+        return os.path.join(os.path.dirname(current_audio_path), ".sent")
+    return None
+
+
 SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
 QUICK_MODE_PREFIX = "[Voice] "
 MAC_SOUNDS = {
@@ -476,6 +482,11 @@ def target_uses_shift_paste(target_window):
 
 def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None):
     """Paste text at current cursor position and press Enter."""
+    marker_path = current_quick_send_marker_path()
+    if marker_path and os.path.exists(marker_path):
+        print("⚠️ Quick-send already completed for this recording; skipping duplicate send.")
+        return
+
     text_with_disclaimer = format_quick_text(text)
     pyperclip.copy(text_with_disclaimer)
 
@@ -483,6 +494,9 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
         print("🔄 Sending text directly to original iTerm session...")
         try:
             send_text_to_iterm_session(text_with_disclaimer, target_iterm_session)
+            if marker_path:
+                with open(marker_path, "w") as f:
+                    f.write("iterm_session\n")
             print("📨 Sent to iTerm session.")
             return
         except Exception as e:
@@ -514,6 +528,9 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
         pyautogui.hotkey("ctrl", "shift", "v")
     time.sleep(0.3)
     pyautogui.press("enter")
+    if marker_path:
+        with open(marker_path, "w") as f:
+            f.write("clipboard_paste\n")
     print("📨 Pasted and sent.")
 
 
