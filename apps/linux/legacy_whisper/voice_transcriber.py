@@ -13,6 +13,7 @@ import subprocess
 import requests
 import json
 import signal
+import socket
 from pynput import keyboard as pynput_keyboard
 from faster_whisper import WhisperModel
 import sys
@@ -30,6 +31,9 @@ MIC_BAR_WIDTH = 30
 CHATGPT_ICON_IMAGE = "assets/chatgpt_plus.jpeg"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "gemma:2b"
+MLX_HELPER_SOCKET = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_SOCKET", "/tmp/voice2clipboard_mlx_helper.sock")
+MLX_HELPER_STATE = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_STATE", "/tmp/voice2clipboard_mlx_helper_state.json")
+MLX_HELPER_WAIT_TIMEOUT_S = float(os.getenv("VOICE2CLIPBOARD_MLX_HELPER_WAIT_TIMEOUT_S", "120"))
 
 
 def playsound(path, block=False):
@@ -56,6 +60,7 @@ STATS_FILENAME = "stats.json"
 current_audio_path = None
 current_transcript_path = None
 current_stats_path = None
+last_backend_info = {}
 
 
 def generate_paths():
@@ -233,6 +238,7 @@ def focus_and_click_chatgpt_input(timeout=5):
 
 
 def transcribe_audio(filename):
+    global last_backend_info
     play_feedback("transcribe_start")
     print("🧠 Transcribing...")
     start = time.time()
@@ -288,7 +294,9 @@ def transcribe_audio(filename):
         "transcribed_at": datetime.now().isoformat(),
         "backend": TRANSCRIBE_BACKEND,
         "model_size": MODEL_SIZE,
+        "helper_launch_state": os.getenv("VOICE2CLIPBOARD_HELPER_LAUNCH_STATE"),
     }
+    stats.update(last_backend_info or {})
     if current_stats_path:
         with open(current_stats_path, "w") as f:
             json.dump(stats, f, indent=2)
@@ -345,6 +353,83 @@ print(json.dumps({"text": text.strip()}))
     return text
 
 
+def read_mlx_helper_state():
+    if not os.path.exists(MLX_HELPER_STATE):
+        return {}
+    try:
+        with open(MLX_HELPER_STATE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def transcribe_with_mlx_helper(filename):
+    helper_state_at_start = read_mlx_helper_state()
+    helper_status_at_start = helper_state_at_start.get("status", "missing")
+    helper_ready_at_start = helper_status_at_start == "ready"
+    helper_wait_start = time.time()
+    waited_for_ready_s = 0.0
+
+    if helper_ready_at_start:
+        rss_mb = helper_state_at_start.get("rss_mb")
+        load_s = helper_state_at_start.get("model_load_seconds")
+        detail = []
+        if rss_mb is not None:
+            detail.append(f"rss≈{rss_mb} MB")
+        if load_s is not None:
+            detail.append(f"initial load={load_s}s")
+        suffix = f" ({', '.join(detail)})" if detail else ""
+        print(f"⚡ MLX helper already loaded{suffix}.")
+    else:
+        print("⏳ MLX helper is still loading; recording is safe, waiting for model now...")
+
+    last_error = "helper unavailable"
+    while time.time() - helper_wait_start < MLX_HELPER_WAIT_TIMEOUT_S:
+        if os.path.exists(MLX_HELPER_SOCKET):
+            try:
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                    client.connect(MLX_HELPER_SOCKET)
+                    waited_for_ready_s = time.time() - helper_wait_start
+                    payload = {"command": "transcribe", "audio_path": filename}
+                    client.sendall((json.dumps(payload) + "\n").encode("utf-8"))
+                    response = b""
+                    while not response.endswith(b"\n"):
+                        chunk = client.recv(65536)
+                        if not chunk:
+                            break
+                        response += chunk
+                if not response:
+                    last_error = "empty helper response"
+                else:
+                    data = json.loads(response.decode("utf-8"))
+                    if not data.get("ok"):
+                        raise RuntimeError(data.get("error", "helper request failed"))
+                    text = (data.get("text") or "").strip()
+                    if not text:
+                        raise RuntimeError("helper returned empty transcription")
+                    helper_state = data.get("helper_state", {})
+                    info = {
+                        "resolved_backend": "mlx_helper",
+                        "helper_status_at_request_start": helper_status_at_start,
+                        "helper_ready_at_request_start": helper_ready_at_start,
+                        "helper_waited_for_ready_seconds": round(waited_for_ready_s, 4),
+                        "helper_waited_for_model_load": not helper_ready_at_start,
+                        "helper_rss_mb": helper_state.get("rss_mb"),
+                        "helper_model_load_seconds": helper_state.get("model_load_seconds"),
+                        "helper_transcription_time_seconds": data.get("transcription_time_seconds"),
+                    }
+                    if helper_ready_at_start:
+                        print("✅ MLX helper was warm for this run.")
+                    else:
+                        print(f"✅ MLX helper became ready after {waited_for_ready_s:.2f}s.")
+                    return text, info
+            except Exception as e:
+                last_error = str(e)
+        time.sleep(0.1)
+
+    raise RuntimeError(f"Timed out waiting for MLX helper: {last_error}")
+
+
 def transcribe_with_faster_whisper(filename):
     global whisper_model
     if whisper_model is None:
@@ -356,16 +441,24 @@ def transcribe_with_faster_whisper(filename):
 
 
 def transcribe_with_best_backend(filename):
+    global last_backend_info
     backend = TRANSCRIBE_BACKEND.lower()
     if IS_MAC and backend in {"auto", "mlx"}:
         print("⚡ Trying mlx-whisper backend...")
         try:
-            return transcribe_with_mlx_subprocess(filename)
+            if os.getenv("VOICE2CLIPBOARD_MLX_HELPER") == "1":
+                text, info = transcribe_with_mlx_helper(filename)
+            else:
+                text = transcribe_with_mlx_subprocess(filename)
+                info = {"resolved_backend": "mlx_subprocess"}
+            last_backend_info = info
+            return text
         except Exception as e:
             if backend == "mlx":
                 raise
             print(f"⚠️ mlx-whisper unavailable ({e}); falling back to faster-whisper.")
 
+    last_backend_info = {"resolved_backend": "faster_whisper"}
     return transcribe_with_faster_whisper(filename)
 
 
