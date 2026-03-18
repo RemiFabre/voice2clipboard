@@ -63,7 +63,8 @@ recover_stuck_run() {
     audio_path="$(latest_audio_fallback)"
   fi
   if [[ -n "$audio_path" && -f "$audio_path" ]]; then
-    snapshot="$(mktemp /tmp/voice2clipboard_recover_XXXXXX.wav)"
+    snapshot="$(mktemp /tmp/voice2clipboard_recover_XXXXXX)"
+    snapshot="${snapshot}.wav"
     cp "$audio_path" "$snapshot"
   fi
 

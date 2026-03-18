@@ -118,7 +118,8 @@ while kill -0 "$CHILD_PID" >/dev/null 2>&1; do
       audio_path="$(cat "$AUDIO_STATE_FILE" 2>/dev/null || true)"
       snapshot=""
       if [[ -n "$audio_path" && -f "$audio_path" ]]; then
-        snapshot="$(mktemp /tmp/voice2clipboard_recover_XXXXXX.wav)"
+        snapshot="$(mktemp /tmp/voice2clipboard_recover_XXXXXX)"
+        snapshot="${snapshot}.wav"
         cp "$audio_path" "$snapshot"
       fi
       echo
