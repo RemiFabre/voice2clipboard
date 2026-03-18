@@ -662,7 +662,7 @@ end tell
     end tell
     delay 0.25
     keystroke "v" using command down
-    delay 0.25
+    delay 0.45
     key code 36
 end tell
 '''.strip()
