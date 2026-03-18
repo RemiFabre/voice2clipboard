@@ -596,6 +596,17 @@ def handle_escape_during_recording():
     listener.stop()
 
 
+def handle_external_stop_during_recording():
+    """Watch for launcher stop-file requests in quick mode."""
+    global recording, stop_requested_by_signal
+    while recording:
+        if stop_request_active():
+            stop_requested_by_signal = True
+            recording = False
+            return
+        time.sleep(0.05)
+
+
 def handle_stop_signal(signum, frame):
     """Gracefully stop active capture when receiving SIGINT/SIGTERM."""
     global recording, stop_requested_by_signal
@@ -903,10 +914,13 @@ def main():
         recording = True
         recorder = threading.Thread(target=record_audio, args=(filename, True))
         escape_listener = threading.Thread(target=handle_escape_during_recording)
+        external_stop_listener = threading.Thread(target=handle_external_stop_during_recording)
         recorder.start()
         escape_listener.start()
+        external_stop_listener.start()
         recorder.join()
         escape_listener.join()
+        external_stop_listener.join()
 
         if os.path.exists(filename):
             if stop_requested_by_signal:
