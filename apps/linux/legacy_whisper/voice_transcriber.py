@@ -631,7 +631,6 @@ def handle_escape_during_recording():
         if key == pynput_keyboard.Key.esc:
             if quick_stop_source is None:
                 quick_stop_source = "escape"
-            touch_stop_request_file()
             request_recording_stop("escape")
 
     listener = pynput_keyboard.Listener(on_press=on_press)
