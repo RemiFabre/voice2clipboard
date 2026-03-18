@@ -81,6 +81,16 @@ env \
   python apps/linux/legacy_whisper/voice_transcriber.py "${ARGS[@]}" &
 CHILD_PID=$!
 echo "$CHILD_PID" > "$LOCK_FILE"
+stop_reinforced=0
+while kill -0 "$CHILD_PID" >/dev/null 2>&1; do
+  if [[ -f "$STOP_FILE" && "$stop_reinforced" -eq 0 ]]; then
+    echo
+    echo "External stop file detected; reinforcing stop signal..."
+    kill -TERM "$CHILD_PID" >/dev/null 2>&1 || true
+    stop_reinforced=1
+  fi
+  sleep 0.2
+done
 wait "$CHILD_PID"
 
 echo
