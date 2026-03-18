@@ -57,6 +57,7 @@ start_time = None
 action_chosen = None
 callback_enabled = True
 stop_requested_by_signal = False
+quick_stop_source = None
 RECORDING_FILENAME = "recorded.wav"  # fallback only
 TRANSCRIPTION_FILENAME = "transcription.txt"
 STATS_FILENAME = "stats.json"
@@ -124,6 +125,13 @@ def append_quick_send_trace(event, **fields):
 
 def stop_request_active():
     return bool(STOP_REQUEST_FILE) and os.path.exists(STOP_REQUEST_FILE)
+
+
+def touch_stop_request_file():
+    if not STOP_REQUEST_FILE:
+        return
+    with open(STOP_REQUEST_FILE, "a"):
+        pass
 
 
 SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
@@ -582,13 +590,15 @@ def handle_key_input_during_recording():
 
 def handle_escape_during_recording():
     """Wait for Escape key to stop recording in quick mode."""
-    global recording, stop_requested_by_signal
+    global quick_stop_source
 
     def on_press(key):
-        global recording, stop_requested_by_signal
+        global quick_stop_source
         if key == pynput_keyboard.Key.esc:
-            stop_requested_by_signal = True
-            recording = False
+            if quick_stop_source is None:
+                quick_stop_source = "escape"
+            touch_stop_request_file()
+            os.kill(os.getpid(), signal.SIGTERM)
 
     listener = pynput_keyboard.Listener(on_press=on_press)
     listener.start()
@@ -599,9 +609,11 @@ def handle_escape_during_recording():
 
 def handle_external_stop_during_recording():
     """Watch for launcher stop-file requests in quick mode."""
-    global recording, stop_requested_by_signal
+    global recording, stop_requested_by_signal, quick_stop_source
     while recording:
         if stop_request_active():
+            if quick_stop_source is None:
+                quick_stop_source = "external_stop"
             stop_requested_by_signal = True
             recording = False
             return
@@ -610,7 +622,9 @@ def handle_external_stop_during_recording():
 
 def handle_stop_signal(signum, frame):
     """Gracefully stop active capture when receiving SIGINT/SIGTERM."""
-    global recording, stop_requested_by_signal
+    global recording, stop_requested_by_signal, quick_stop_source
+    if quick_stop_source is None:
+        quick_stop_source = f"signal:{signum}"
     stop_requested_by_signal = True
     recording = False
 
@@ -851,12 +865,13 @@ def post_transcription_menu(text):
 
 
 def main():
-    global recording, stop_requested_by_signal
+    global recording, stop_requested_by_signal, quick_stop_source
 
     # Parse arguments
     quick_mode = "--quick" in sys.argv
     copy_only = "--copy-only" in sys.argv
     stop_requested_by_signal = False
+    quick_stop_source = None
     target_window = None
     target_iterm_session = None
     if "--target-window" in sys.argv:
@@ -929,7 +944,8 @@ def main():
 
         if os.path.exists(filename):
             if stop_requested_by_signal:
-                print("⏹️ Stop requested.")
+                detail = f" via {quick_stop_source}" if quick_stop_source else ""
+                print(f"⏹️ Stop requested{detail}.")
             text = transcribe_audio(filename)
             if copy_only:
                 pyperclip.copy(format_quick_text(text))
