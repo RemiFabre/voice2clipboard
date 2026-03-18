@@ -16,7 +16,17 @@ export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 cleanup() {
-  rm -f "$LOCK_FILE" "$META_FILE" "$STOP_FILE" "$AUDIO_STATE_FILE"
+  local current_pid=""
+  current_pid="$(cat "$LOCK_FILE" 2>/dev/null || true)"
+  if [[ -n "${CHILD_PID:-}" && "$current_pid" == "$CHILD_PID" ]]; then
+    rm -f "$LOCK_FILE"
+  fi
+
+  local meta_session=""
+  meta_session="$(sed -n 's/^session_id=//p' "$META_FILE" 2>/dev/null | tail -n 1)"
+  if [[ -n "${session_id:-}" && "$meta_session" == "$session_id" ]]; then
+    rm -f "$META_FILE" "$STOP_FILE" "$AUDIO_STATE_FILE"
+  fi
 }
 trap cleanup EXIT
 
