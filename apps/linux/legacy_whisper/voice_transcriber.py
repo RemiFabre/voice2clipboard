@@ -582,11 +582,12 @@ def handle_key_input_during_recording():
 
 def handle_escape_during_recording():
     """Wait for Escape key to stop recording in quick mode."""
-    global recording
+    global recording, stop_requested_by_signal
 
     def on_press(key):
-        global recording
+        global recording, stop_requested_by_signal
         if key == pynput_keyboard.Key.esc:
+            stop_requested_by_signal = True
             recording = False
 
     listener = pynput_keyboard.Listener(on_press=on_press)
@@ -639,7 +640,11 @@ end tell
     tell process "{escaped_window}"
         click menu item "Paste" of menu "Edit" of menu bar 1
     end tell
-    delay 0.2
+end tell
+delay 0.35
+tell application "{escaped_window}" to activate
+delay 0.2
+tell application "System Events"
     key code 36
 end tell
 '''.strip()
