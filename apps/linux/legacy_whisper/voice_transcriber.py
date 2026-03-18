@@ -632,6 +632,13 @@ def _escape_applescript_string(s):
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
+def target_is_vscode(target_window):
+    if not target_window:
+        return False
+    name = target_window.strip().lower()
+    return name in {"code", "visual studio code"}
+
+
 def mac_paste_and_submit(target_window, use_shift_paste=False):
     escaped_window = _escape_applescript_string(target_window) if target_window else ""
     if target_window:
@@ -647,6 +654,19 @@ def mac_paste_and_submit(target_window, use_shift_paste=False):
 end tell
 '''.strip()
         submit_mode = "keystroke_shift_paste"
+    elif target_is_vscode(target_window):
+        script = f'''
+{activate_clause}tell application "System Events"
+    tell process "{escaped_window}"
+        click menu item "Terminal" of menu "View" of menu bar item "View" of menu bar 1
+    end tell
+    delay 0.25
+    keystroke "v" using command down
+    delay 0.25
+    key code 36
+end tell
+'''.strip()
+        submit_mode = "vscode_terminal_paste"
     elif target_window:
         script = f'''
 {activate_clause}tell application "System Events"
