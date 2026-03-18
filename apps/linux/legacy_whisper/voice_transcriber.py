@@ -37,6 +37,7 @@ MLX_HELPER_STATE = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_STATE", "/tmp/voice2cli
 MLX_HELPER_WAIT_TIMEOUT_S = float(os.getenv("VOICE2CLIPBOARD_MLX_HELPER_WAIT_TIMEOUT_S", "120"))
 QUICK_SEND_TRACE_PATH = os.getenv("VOICE2CLIPBOARD_QUICK_SEND_TRACE", "/tmp/voice2clipboard_quick_send_trace.jsonl")
 STOP_REQUEST_FILE = os.getenv("VOICE2CLIPBOARD_STOP_REQUEST_FILE", "/tmp/voice2clipboard_quick_autopaste.stop")
+AUDIO_STATE_FILE = os.getenv("VOICE2CLIPBOARD_AUDIO_STATE_FILE", "/tmp/voice2clipboard_quick_autopaste.audio")
 
 
 def playsound(path, block=False):
@@ -132,6 +133,13 @@ def touch_stop_request_file():
         return
     with open(STOP_REQUEST_FILE, "a"):
         pass
+
+
+def write_audio_state(path):
+    if not AUDIO_STATE_FILE:
+        return
+    with open(AUDIO_STATE_FILE, "w") as f:
+        f.write(path)
 
 
 SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
@@ -947,6 +955,7 @@ def main():
 
     # Recording mode
     filename = generate_paths()
+    write_audio_state(filename)
 
     if quick_mode:
         # Quick mode: Escape to stop, then paste at cursor
