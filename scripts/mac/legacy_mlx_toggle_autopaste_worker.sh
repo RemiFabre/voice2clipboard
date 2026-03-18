@@ -131,7 +131,6 @@ while kill -0 "$CHILD_PID" >/dev/null 2>&1; do
         echo "Recovering transcription from snapshot: $snapshot"
         env \
           VOICE2CLIPBOARD_BACKEND=mlx \
-          VOICE2CLIPBOARD_MLX_HELPER=1 \
           VOICE2CLIPBOARD_HELPER_LAUNCH_STATE="${helper_launch_state:-unknown}" \
           VOICE2CLIPBOARD_STOP_REQUEST_FILE="$STOP_FILE" \
           VOICE2CLIPBOARD_AUDIO_STATE_FILE="$AUDIO_STATE_FILE" \
