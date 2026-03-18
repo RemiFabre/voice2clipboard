@@ -9,8 +9,17 @@ LOG_FILE="/tmp/voice2clipboard_quick_autopaste.log"
 STOP_FILE="/tmp/voice2clipboard_quick_autopaste.stop"
 AUDIO_STATE_FILE="/tmp/voice2clipboard_quick_autopaste.audio"
 HELPER_CTL="${ROOT_DIR}/scripts/mac/mlx_whisper_helper_ctl.sh"
+MAX_LOG_SIZE_BYTES=$((5 * 1024 * 1024))
 
 export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
+
+if [[ -f "$LOG_FILE" ]]; then
+  log_size="$(wc -c <"$LOG_FILE" 2>/dev/null || echo 0)"
+  if [[ "${log_size:-0}" -gt "$MAX_LOG_SIZE_BYTES" ]]; then
+    tail -c "$MAX_LOG_SIZE_BYTES" "$LOG_FILE" > "${LOG_FILE}.tmp" 2>/dev/null || true
+    mv "${LOG_FILE}.tmp" "$LOG_FILE" 2>/dev/null || true
+  fi
+fi
 
 # Keep the worker terminal informative while still preserving a logfile.
 exec > >(tee -a "$LOG_FILE") 2>&1
