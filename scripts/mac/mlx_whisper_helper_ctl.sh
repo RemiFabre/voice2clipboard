@@ -10,6 +10,26 @@ LOG_PATH="${VOICE2CLIPBOARD_MLX_HELPER_LOG:-/tmp/voice2clipboard_mlx_helper.log}
 
 export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
 
+cleanup_stale() {
+  rm -f "$SOCKET_PATH" "$PID_PATH"
+  if [[ -f "$STATE_PATH" ]]; then
+    python3 - "$STATE_PATH" <<'PY' >/dev/null 2>&1 || rm -f "$STATE_PATH"
+import json
+import sys
+from datetime import datetime
+
+path = sys.argv[1]
+with open(path, "r") as f:
+    state = json.load(f)
+state["status"] = "stopped"
+state["updated_at"] = datetime.now().isoformat()
+state["rss_mb"] = 0
+with open(path, "w") as f:
+    json.dump(state, f, indent=2)
+PY
+  fi
+}
+
 is_running() {
   if [[ ! -f "$PID_PATH" ]]; then
     return 1
@@ -17,7 +37,10 @@ is_running() {
   local pid
   pid="$(cat "$PID_PATH" 2>/dev/null || true)"
   [[ -n "$pid" ]] || return 1
-  kill -0 "$pid" 2>/dev/null
+  if ! kill -0 "$pid" 2>/dev/null; then
+    return 1
+  fi
+  ps -p "$pid" -o command= 2>/dev/null | grep -q "mlx_whisper_helper.py"
 }
 
 start_helper() {
@@ -25,13 +48,16 @@ start_helper() {
     echo "already_running"
     return 0
   fi
-  rm -f "$SOCKET_PATH" "$PID_PATH"
+  cleanup_stale
   nohup /bin/bash -lc "source '$VENV' && cd '$ROOT_DIR' && exec python -u tools/mlx_whisper_helper.py >>'$LOG_PATH' 2>&1" >/dev/null 2>&1 &
   echo "started"
 }
 
 status_helper() {
-  if [[ -f "$STATE_PATH" ]]; then
+  if is_running && [[ -f "$STATE_PATH" ]]; then
+    cat "$STATE_PATH"
+  elif [[ -f "$STATE_PATH" ]]; then
+    cleanup_stale
     cat "$STATE_PATH"
   else
     printf '{"status":"stopped"}\n'
@@ -44,11 +70,18 @@ stop_helper() {
     pid="$(cat "$PID_PATH")"
     python3 - <<PY
 import os, signal
-os.kill($pid, signal.SIGTERM)
+    os.kill($pid, signal.SIGTERM)
 PY
+    for _ in {1..20}; do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        break
+      fi
+      sleep 0.1
+    done
+    cleanup_stale
     echo "stopped"
   else
-    rm -f "$SOCKET_PATH" "$PID_PATH"
+    cleanup_stale
     echo "not_running"
   fi
 }
