@@ -598,7 +598,6 @@ def handle_escape_during_recording():
             if quick_stop_source is None:
                 quick_stop_source = "escape"
             touch_stop_request_file()
-            os.kill(os.getpid(), signal.SIGTERM)
 
     listener = pynput_keyboard.Listener(on_press=on_press)
     listener.start()
