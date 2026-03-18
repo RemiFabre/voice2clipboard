@@ -59,6 +59,8 @@ action_chosen = None
 callback_enabled = True
 stop_requested_by_signal = False
 quick_stop_source = None
+stop_event = threading.Event()
+active_input_stream = None
 RECORDING_FILENAME = "recorded.wav"  # fallback only
 TRANSCRIPTION_FILENAME = "transcription.txt"
 STATS_FILENAME = "stats.json"
@@ -140,6 +142,29 @@ def write_audio_state(path):
         return
     with open(AUDIO_STATE_FILE, "w") as f:
         f.write(path)
+
+
+def clear_audio_state():
+    if AUDIO_STATE_FILE and os.path.exists(AUDIO_STATE_FILE):
+        os.remove(AUDIO_STATE_FILE)
+
+
+def request_recording_stop(source=None):
+    global recording, stop_requested_by_signal, quick_stop_source, active_input_stream
+    if source and quick_stop_source is None:
+        quick_stop_source = source
+    stop_requested_by_signal = True
+    recording = False
+    stop_event.set()
+    stream = active_input_stream
+    if stream is not None:
+        try:
+            stream.abort(ignore_errors=True)
+        except Exception:
+            try:
+                stream.stop(ignore_errors=True)
+            except Exception:
+                pass
 
 
 SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
@@ -233,7 +258,7 @@ def audio_is_effectively_silent(filename):
 
 
 def record_audio(filename, quick_mode=False):
-    global duration_sec, recording, callback_enabled, start_time, stop_requested_by_signal
+    global duration_sec, recording, callback_enabled, start_time, stop_requested_by_signal, active_input_stream
     q = queue.Queue()
 
     def _callback(indata, frames, time_info, status):
@@ -241,7 +266,8 @@ def record_audio(filename, quick_mode=False):
         audio_callback(indata, frames, time_info, status)
 
     with sf.SoundFile(filename, mode='w', samplerate=SAMPLE_RATE, channels=CHANNELS) as file:
-        with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS, callback=_callback):
+        with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS, callback=_callback) as stream:
+            active_input_stream = stream
             play_feedback("record_start", block=True)  # wait for sound = go signal
             print("\n🎤 Recording started.")
             if quick_mode:
@@ -259,14 +285,14 @@ def record_audio(filename, quick_mode=False):
             try:
                 while recording:
                     if quick_mode and stop_request_active():
-                        stop_requested_by_signal = True
-                        recording = False
+                        request_recording_stop("stop_file_loop")
                         continue
                     try:
                         file.write(q.get(timeout=0.1))
                     except queue.Empty:
                         continue
             finally:
+                active_input_stream = None
                 duration_sec = time.time() - start_time
                 callback_enabled = False
                 print("\r" + " " * (MIC_BAR_WIDTH + 20), end="\r", flush=True)
@@ -606,6 +632,7 @@ def handle_escape_during_recording():
             if quick_stop_source is None:
                 quick_stop_source = "escape"
             touch_stop_request_file()
+            request_recording_stop("escape")
 
     listener = pynput_keyboard.Listener(on_press=on_press)
     listener.start()
@@ -616,24 +643,16 @@ def handle_escape_during_recording():
 
 def handle_external_stop_during_recording():
     """Watch for launcher stop-file requests in quick mode."""
-    global recording, stop_requested_by_signal, quick_stop_source
     while recording:
         if stop_request_active():
-            if quick_stop_source is None:
-                quick_stop_source = "external_stop"
-            stop_requested_by_signal = True
-            recording = False
+            request_recording_stop("external_stop")
             return
         time.sleep(0.05)
 
 
 def handle_stop_signal(signum, frame):
     """Gracefully stop active capture when receiving SIGINT/SIGTERM."""
-    global recording, stop_requested_by_signal, quick_stop_source
-    if quick_stop_source is None:
-        quick_stop_source = f"signal:{signum}"
-    stop_requested_by_signal = True
-    recording = False
+    request_recording_stop(f"signal:{signum}")
 
 
 def _escape_applescript_string(s):
@@ -892,13 +911,16 @@ def post_transcription_menu(text):
 
 
 def main():
-    global recording, stop_requested_by_signal, quick_stop_source
+    global recording, stop_requested_by_signal, quick_stop_source, callback_enabled
 
     # Parse arguments
     quick_mode = "--quick" in sys.argv
     copy_only = "--copy-only" in sys.argv
+    recording = True
+    callback_enabled = True
     stop_requested_by_signal = False
     quick_stop_source = None
+    stop_event.clear()
     target_window = None
     target_iterm_session = None
     if "--target-window" in sys.argv:
@@ -942,6 +964,7 @@ def main():
             return
         print(f"📂 Transcribing {ext} file...")
         generate_paths()
+        clear_audio_state()
         text = transcribe_audio(input_file)
         if quick_mode:
             if copy_only:
@@ -980,6 +1003,7 @@ def main():
                 print("📋 Quick mode copy-only: transcription is in clipboard.")
             else:
                 paste_at_cursor_and_send(text, target_window, target_iterm_session)
+        clear_audio_state()
     else:
         # Default mode: 1-5 keys to choose action
         recorder = threading.Thread(target=record_audio, args=(filename,))
@@ -992,9 +1016,11 @@ def main():
         if os.path.exists(filename):
             if action_chosen == 5:
                 print("❌ Aborted before transcription.")
+                clear_audio_state()
                 return
             text = transcribe_audio(filename)
             post_transcription_menu(text)
+        clear_audio_state()
 
 
 if __name__ == "__main__":
