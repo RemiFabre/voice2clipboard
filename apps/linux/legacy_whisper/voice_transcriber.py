@@ -742,7 +742,14 @@ tell application "iTerm2"
         repeat with t in tabs of w
             repeat with s in sessions of t
                 if (unique id of s as text) is "{escaped_session}" then
-                    tell s to write text "{escaped_text}"
+                    tell s
+                        -- Avoid iTerm's implicit newline here. In practice it can
+                        -- behave like a linefeed, which leaves text inserted but
+                        -- not actually submitted in some terminal apps.
+                        write text "{escaped_text}" newline NO
+                        delay 0.05
+                        write text (ASCII character 13) newline NO
+                    end tell
                     return "ok"
                 end if
             end repeat
@@ -806,6 +813,7 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
                     "iterm_direct_send_begin",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
+                    submit_mode="explicit_carriage_return",
                 )
                 send_text_to_iterm_session(text_with_disclaimer, target_iterm_session)
                 write_quick_send_marker(
@@ -816,6 +824,7 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
                     "iterm_direct_send_end",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
+                    submit_mode="explicit_carriage_return",
                 )
                 print("📨 Sent to iTerm session.")
                 return
@@ -824,6 +833,7 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
                     "iterm_direct_send_failed",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
+                    submit_mode="explicit_carriage_return",
                     error=str(e),
                 )
                 print(f"⚠️ Direct iTerm send failed ({e}); falling back to clipboard paste.")
