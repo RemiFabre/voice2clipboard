@@ -285,7 +285,7 @@ def record_audio(filename, quick_mode=False):
             try:
                 while recording:
                     if quick_mode and stop_request_active():
-                        request_recording_stop("external_stop")
+                        request_recording_stop("stop_file_loop")
                         continue
                     try:
                         file.write(q.get(timeout=0.1))
@@ -640,6 +640,15 @@ def handle_escape_during_recording():
     listener.stop()
 
 
+def handle_external_stop_during_recording():
+    """Watch for launcher stop-file requests in quick mode."""
+    while recording:
+        if stop_request_active():
+            request_recording_stop("external_stop")
+            return
+        time.sleep(0.05)
+
+
 def handle_stop_signal(signum, frame):
     """Gracefully stop active capture when receiving SIGINT/SIGTERM."""
     request_recording_stop(f"signal:{signum}")
@@ -649,23 +658,98 @@ def _escape_applescript_string(s):
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def terminal_submit_delay_s(text):
-    # Large pastes in terminal apps need a little more time before Enter lands.
-    return min(1.25, 0.30 + (len(text) / 5000.0))
+def target_is_vscode(target_window):
+    if not target_window:
+        return False
+    name = target_window.strip().lower()
+    return name in {"code", "visual studio code"}
 
 
-def focus_iterm_session(session_id):
+def mac_paste_and_submit(target_window, use_shift_paste=False):
+    escaped_window = _escape_applescript_string(target_window) if target_window else ""
+    if target_window:
+        activate_clause = f'tell application "{escaped_window}" to activate\n    delay 0.5\n'
+    else:
+        activate_clause = ""
+    if use_shift_paste:
+        script = f'''
+{activate_clause}tell application "System Events"
+    keystroke "v" using {{command down, shift down}}
+    delay 0.3
+    key code 36
+end tell
+'''.strip()
+        submit_mode = "keystroke_shift_paste"
+    elif target_is_vscode(target_window):
+        script = f'''
+{activate_clause}tell application "System Events"
+    tell process "{escaped_window}"
+        click menu item "Terminal" of menu "View" of menu bar item "View" of menu bar 1
+    end tell
+    delay 0.25
+    keystroke "v" using command down
+    delay 0.45
+    key code 36
+end tell
+'''.strip()
+        submit_mode = "vscode_terminal_paste"
+    elif target_window:
+        script = f'''
+{activate_clause}tell application "System Events"
+    tell process "{escaped_window}"
+        click menu item "Paste" of menu "Edit" of menu bar 1
+    end tell
+end tell
+delay 0.35
+tell application "{escaped_window}" to activate
+delay 0.2
+tell application "System Events"
+    key code 36
+end tell
+'''.strip()
+        submit_mode = "menu_paste"
+    else:
+        script = '''
+tell application "System Events"
+    keystroke "v" using command down
+    delay 0.3
+    key code 36
+end tell
+'''.strip()
+        submit_mode = "keystroke_paste"
+    append_quick_send_trace(
+        "mac_submit_begin",
+        target_window=target_window,
+        use_shift_paste=use_shift_paste,
+        submit_mode=submit_mode,
+    )
+    subprocess.check_call(["osascript", "-e", script])
+    append_quick_send_trace(
+        "mac_submit_end",
+        target_window=target_window,
+        use_shift_paste=use_shift_paste,
+        submit_mode=submit_mode,
+    )
+
+
+def send_text_to_iterm_session(text, session_id):
+    one_line = " ".join(text.splitlines())
     escaped_session = _escape_applescript_string(session_id)
+    escaped_text = _escape_applescript_string(one_line)
     script = f'''
 tell application "iTerm2"
     repeat with w in windows
         repeat with t in tabs of w
             repeat with s in sessions of t
                 if (unique id of s as text) is "{escaped_session}" then
-                    tell t to select
-                    tell s to select
-                    tell w to select
-                    activate
+                    tell s
+                        -- Avoid iTerm's implicit newline here. In practice it can
+                        -- behave like a linefeed, which leaves text inserted but
+                        -- not actually submitted in some terminal apps.
+                        write text "{escaped_text}" newline NO
+                        delay 0.05
+                        write text (ASCII character 13) newline NO
+                    end tell
                     return "ok"
                 end if
             end repeat
@@ -680,61 +764,6 @@ return "not_found"
         detail = (result.stderr or result.stdout or f"status={status}").strip()
         raise RuntimeError(detail)
 
-
-def mac_paste_and_submit(target_window, use_shift_paste=False, submit_delay_s=0.35):
-    escaped_window = _escape_applescript_string(target_window) if target_window else ""
-    if target_window:
-        activate_clause = f'tell application "{escaped_window}" to activate\n    delay 0.5\n'
-    else:
-        activate_clause = ""
-    if use_shift_paste:
-        script = f'''
-{activate_clause}tell application "System Events"
-    keystroke "v" using {{command down, shift down}}
-    delay {submit_delay_s}
-    key code 36
-end tell
-'''.strip()
-        submit_mode = "keystroke_shift_paste"
-    elif target_window:
-        script = f'''
-{activate_clause}tell application "System Events"
-    tell process "{escaped_window}"
-        click menu item "Paste" of menu "Edit" of menu bar 1
-    end tell
-end tell
-delay {submit_delay_s}
-tell application "{escaped_window}" to activate
-delay 0.2
-tell application "System Events"
-    key code 36
-end tell
-'''.strip()
-        submit_mode = "menu_paste"
-    else:
-        script = f'''
-tell application "System Events"
-    keystroke "v" using command down
-    delay {submit_delay_s}
-    key code 36
-end tell
-'''.strip()
-        submit_mode = "keystroke_paste"
-    append_quick_send_trace(
-        "mac_submit_begin",
-        target_window=target_window,
-        use_shift_paste=use_shift_paste,
-        submit_mode=submit_mode,
-        submit_delay_s=submit_delay_s,
-    )
-    subprocess.check_call(["osascript", "-e", script])
-    append_quick_send_trace(
-        "mac_submit_end",
-        target_window=target_window,
-        use_shift_paste=use_shift_paste,
-        submit_mode=submit_mode,
-        submit_delay_s=submit_delay_s,
-    )
 
 def target_uses_shift_paste(target_window):
     if not target_window:
@@ -778,54 +807,43 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
         )
 
         if IS_MAC and target_iterm_session:
-            submit_delay_s = terminal_submit_delay_s(text_with_disclaimer)
-            print("🔄 Refocusing original iTerm session...")
+            print("🔄 Sending text directly to original iTerm session...")
             try:
                 append_quick_send_trace(
-                    "iterm_focus_begin",
+                    "iterm_direct_send_begin",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
-                    submit_mode="session_focus_shift_paste",
-                    submit_delay_s=submit_delay_s,
+                    submit_mode="explicit_carriage_return",
                 )
-                focus_iterm_session(target_iterm_session)
-                mac_paste_and_submit("iTerm2", use_shift_paste=True, submit_delay_s=submit_delay_s)
+                send_text_to_iterm_session(text_with_disclaimer, target_iterm_session)
                 write_quick_send_marker(
                     marker_path,
-                    f"iterm_session_focus\nsend_id={send_id}\npid={os.getpid()}\n",
+                    f"iterm_session\nsend_id={send_id}\npid={os.getpid()}\n",
                 )
                 append_quick_send_trace(
-                    "iterm_focus_end",
+                    "iterm_direct_send_end",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
-                    submit_mode="session_focus_shift_paste",
-                    submit_delay_s=submit_delay_s,
+                    submit_mode="explicit_carriage_return",
                 )
-                print("📨 Pasted and sent to iTerm session.")
+                print("📨 Sent to iTerm session.")
                 return
             except Exception as e:
                 append_quick_send_trace(
-                    "iterm_focus_failed",
+                    "iterm_direct_send_failed",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
-                    submit_mode="session_focus_shift_paste",
-                    submit_delay_s=submit_delay_s,
+                    submit_mode="explicit_carriage_return",
                     error=str(e),
                 )
-                print(f"⚠️ iTerm session focus failed ({e}); falling back to app paste.")
+                print(f"⚠️ Direct iTerm send failed ({e}); falling back to clipboard paste.")
 
         if IS_MAC:
             if target_window:
                 print(f"🔄 Refocusing original window ({target_window})...")
-            submit_delay_s = (
-                terminal_submit_delay_s(text_with_disclaimer)
-                if target_uses_shift_paste(target_window)
-                else 0.35
-            )
             mac_paste_and_submit(
                 target_window,
                 use_shift_paste=target_uses_shift_paste(target_window),
-                submit_delay_s=submit_delay_s,
             )
         else:
             if target_window:
@@ -976,10 +994,13 @@ def main():
         recording = True
         recorder = threading.Thread(target=record_audio, args=(filename, True))
         escape_listener = threading.Thread(target=handle_escape_during_recording)
+        external_stop_listener = threading.Thread(target=handle_external_stop_during_recording)
         recorder.start()
         escape_listener.start()
+        external_stop_listener.start()
         recorder.join()
         escape_listener.join()
+        external_stop_listener.join()
 
         if os.path.exists(filename):
             if stop_requested_by_signal:

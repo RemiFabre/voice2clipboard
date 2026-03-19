@@ -108,7 +108,8 @@ stop_seen_at=0
 while kill -0 "$CHILD_PID" >/dev/null 2>&1; do
   if [[ -f "$STOP_FILE" && "$stop_reinforced" -eq 0 ]]; then
     echo
-    echo "External stop file detected; waiting for recorder to exit..."
+    echo "External stop file detected; reinforcing stop signal..."
+    kill -TERM "$CHILD_PID" >/dev/null 2>&1 || true
     stop_reinforced=1
     stop_seen_at="$(date +%s)"
   elif [[ -f "$STOP_FILE" && "$stop_reinforced" -eq 1 ]]; then
