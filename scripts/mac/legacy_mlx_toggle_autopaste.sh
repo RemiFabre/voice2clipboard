@@ -39,6 +39,7 @@ EOF
 request_stop() {
   local pid="$1"
   : > "$STOP_FILE"
+  kill -TERM "$pid" >/dev/null 2>&1 || true
   osascript -e 'display notification "Voice capture stop requested." with title "voice2clipboard"' >/dev/null 2>&1 || true
 }
 
