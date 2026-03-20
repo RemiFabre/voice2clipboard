@@ -78,3 +78,14 @@ The next debugging step should be observation-only:
 - inspect `/tmp/voice2clipboard_quick_send_trace.jsonl`
 - inspect `/tmp/voice2clipboard_quick_autopaste.log`
 - avoid adding more parallel stop/send paths before proving where the failure occurs.
+
+## Freeze root cause found on 2026-03-20
+- The recurring macOS freeze during quick-stop was not a send-path problem.
+- The recorder was deadlocking inside PortAudio/CoreAudio while handling stop.
+- Specifically, we were trying to stop the active input stream from a listener thread (`Escape`, stop-file, or signal path) while the recording thread was still unwinding the same stream.
+- Sample output showed the recorder stuck in `FinishStoppingStream` / `AudioOutputUnitStop` behind a CoreAudio mutex.
+
+Current mitigation:
+- `request_recording_stop()` is flag-only.
+- The listener thread marks recording as stopped and lets the recording thread exit its own `InputStream` context.
+- Recovery from `audio.wav` remains valid if the UI path still wedges for another reason.
