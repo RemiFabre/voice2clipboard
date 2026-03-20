@@ -150,21 +150,15 @@ def clear_audio_state():
 
 
 def request_recording_stop(source=None):
-    global recording, stop_requested_by_signal, quick_stop_source, active_input_stream
+    global recording, stop_requested_by_signal, quick_stop_source
     if source and quick_stop_source is None:
         quick_stop_source = source
     stop_requested_by_signal = True
     recording = False
     stop_event.set()
-    stream = active_input_stream
-    if stream is not None:
-        try:
-            stream.abort(ignore_errors=True)
-        except Exception:
-            try:
-                stream.stop(ignore_errors=True)
-            except Exception:
-                pass
+    # Let the recording thread unwind its own InputStream context.
+    # Stopping the PortAudio/CoreAudio stream from the listener thread can
+    # deadlock on macOS inside AudioOutputUnitStop / FinishStoppingStream.
 
 
 SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
