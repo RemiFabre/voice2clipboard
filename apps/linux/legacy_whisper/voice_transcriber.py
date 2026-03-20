@@ -818,29 +818,18 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
                     "iterm_direct_send_begin",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
-                    submit_mode="double_enter_probe",
+                    submit_mode="single_enter_400ms",
                 )
                 send_text_to_iterm_session(text_with_disclaimer, target_iterm_session)
                 play_feedback("transcribe_start")
-                time.sleep(0.05)
+                time.sleep(0.4)
                 send_enter_to_iterm_session(target_iterm_session)
                 append_quick_send_trace(
-                    "iterm_direct_first_enter",
+                    "iterm_direct_enter",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
-                    submit_mode="double_enter_probe",
-                    delay_s=0.05,
-                )
-                time.sleep(2.0)
-                play_feedback("transcribe_start")
-                time.sleep(0.05)
-                send_enter_to_iterm_session(target_iterm_session)
-                append_quick_send_trace(
-                    "iterm_direct_second_enter",
-                    send_id=send_id,
-                    target_iterm_session=target_iterm_session,
-                    submit_mode="double_enter_probe",
-                    delay_s=2.0,
+                    submit_mode="single_enter_400ms",
+                    delay_s=0.4,
                 )
                 write_quick_send_marker(
                     marker_path,
@@ -850,7 +839,7 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
                     "iterm_direct_send_end",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
-                    submit_mode="double_enter_probe",
+                    submit_mode="single_enter_400ms",
                 )
                 print("📨 Sent to iTerm session.")
                 return
@@ -859,7 +848,7 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
                     "iterm_direct_send_failed",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
-                    submit_mode="double_enter_probe",
+                    submit_mode="single_enter_400ms",
                     error=str(e),
                 )
                 print(f"⚠️ Direct iTerm send failed ({e}); falling back to clipboard paste.")
