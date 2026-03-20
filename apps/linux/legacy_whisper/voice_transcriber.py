@@ -732,10 +732,8 @@ end tell
     )
 
 
-def send_text_to_iterm_session(text, session_id):
-    one_line = " ".join(text.splitlines())
+def _run_iterm_session_applescript(session_id, action_lines):
     escaped_session = _escape_applescript_string(session_id)
-    escaped_text = _escape_applescript_string(one_line)
     script = f'''
 tell application "iTerm2"
     repeat with w in windows
@@ -743,12 +741,7 @@ tell application "iTerm2"
             repeat with s in sessions of t
                 if (unique id of s as text) is "{escaped_session}" then
                     tell s
-                        -- Avoid iTerm's implicit newline here. In practice it can
-                        -- behave like a linefeed, which leaves text inserted but
-                        -- not actually submitted in some terminal apps.
-                        write text "{escaped_text}" newline NO
-                        delay 0.05
-                        write text (ASCII character 13) newline NO
+{action_lines}
                     end tell
                     return "ok"
                 end if
@@ -763,6 +756,18 @@ return "not_found"
     if result.returncode != 0 or status != "ok":
         detail = (result.stderr or result.stdout or f"status={status}").strip()
         raise RuntimeError(detail)
+
+
+def send_text_to_iterm_session(text, session_id):
+    one_line = " ".join(text.splitlines())
+    escaped_text = _escape_applescript_string(one_line)
+    action_lines = f'                        write text "{escaped_text}" newline NO'
+    _run_iterm_session_applescript(session_id, action_lines)
+
+
+def send_enter_to_iterm_session(session_id):
+    action_lines = '                        write text (ASCII character 13) newline NO'
+    _run_iterm_session_applescript(session_id, action_lines)
 
 
 def target_uses_shift_paste(target_window):
@@ -813,9 +818,30 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
                     "iterm_direct_send_begin",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
-                    submit_mode="explicit_carriage_return",
+                    submit_mode="double_enter_probe",
                 )
                 send_text_to_iterm_session(text_with_disclaimer, target_iterm_session)
+                play_feedback("transcribe_start")
+                time.sleep(0.05)
+                send_enter_to_iterm_session(target_iterm_session)
+                append_quick_send_trace(
+                    "iterm_direct_first_enter",
+                    send_id=send_id,
+                    target_iterm_session=target_iterm_session,
+                    submit_mode="double_enter_probe",
+                    delay_s=0.05,
+                )
+                time.sleep(2.0)
+                play_feedback("transcribe_start")
+                time.sleep(0.05)
+                send_enter_to_iterm_session(target_iterm_session)
+                append_quick_send_trace(
+                    "iterm_direct_second_enter",
+                    send_id=send_id,
+                    target_iterm_session=target_iterm_session,
+                    submit_mode="double_enter_probe",
+                    delay_s=2.0,
+                )
                 write_quick_send_marker(
                     marker_path,
                     f"iterm_session\nsend_id={send_id}\npid={os.getpid()}\n",
@@ -824,7 +850,7 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
                     "iterm_direct_send_end",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
-                    submit_mode="explicit_carriage_return",
+                    submit_mode="double_enter_probe",
                 )
                 print("📨 Sent to iTerm session.")
                 return
@@ -833,7 +859,7 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
                     "iterm_direct_send_failed",
                     send_id=send_id,
                     target_iterm_session=target_iterm_session,
-                    submit_mode="explicit_carriage_return",
+                    submit_mode="double_enter_probe",
                     error=str(e),
                 )
                 print(f"⚠️ Direct iTerm send failed ({e}); falling back to clipboard paste.")
