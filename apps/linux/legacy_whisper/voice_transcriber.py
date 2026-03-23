@@ -38,6 +38,7 @@ MLX_HELPER_WAIT_TIMEOUT_S = float(os.getenv("VOICE2CLIPBOARD_MLX_HELPER_WAIT_TIM
 QUICK_SEND_TRACE_PATH = os.getenv("VOICE2CLIPBOARD_QUICK_SEND_TRACE", "/tmp/voice2clipboard_quick_send_trace.jsonl")
 STOP_REQUEST_FILE = os.getenv("VOICE2CLIPBOARD_STOP_REQUEST_FILE", "/tmp/voice2clipboard_quick_autopaste.stop")
 AUDIO_STATE_FILE = os.getenv("VOICE2CLIPBOARD_AUDIO_STATE_FILE", "/tmp/voice2clipboard_quick_autopaste.audio")
+PHASE_FILE = os.getenv("VOICE2CLIPBOARD_PHASE_FILE", "/tmp/voice2clipboard_quick_autopaste.phase")
 
 
 def playsound(path, block=False):
@@ -147,6 +148,18 @@ def write_audio_state(path):
 def clear_audio_state():
     if AUDIO_STATE_FILE and os.path.exists(AUDIO_STATE_FILE):
         os.remove(AUDIO_STATE_FILE)
+
+
+def write_phase_state(phase):
+    if not PHASE_FILE:
+        return
+    with open(PHASE_FILE, "w") as f:
+        f.write(phase)
+
+
+def clear_phase_state():
+    if PHASE_FILE and os.path.exists(PHASE_FILE):
+        os.remove(PHASE_FILE)
 
 
 def request_recording_stop(source=None):
@@ -266,6 +279,7 @@ def record_audio(filename, quick_mode=False):
             print("\n🎤 Recording started.")
             if quick_mode:
                 print("Press Escape to stop recording.\n")
+                write_phase_state("recording")
             else:
                 print("Press:")
                 print("  1 – Show transcription")
@@ -625,6 +639,7 @@ def handle_escape_during_recording():
         if key == pynput_keyboard.Key.esc:
             if quick_stop_source is None:
                 quick_stop_source = "escape"
+            touch_stop_request_file()
             request_recording_stop("escape")
 
     listener = pynput_keyboard.Listener(on_press=on_press)
@@ -997,6 +1012,7 @@ def main():
     # Recording mode
     filename = generate_paths()
     write_audio_state(filename)
+    clear_phase_state()
 
     if quick_mode:
         # Quick mode: Escape to stop, then paste at cursor
@@ -1011,17 +1027,22 @@ def main():
         escape_listener.join()
         external_stop_listener.join()
 
-        if os.path.exists(filename):
-            if stop_requested_by_signal:
-                detail = f" via {quick_stop_source}" if quick_stop_source else ""
-                print(f"⏹️ Stop requested{detail}.")
-            text = transcribe_audio(filename)
-            if copy_only:
-                pyperclip.copy(format_quick_text(text))
-                print("📋 Quick mode copy-only: transcription is in clipboard.")
-            else:
-                paste_at_cursor_and_send(text, target_window, target_iterm_session)
-        clear_audio_state()
+        try:
+            if os.path.exists(filename):
+                if stop_requested_by_signal:
+                    detail = f" via {quick_stop_source}" if quick_stop_source else ""
+                    print(f"⏹️ Stop requested{detail}.")
+                write_phase_state("transcribing")
+                text = transcribe_audio(filename)
+                if copy_only:
+                    pyperclip.copy(format_quick_text(text))
+                    print("📋 Quick mode copy-only: transcription is in clipboard.")
+                else:
+                    paste_at_cursor_and_send(text, target_window, target_iterm_session)
+                write_phase_state("done")
+        finally:
+            clear_audio_state()
+            clear_phase_state()
     else:
         # Default mode: 1-5 keys to choose action
         recorder = threading.Thread(target=record_audio, args=(filename,))

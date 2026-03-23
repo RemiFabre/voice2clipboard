@@ -8,6 +8,7 @@ META_FILE="/tmp/voice2clipboard_quick_autopaste.meta"
 LOG_FILE="/tmp/voice2clipboard_quick_autopaste.log"
 STOP_FILE="/tmp/voice2clipboard_quick_autopaste.stop"
 AUDIO_STATE_FILE="/tmp/voice2clipboard_quick_autopaste.audio"
+PHASE_FILE="/tmp/voice2clipboard_quick_autopaste.phase"
 HELPER_CTL="${ROOT_DIR}/scripts/mac/mlx_whisper_helper_ctl.sh"
 MAX_LOG_SIZE_BYTES=$((5 * 1024 * 1024))
 
@@ -34,7 +35,7 @@ cleanup() {
   local meta_session=""
   meta_session="$(sed -n 's/^session_id=//p' "$META_FILE" 2>/dev/null | tail -n 1)"
   if [[ -n "${session_id:-}" && "$meta_session" == "$session_id" ]]; then
-    rm -f "$META_FILE" "$STOP_FILE" "$AUDIO_STATE_FILE"
+    rm -f "$META_FILE" "$STOP_FILE" "$AUDIO_STATE_FILE" "$PHASE_FILE"
   fi
 }
 trap cleanup EXIT
@@ -99,20 +100,24 @@ env \
   VOICE2CLIPBOARD_HELPER_LAUNCH_STATE="${helper_launch_state:-unknown}" \
   VOICE2CLIPBOARD_STOP_REQUEST_FILE="$STOP_FILE" \
   VOICE2CLIPBOARD_AUDIO_STATE_FILE="$AUDIO_STATE_FILE" \
+  VOICE2CLIPBOARD_PHASE_FILE="$PHASE_FILE" \
   python apps/linux/legacy_whisper/voice_transcriber.py "${ARGS[@]}" &
 CHILD_PID=$!
 echo "$CHILD_PID" > "$LOCK_FILE"
-stop_reinforced=0
 forced_recovery=0
 stop_seen_at=0
 while kill -0 "$CHILD_PID" >/dev/null 2>&1; do
-  if [[ -f "$STOP_FILE" && "$stop_reinforced" -eq 0 ]]; then
-    echo
-    echo "External stop file detected; reinforcing stop signal..."
-    kill -TERM "$CHILD_PID" >/dev/null 2>&1 || true
-    stop_reinforced=1
-    stop_seen_at="$(date +%s)"
-  elif [[ -f "$STOP_FILE" && "$stop_reinforced" -eq 1 ]]; then
+  if [[ -f "$STOP_FILE" ]]; then
+    phase="$(cat "$PHASE_FILE" 2>/dev/null || echo recording)"
+    if [[ "$stop_seen_at" -eq 0 ]]; then
+      stop_seen_at="$(date +%s)"
+      echo
+      echo "Stop requested; monitoring recorder shutdown..."
+    fi
+    if [[ "$phase" == "transcribing" || "$phase" == "done" ]]; then
+      sleep 0.2
+      continue
+    fi
     now="$(date +%s)"
     if (( now - stop_seen_at >= 2 )); then
       audio_path="$(cat "$AUDIO_STATE_FILE" 2>/dev/null || true)"
@@ -134,6 +139,7 @@ while kill -0 "$CHILD_PID" >/dev/null 2>&1; do
           VOICE2CLIPBOARD_HELPER_LAUNCH_STATE="${helper_launch_state:-unknown}" \
           VOICE2CLIPBOARD_STOP_REQUEST_FILE="$STOP_FILE" \
           VOICE2CLIPBOARD_AUDIO_STATE_FILE="$AUDIO_STATE_FILE" \
+          VOICE2CLIPBOARD_PHASE_FILE="$PHASE_FILE" \
           python apps/linux/legacy_whisper/voice_transcriber.py "${ARGS[@]}" "$snapshot"
       else
         echo "No snapshot audio was available for recovery."
