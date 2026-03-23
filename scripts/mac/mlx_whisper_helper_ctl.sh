@@ -30,23 +30,64 @@ PY
   fi
 }
 
+helper_pids() {
+  pgrep -f "tools/mlx_whisper_helper.py" || true
+}
+
+stop_helper_pids() {
+  local pids=()
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] && pids+=("$pid")
+  done < <(helper_pids)
+  if [[ "${#pids[@]}" -eq 0 ]]; then
+    return 1
+  fi
+
+  kill -TERM "${pids[@]}" >/dev/null 2>&1 || true
+  for _ in {1..20}; do
+    local any_alive=0
+    for pid in "${pids[@]}"; do
+      if kill -0 "$pid" 2>/dev/null; then
+        any_alive=1
+        break
+      fi
+    done
+    if [[ "$any_alive" -eq 0 ]]; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  kill -KILL "${pids[@]}" >/dev/null 2>&1 || true
+  return 0
+}
+
 is_running() {
-  if [[ ! -f "$PID_PATH" ]]; then
+  local pids=()
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] && pids+=("$pid")
+  done < <(helper_pids)
+  if [[ "${#pids[@]}" -eq 0 ]]; then
     return 1
   fi
-  local pid
-  pid="$(cat "$PID_PATH" 2>/dev/null || true)"
-  [[ -n "$pid" ]] || return 1
-  if ! kill -0 "$pid" 2>/dev/null; then
-    return 1
-  fi
-  ps -p "$pid" -o command= 2>/dev/null | grep -q "mlx_whisper_helper.py"
+  local last_index=$(( ${#pids[@]} - 1 ))
+  printf '%s\n' "${pids[$last_index]}" > "$PID_PATH"
+  return 0
 }
 
 start_helper() {
-  if is_running; then
+  local pids=()
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] && pids+=("$pid")
+  done < <(helper_pids)
+
+  if [[ "${#pids[@]}" -eq 1 && -S "$SOCKET_PATH" ]]; then
+    printf '%s\n' "${pids[0]}" > "$PID_PATH"
     echo "already_running"
     return 0
+  fi
+
+  if [[ "${#pids[@]}" -gt 0 ]]; then
+    stop_helper_pids || true
   fi
   cleanup_stale
   nohup /bin/bash -lc "source '$VENV' && cd '$ROOT_DIR' && exec python -u tools/mlx_whisper_helper.py >>'$LOG_PATH' 2>&1" >/dev/null 2>&1 &
@@ -66,18 +107,7 @@ status_helper() {
 
 stop_helper() {
   if is_running; then
-    local pid
-    pid="$(cat "$PID_PATH")"
-    python3 - <<PY
-import os, signal
-    os.kill($pid, signal.SIGTERM)
-PY
-    for _ in {1..20}; do
-      if ! kill -0 "$pid" 2>/dev/null; then
-        break
-      fi
-      sleep 0.1
-    done
+    stop_helper_pids || true
     cleanup_stale
     echo "stopped"
   else
