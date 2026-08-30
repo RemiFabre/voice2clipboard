@@ -767,10 +767,82 @@ return "not_found"
         raise RuntimeError(detail)
 
 
+def iterm_write_text_action(text, bracketed):
+    """AppleScript `write text` clause; bracketed wraps text in bracketed-paste markers.
+
+    Claude Code (>= 2.1.248) drops the first 1022-byte chunk of un-bracketed
+    input when more input follows and Enter arrives within ~1 s (the macOS pty
+    input queue splits anything longer than 1022 bytes). Bracketed paste makes
+    Claude Code treat the whole text as one paste, so nothing is lost.
+    """
+    escaped_text = _escape_applescript_string(text)
+    if bracketed:
+        return (
+            'write text (ASCII character 27) & "[200~" & '
+            f'"{escaped_text}" & (ASCII character 27) & "[201~" newline NO'
+        )
+    return f'write text "{escaped_text}" newline NO'
+
+
+def _foreground_comms_from_ps(ps_output):
+    """Full command paths of the foreground ('+' state) processes in `ps -o stat=,comm=` output."""
+    comms = []
+    for line in ps_output.splitlines():
+        parts = line.split(None, 1)
+        if len(parts) == 2 and "+" in parts[0]:
+            comms.append(parts[1].strip())
+    return comms
+
+
+def foreground_commands_from_ps(ps_output):
+    return [os.path.basename(comm) for comm in _foreground_comms_from_ps(ps_output)]
+
+
+def tty_foreground_is_claude(ps_output):
+    return any(
+        os.path.basename(comm) == "claude" or "/claude/versions/" in comm
+        for comm in _foreground_comms_from_ps(ps_output)
+    )
+
+
+def get_iterm_session_tty(session_id):
+    escaped_session = _escape_applescript_string(session_id)
+    script = f'''
+tell application "iTerm2"
+    repeat with w in windows
+        repeat with t in tabs of w
+            repeat with s in sessions of t
+                if (unique id of s as text) is "{escaped_session}" then
+                    return tty of s
+                end if
+            end repeat
+        end repeat
+    end repeat
+end tell
+return ""
+'''.strip()
+    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    return (result.stdout or "").strip() if result.returncode == 0 else ""
+
+
+def iterm_session_runs_claude(session_id):
+    tty = get_iterm_session_tty(session_id)
+    if not tty:
+        return False
+    try:
+        ps_output = subprocess.check_output(
+            ["ps", "-t", os.path.basename(tty), "-o", "stat=,comm="], text=True
+        )
+    except Exception:
+        return False
+    return tty_foreground_is_claude(ps_output)
+
+
 def send_text_to_iterm_session(text, session_id):
     one_line = " ".join(text.splitlines())
-    escaped_text = _escape_applescript_string(one_line)
-    action_lines = f'                        write text "{escaped_text}" newline NO'
+    bracketed = iterm_session_runs_claude(session_id)
+    print(f"🧾 iTerm send mode: {'bracketed paste (Claude Code)' if bracketed else 'typed text'}")
+    action_lines = "                        " + iterm_write_text_action(one_line, bracketed)
     _run_iterm_session_applescript(session_id, action_lines)
 
 
