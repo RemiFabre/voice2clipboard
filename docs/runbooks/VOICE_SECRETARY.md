@@ -22,7 +22,7 @@ on the state (`scripts/mac/secretary/on_gesture.sh`):
 
 | State | single | double | triple |
 |---|---|---|---|
-| idle | start a dictation | read the next queued message | ask the secretary for a status |
+| idle | start a dictation | hear the latest notification | ask the secretary for a status |
 | dictating | (stop, keyboard path only) | (stop, keyboard path only) | ignored |
 | message playing | pause | stop the message | stop + status |
 | message paused | resume | stop the message | stop + status |
@@ -56,6 +56,13 @@ scripts/mac/earbuds/ctl.sh logs              # raw commands received from the he
 First use: macOS asks once whether EarbudButtons may control iTerm2 and System Events (the
 dictation path uses AppleScript). Accept both. Hooks only apply to Claude Code sessions started
 after they were registered; open `/hooks` in an older session to reload them.
+
+## Notification rule (Remi, 2026-09-17)
+
+Silence means success. Nothing speaks to Remi on its own: agent reports and the secretary's
+news go to the inbox with a ding, and he double-presses to hear the latest one. Direct speech
+(`say_now.sh`) is reserved for problems, genuinely important items, or a session that
+explicitly asks to talk to him.
 
 ## Agent side
 

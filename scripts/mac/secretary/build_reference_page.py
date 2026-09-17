@@ -43,11 +43,11 @@ SOUNDS = [
     ("Delivered", "system Glass", "/System/Library/Sounds/Glass.aiff",
      "The text has been delivered: pasted into the target, or sent to the secretary."),
     ("Message waiting", "two high notes", f"{ROOT}/sounds/cue_ding.aiff",
-     "A spoken message was queued for you (an agent finished, needs a permission, or the secretary has news). Press once to hear it."),
+     "A spoken message was queued for you (an agent finished, needs a permission, or the secretary has news). Press twice to hear it; nothing is read to you unless you ask."),
 ]
 
 STATES = [
-    ("Nothing happening", "start a dictation", "read the next queued message", "ask the secretary for a spoken status", "changes the headset volume only"),
+    ("Nothing happening", "start a dictation", "hear the latest notification", "ask the secretary for a spoken status", "changes the headset volume only"),
     ("Dictating (mic open)", "stop the dictation", "stop the dictation", "stop the dictation", "stop the dictation (also changes volume)"),
     ("A message is playing", "pause it", "stop it", "stop it and ask for a status", "changes the headset volume only"),
     ("A message is paused", "resume it", "stop it", "stop it and ask for a status", "changes the headset volume only"),
@@ -94,7 +94,7 @@ def build():
     parts.append("<h2>Where it differs from what you asked</h2><ul>"
                  "<li>Right = talk, left = pause was not possible: the earbuds send identical presses from both sides.</li>"
                  "<li>While dictating, every kind of press stops the recording, not only the single press: in phone-call mode the earbuds only send hang-up or volume, and the volume side effect of a long press is real.</li>"
-                 "<li>Two presses when nothing is happening reads the next queued message. You did not ask for this; it was needed so queued messages can be reached now that one press starts a dictation.</li>"
+                 "<li>Two presses when nothing is happening plays the latest notification, as you asked; further double presses go back through older ones.</li>"
                  "<li>Long presses only change the headset volume outside a dictation; they cannot be given a meaning there.</li></ul>")
     parts.append("<div class='note'>Sound tip: every cue starts with a third of a second of silence because Bluetooth earbuds swallow the beginning of short sounds while the link wakes up. If a cue still gets lost, that lead-in can be lengthened.</div>")
     parts.append("</main></body></html>")

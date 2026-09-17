@@ -1,7 +1,7 @@
 #!/bin/bash
 # Entry point called by the earbud button app. Gestures: single | double | triple
 # State machine (Remi's spec, 2026-09-17 evening):
-#   idle            single = start dictation      double = read next queued message   triple = ask secretary for status
+#   idle            single = start dictation      double = hear the latest notification  triple = ask secretary for status
 #   dictating       single = stop dictation       double = stop dictation             triple = (ignored)
 #   message playing single = pause                double = stop message               triple = stop + status
 #   message paused  single = resume               double = stop message               triple = stop + status
