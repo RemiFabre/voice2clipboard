@@ -116,10 +116,16 @@ fi
 
 rm -f "$STOP_FILE" "$AUDIO_STATE_FILE" "$PHASE_FILE"
 
-ORIGINAL_APP="$(get_frontmost_app)"
-TARGET_ITERM_SESSION=""
-if [[ "$ORIGINAL_APP" == "iTerm2" ]]; then
-  TARGET_ITERM_SESSION="$(get_iterm_session_id)"
+if [[ -n "${VOICE2CLIPBOARD_TARGET_ITERM_SESSION:-}" ]]; then
+  # Explicit target (earbud dictations go to the secretary session, whatever is frontmost).
+  ORIGINAL_APP="iTerm2"
+  TARGET_ITERM_SESSION="$VOICE2CLIPBOARD_TARGET_ITERM_SESSION"
+else
+  ORIGINAL_APP="$(get_frontmost_app)"
+  TARGET_ITERM_SESSION=""
+  if [[ "$ORIGINAL_APP" == "iTerm2" ]]; then
+    TARGET_ITERM_SESSION="$(get_iterm_session_id)"
+  fi
 fi
 HELPER_LAUNCH_STATE="$("$HELPER_CTL" start)"
 SESSION_ID="$(uuidgen)"
