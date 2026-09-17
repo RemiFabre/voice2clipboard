@@ -27,15 +27,17 @@ on the state (`scripts/mac/secretary/on_gesture.sh`):
 | message playing | pause | stop the message | stop + status |
 | message paused | resume | stop the message | stop + status |
 
-**While a dictation is recording the buttons do not reach the Mac at all**: the headset switches
-its microphone into hands-free mode and its buttons become call controls. Verified 2026-09-17
-(4 min recording, zero commands received). To end a dictation hands-free, pause briefly and say
-the stop phrase: **"roger stop"** (also "over and out", "stop dictation"; env
-`VOICE2CLIPBOARD_STOP_PHRASES`). The streaming helper decodes short isolated utterances as soon
-as VAD closes them, drops the phrase from the transcript and stops the recorder. Escape in the
-recorder window still works. While another app is playing audio, macOS routes the buttons to
-that app; the button app takes them back at start, after each gesture, or with
-`scripts/mac/earbuds/ctl.sh reassert`.
+**While a dictation is recording, the headset is in hands-free mode** (macOS sets up a "virtual
+call" with it, seen in the Bluetooth log at 21:47:06 on 2026-09-17). Its buttons then send call
+commands instead of media commands, so the Now Playing app never sees them. The recorder
+therefore watches the unified log (`/usr/bin/log stream`, process bluetoothd, category
+Server.Handsfree) while recording: a press arrives as `Received call hangup event (AT+CHUP)`,
+a long press as `Received speaker gain event` (right = up, left = down). Any of them stops the
+dictation. Alternatives that always work: pause briefly and say **"roger stop"** (also "over
+and out", "stop dictation"; env `VOICE2CLIPBOARD_STOP_PHRASES`), decoded by the streaming
+helper and dropped from the transcript, or Escape in the recorder window. Audio cues with a
+350 ms silent lead-in (`sounds/cue_start.aiff`, `cue_stop.aiff`) mark start and stop, because
+the earbuds swallow the first fraction of a second of any sound.
 
 ## Daily use
 

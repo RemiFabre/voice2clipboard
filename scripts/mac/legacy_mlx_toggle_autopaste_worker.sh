@@ -26,6 +26,9 @@ fi
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 cleanup() {
+  # The recorder's headset-button watcher is a `log stream` child; make sure none outlives us
+  # (a SIGKILLed recorder cannot reap it).
+  pkill -f '^/usr/bin/log stream --style compact --info --debug --predicate process == "bluetoothd"' >/dev/null 2>&1 || true
   local current_pid=""
   current_pid="$(cat "$LOCK_FILE" 2>/dev/null || true)"
   if [[ -n "${CHILD_PID:-}" && "$current_pid" == "$CHILD_PID" ]]; then

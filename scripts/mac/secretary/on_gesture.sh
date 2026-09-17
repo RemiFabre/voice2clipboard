@@ -5,8 +5,9 @@
 #   dictating       single = stop dictation       double = stop dictation             triple = (ignored)
 #   message playing single = pause                double = stop message               triple = stop + status
 #   message paused  single = resume               double = stop message               triple = stop + status
-# Note: while the headset mic is open (dictating) its buttons do not reach the Mac; say the stop
-# phrase ("roger stop") instead. The single/double handling here still serves the keyboard path.
+# Note: while the headset mic is open (dictating) its buttons arrive as hands-free call commands,
+# not media commands; the recorder itself watches the Bluetooth log for them and stops. The
+# single/double handling below only serves the keyboard-started path.
 source "$(dirname "$0")/lib.sh"
 LOCK_FILE="/tmp/voice2clipboard_quick_autopaste.pid"
 gesture="${1:-}"

@@ -86,3 +86,41 @@ class StopPhraseEndsStreaming(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(os.path.exists(REAL_WAV), "real dictation not available")
+class StopPhraseWithoutPause(unittest.TestCase):
+    def test_roger_stop_glued_to_speech_is_cut_out(self):
+        import soundfile as sf
+        import mlx_whisper_helper as helper
+        from test_streaming_transcription import feed_pcm, norm
+
+        tmp = tempfile.mkdtemp()
+        real, sr = sf.read(REAL_WAV, dtype="int16")
+        stop_wav = os.path.join(tmp, "stop.wav")
+        synth("roger stop.", stop_wav)
+        stop_audio, _ = sf.read(stop_wav, dtype="int16")
+        before = real[5 * sr : 25 * sr]
+        # no pause between the last words and the phrase (0.25 s < VAD min silence)
+        composite = np.concatenate([before, silence(0.25), stop_audio, silence(1.5), real[40 * sr : 46 * sr], silence(1.5)])
+        wav_path = os.path.join(tmp, "composite.wav")
+        sf.write(wav_path, composite, sr)
+        pcm_path = os.path.join(tmp, "audio.pcm")
+        open(pcm_path, "wb").close()
+        stop_file = os.path.join(tmp, "stop.flag")
+        session = helper.StreamSession("t2", pcm_path, stop_file=stop_file)
+        session.start()
+        writer = threading.Thread(target=feed_pcm, args=(wav_path, pcm_path, 1.0, 0.25, threading.Event()))
+        writer.start()
+        writer.join()
+        deadline = time.time() + 20
+        while not os.path.exists(stop_file) and time.time() < deadline:
+            time.sleep(0.2)
+        self.assertTrue(os.path.exists(stop_file), "helper never touched the stop file")
+        text, stats = session.end()
+        words = norm(text)
+        self.assertNotIn("roger", words, text)
+        expected = norm(helper.decode_speech(before.astype(np.float32) / 32768.0))
+        overlap = len(set(words) & set(expected)) / max(1, len(set(expected)))
+        self.assertGreater(overlap, 0.7, (overlap, text))
+        self.assertLessEqual(len(words), int(len(expected) * 1.3) + 3, "speech after the stop phrase leaked in")

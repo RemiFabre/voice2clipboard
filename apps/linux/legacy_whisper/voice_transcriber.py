@@ -2,6 +2,7 @@ import sounddevice as sd
 import soundfile as sf
 import numpy as np
 import os
+import re
 import platform
 import threading
 import queue
@@ -179,7 +180,10 @@ SUPPORTED_AUDIO_EXTENSIONS = {'.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'}
 QUICK_MODE_PREFIX = "[Voice] "
 MAC_SOUNDS = {
     # Use system AIFF for lower startup latency than custom MP3 decode.
-    "record_start": "/System/Library/Sounds/Pop.aiff",
+    # Custom cues with a 350 ms silent lead-in: Bluetooth earbuds swallow the first fraction of a
+    # second while the audio link wakes up, so the 0.1 s system "Pop" was often never heard.
+    "record_start": "sounds/cue_start.aiff",
+    "record_stop": "sounds/cue_stop.aiff",
     "transcribe_start": "/System/Library/Sounds/Tink.aiff",
     "done": "/System/Library/Sounds/Glass.aiff",
 }
@@ -335,6 +339,7 @@ def record_audio(filename, quick_mode=False):
                 duration_sec = time.time() - start_time
                 callback_enabled = False
                 print("\r" + " " * (MIC_BAR_WIDTH + 20), end="\r", flush=True)
+                play_feedback("record_stop", block=False)
                 print("\n🎤 Recording stopped.")
 
 
@@ -594,24 +599,43 @@ def mlx_helper_stream_begin(pcm_path):
     Silently skipped when the helper is not ready yet: the stop path then decodes the whole file."""
     global stream_session_id
     stream_session_id = None
-    if os.getenv("VOICE2CLIPBOARD_MLX_HELPER") != "1" or not os.path.exists(MLX_HELPER_SOCKET):
+    if os.getenv("VOICE2CLIPBOARD_MLX_HELPER") != "1":
         return
+    # The helper is usually still loading its model when the microphone opens (the hotkey
+    # starts both at once), so keep trying for a while in the background: the stream session
+    # reads the PCM file from its beginning, so a late start loses nothing.
+    threading.Thread(target=_stream_begin_retry_loop, args=(pcm_path,), daemon=True).start()
+
+
+def _stream_begin_retry_loop(pcm_path, timeout_s=30.0):
+    global stream_session_id
     session_id = str(uuid.uuid4())
-    try:
-        mlx_helper_request(
-            {
-                "command": "stream_begin",
-                "session_id": session_id,
-                "pcm_path": os.path.abspath(pcm_path),
-                # lets the helper end the recording when the spoken stop phrase is heard
-                "stop_file": STOP_REQUEST_FILE or None,
-            },
-            timeout_s=2.0,
-        )
-        stream_session_id = session_id
-        print("🛰️  Streaming transcription active (text is decoded while you speak).")
-    except Exception as e:
-        print(f"ℹ️ Streaming not available ({e}); will transcribe the whole file at stop.")
+    deadline = time.time() + timeout_s
+    last_error = "helper socket not present"
+    while time.time() < deadline and recording:
+        if os.path.exists(MLX_HELPER_SOCKET):
+            try:
+                _stream_begin_once(session_id, pcm_path)
+                stream_session_id = session_id
+                print("🛰️  Streaming transcription active (text is decoded while you speak).")
+                return
+            except Exception as e:
+                last_error = str(e)
+        time.sleep(0.5)
+    print(f"ℹ️ Streaming not available ({last_error}); will transcribe the whole file at stop.")
+
+
+def _stream_begin_once(session_id, pcm_path):
+    mlx_helper_request(
+        {
+            "command": "stream_begin",
+            "session_id": session_id,
+            "pcm_path": os.path.abspath(pcm_path),
+            # lets the helper end the recording when the spoken stop phrase is heard
+            "stop_file": STOP_REQUEST_FILE or None,
+        },
+        timeout_s=2.0,
+    )
 
 
 def transcribe_with_mlx_helper_stream_end():
@@ -792,6 +816,65 @@ def handle_external_stop_during_recording():
             request_recording_stop("external_stop")
             return
         time.sleep(0.05)
+
+
+# --- Headset buttons while recording -------------------------------------------------------
+# With a Bluetooth headset the microphone runs over the hands-free profile and macOS sets up a
+# "virtual call" with it. Its buttons then send call commands (hang-up, speaker gain) instead
+# of media commands, so the Now Playing app never sees them; bluetoothd logs them though.
+HEADSET_STOP_ENABLED = IS_MAC and os.getenv("VOICE2CLIPBOARD_HEADSET_STOP", "1") != "0"
+HEADSET_LOG_PREDICATE = 'process == "bluetoothd" AND category == "Server.Handsfree"'
+
+
+def headset_event_from_log_line(line):
+    """Map a bluetoothd hands-free log line to 'hangup', 'gain_up', 'gain_down' or None."""
+    if "Received call hangup event" in line or "AT+CHUP" in line:
+        return "hangup"
+    m = re.search(r"Received speaker gain event .* new gain is (\d+)", line)
+    if m:
+        gain = int(m.group(1))
+        prev = headset_event_from_log_line.last_gain
+        headset_event_from_log_line.last_gain = gain
+        if prev is None:
+            return "gain_change"
+        return "gain_up" if gain > prev else "gain_down" if gain < prev else "gain_change"
+    return None
+
+
+headset_event_from_log_line.last_gain = None
+
+
+def handle_headset_buttons_during_recording():
+    """Stop the recording when the headset sends a hands-free button event (any press)."""
+    if not HEADSET_STOP_ENABLED:
+        return
+    cmd = ["/usr/bin/log", "stream", "--style", "compact", "--info", "--debug", "--predicate", HEADSET_LOG_PREDICATE]
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
+    except Exception as e:
+        print(f"ℹ️ Headset button watcher unavailable ({e}).")
+        return
+
+    def _reaper():
+        while recording and proc.poll() is None:
+            time.sleep(0.1)
+        if proc.poll() is None:
+            proc.terminate()
+
+    threading.Thread(target=_reaper, daemon=True).start()
+    headset_event_from_log_line.last_gain = None
+    try:
+        for line in proc.stdout:
+            if not recording:
+                break
+            event = headset_event_from_log_line(line)
+            if event:
+                print(f"\n🎧 Headset button ({event}) — stopping.")
+                request_recording_stop(f"headset:{event}")
+                break
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
 
 
 def handle_stop_signal(signum, frame):
@@ -1230,9 +1313,11 @@ def main():
         recorder = threading.Thread(target=record_audio, args=(filename, True))
         escape_listener = threading.Thread(target=handle_escape_during_recording)
         external_stop_listener = threading.Thread(target=handle_external_stop_during_recording)
+        headset_listener = threading.Thread(target=handle_headset_buttons_during_recording, daemon=True)
         recorder.start()
         escape_listener.start()
         external_stop_listener.start()
+        headset_listener.start()
         recorder.join()
         escape_listener.join()
         external_stop_listener.join()

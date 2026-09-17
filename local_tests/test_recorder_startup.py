@@ -31,3 +31,18 @@ class GoBanner(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HeadsetLogParsing(unittest.TestCase):
+    def test_hands_free_lines_map_to_events(self):
+        vt.headset_event_from_log_line.last_gain = None
+        self.assertEqual(vt.headset_event_from_log_line(
+            "2026-09-17 21:47:21.744 Df bluetoothd[43329:a8aad08] [com.apple.bluetooth:Server.Handsfree] Received call hangup event (AT+CHUP) from device A0:0C:E2:E9:6D:45"), "hangup")
+        self.assertEqual(vt.headset_event_from_log_line(
+            "2026-09-17 21:47:32.844 Df bluetoothd[43329:a8ab644] [com.apple.bluetooth:Server.Handsfree] Received speaker gain event from device A0:0C:E2:E9:6D:45 - new gain is 3"), "gain_change")
+        self.assertEqual(vt.headset_event_from_log_line(
+            "... [com.apple.bluetooth:Server.Handsfree] Received speaker gain event from device A0:0C:E2:E9:6D:45 - new gain is 4"), "gain_up")
+        self.assertEqual(vt.headset_event_from_log_line(
+            "... [com.apple.bluetooth:Server.Handsfree] Received speaker gain event from device A0:0C:E2:E9:6D:45 - new gain is 2"), "gain_down")
+        self.assertIsNone(vt.headset_event_from_log_line(
+            "2026-09-17 21:47:14.059 I  bluetoothd[43329:a8ab681] [com.apple.bluetooth:Server.Handsfree] Filling done, not enough data.  shared 624, fill 0"))

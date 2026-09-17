@@ -39,6 +39,7 @@ STREAM_IDLE_TIMEOUT_S = 60.0      # give up if the pcm file stops growing (recor
 # helper touches the recorder's stop file and drops the phrase from the transcript. Needed because
 # the headset buttons do not reach the Mac while its microphone is in hands-free mode.
 STOP_PROBE_MAX_S = 4.0
+STOP_TAIL_PROBE_S = 3.0           # longer regions: check whether their last seconds end with the phrase
 STOP_PHRASES = [p.strip().lower() for p in os.getenv("VOICE2CLIPBOARD_STOP_PHRASES", "roger stop,over and out,stop dictation").split(",") if p.strip()]
 SAMPLE_RATE = 16000
 
@@ -173,6 +174,7 @@ class StreamSession:
         self.stop_phrases = [p.lower() for p in (stop_phrases or STOP_PHRASES)]
         self.stop_hit = None                          # text that triggered the spoken stop
         self.probed_until = 0                         # sample offset up to which short regions were probed
+        self.tail_probed_until = 0
         self.audio = np.zeros(0, dtype=np.float32)   # everything read so far
         self.committed = 0                            # samples already decoded
         self.pending_regions = []                     # closed regions waiting for enough speech
@@ -227,6 +229,25 @@ class StreamSession:
                 return True
         return False
 
+    def _ends_with_stop_phrase(self, text):
+        norm = self._normalize(text)
+        return any(norm.endswith(p) for p in self.stop_phrases) if norm else False
+
+    def _cut_point_before_phrase(self, region):
+        """Word timestamps on the region; returns the absolute sample where the stop phrase starts."""
+        audio = self.audio[region["start"]:region["end"]]
+        with DECODE_LOCK:
+            result = mlx_whisper.transcribe(audio, path_or_hf_repo=MODEL_REPO, condition_on_previous_text=False, word_timestamps=True)
+        words = [w for seg in result.get("segments", []) for w in seg.get("words", [])]
+        if not words:
+            return None
+        for phrase in self.stop_phrases:
+            n = len(phrase.split())
+            if n <= len(words) and self._normalize(" ".join(w["word"] for w in words[-n:])) == phrase:
+                start_s = words[-n]["start"]
+                return region["start"] + int(max(0.0, start_s - 0.15) * SAMPLE_RATE)
+        return None
+
     def _probe_stop_phrase(self, closed):
         """Decode the newest short closed region alone; returns True when it is a stop command."""
         if not self.stop_file or not closed:
@@ -246,12 +267,41 @@ class StreamSession:
         with self.lock:
             self.committed = region["end"]
             self.stop_hit = text
+        self._touch_stop_file()
+        return True
+
+    def _probe_stop_phrase_at_tail(self, closed):
+        """Longer closed region whose last seconds end with the phrase (said without a pause)."""
+        if not self.stop_file or not closed:
+            return False
+        region = closed[-1]
+        if region["end"] <= self.tail_probed_until:
+            return False
+        self.tail_probed_until = region["end"]
+        if (region["end"] - region["start"]) / SAMPLE_RATE <= STOP_PROBE_MAX_S:
+            return False
+        tail_start = max(region["start"], region["end"] - int(STOP_TAIL_PROBE_S * SAMPLE_RATE))
+        text = decode_speech(self.audio[tail_start:region["end"]])
+        if not self._ends_with_stop_phrase(text):
+            return False
+        cut = self._cut_point_before_phrase(region)
+        if cut is None or cut <= region["start"] + SAMPLE_RATE // 4:
+            trimmed = []
+        else:
+            trimmed = [{"start": region["start"], "end": cut}]
+        self._decode_regions(closed[:-1] + trimmed)
+        with self.lock:
+            self.committed = region["end"]
+            self.stop_hit = text
+        self._touch_stop_file()
+        return True
+
+    def _touch_stop_file(self):
         try:
             with open(self.stop_file, "a"):
                 pass
         except OSError as e:
             self.error = f"could not touch stop file: {e}"
-        return True
 
     def _decode_regions(self, regions, final=False):
         if not regions:
@@ -276,7 +326,7 @@ class StreamSession:
                     self.error = "pcm file stopped growing"
                     break
                 closed = self._closed_regions()
-                if closed and self._probe_stop_phrase(closed):
+                if closed and (self._probe_stop_phrase(closed) or self._probe_stop_phrase_at_tail(closed)):
                     break
                 if closed:
                     speech_s = sum(r["end"] - r["start"] for r in closed) / SAMPLE_RATE
