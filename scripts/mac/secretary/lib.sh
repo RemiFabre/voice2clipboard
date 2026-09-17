@@ -30,3 +30,27 @@ tts_stop() {
   if [[ -n "$pid" ]]; then kill -CONT "$pid" 2>/dev/null; kill -TERM "$pid" 2>/dev/null; fi
   rm -f "$TTS_PID_FILE" "$TTS_STATE_FILE"
 }
+
+# Run AppleScript lines against the iTerm session with this unique id (sessions cannot be
+# addressed by id directly; iterate like voice_transcriber does). Prints "ok" or "not_found".
+iterm_session_action() {
+  local session_id="$1"; shift
+  local lines="$*"
+  osascript -e "
+tell application \"iTerm2\"
+    repeat with w in windows
+        repeat with t in tabs of w
+            repeat with s in sessions of t
+                if (unique id of s as text) is \"$session_id\" then
+                    tell s
+                        $lines
+                    end tell
+                    return \"ok\"
+                end if
+            end repeat
+        end repeat
+    end repeat
+end tell
+return \"not_found\"" 2>/dev/null
+}
+iterm_session_exists() { [[ "$(iterm_session_action "$1" "get name")" == "ok" ]]; }
