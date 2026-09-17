@@ -34,13 +34,14 @@ STREAM_CLOSE_MARGIN_S = 1.2       # a region is "closed" once the file extends t
 STREAM_MIN_CHUNK_SPEECH_S = 15.0  # accumulate closed regions until this much speech (15 s beat whole-file WER)
 STREAM_MAX_CHUNK_WAIT_S = 20.0    # ...or the oldest closed region has waited this long
 STREAM_IDLE_TIMEOUT_S = 60.0      # give up if the pcm file stops growing (recorder died)
-# Spoken stop command: a short isolated utterance (<= STOP_PROBE_MAX_S of speech, i.e. said after a
-# pause) is decoded on its own as soon as VAD closes it; if it is one of the stop phrases the
-# helper touches the recorder's stop file and drops the phrase from the transcript. Needed because
-# the headset buttons do not reach the Mac while its microphone is in hands-free mode.
+# Spoken stop command (OFF by default, Remi prefers the buttons; the recorder now catches the
+# headset's hands-free hang-up instead). Enable with e.g. VOICE2CLIPBOARD_STOP_PHRASES="roger stop".
+# When enabled, a short isolated utterance (<= STOP_PROBE_MAX_S) is decoded as soon as VAD closes
+# it, and longer utterances are checked for a phrase at their end; a match touches the recorder's
+# stop file and the phrase is dropped from the transcript.
 STOP_PROBE_MAX_S = 4.0
-STOP_TAIL_PROBE_S = 3.0           # longer regions: check whether their last seconds end with the phrase
-STOP_PHRASES = [p.strip().lower() for p in os.getenv("VOICE2CLIPBOARD_STOP_PHRASES", "roger stop,over and out,stop dictation").split(",") if p.strip()]
+STOP_TAIL_PROBE_S = 3.0
+STOP_PHRASES = [p.strip().lower() for p in os.getenv("VOICE2CLIPBOARD_STOP_PHRASES", "").split(",") if p.strip()]
 SAMPLE_RATE = 16000
 
 
@@ -171,7 +172,7 @@ class StreamSession:
         self.session_id = session_id
         self.pcm_path = pcm_path
         self.stop_file = stop_file
-        self.stop_phrases = [p.lower() for p in (stop_phrases or STOP_PHRASES)]
+        self.stop_phrases = [p.lower() for p in (stop_phrases if stop_phrases is not None else STOP_PHRASES)]
         self.stop_hit = None                          # text that triggered the spoken stop
         self.probed_until = 0                         # sample offset up to which short regions were probed
         self.tail_probed_until = 0
@@ -250,7 +251,7 @@ class StreamSession:
 
     def _probe_stop_phrase(self, closed):
         """Decode the newest short closed region alone; returns True when it is a stop command."""
-        if not self.stop_file or not closed:
+        if not self.stop_file or not self.stop_phrases or not closed:
             return False
         region = closed[-1]
         if region["end"] <= self.probed_until:
@@ -272,7 +273,7 @@ class StreamSession:
 
     def _probe_stop_phrase_at_tail(self, closed):
         """Longer closed region whose last seconds end with the phrase (said without a pause)."""
-        if not self.stop_file or not closed:
+        if not self.stop_file or not self.stop_phrases or not closed:
             return False
         region = closed[-1]
         if region["end"] <= self.tail_probed_until:

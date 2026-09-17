@@ -33,11 +33,14 @@ commands instead of media commands, so the Now Playing app never sees them. The 
 therefore watches the unified log (`/usr/bin/log stream`, process bluetoothd, category
 Server.Handsfree) while recording: a press arrives as `Received call hangup event (AT+CHUP)`,
 a long press as `Received speaker gain event` (right = up, left = down). Any of them stops the
-dictation. Alternatives that always work: pause briefly and say **"roger stop"** (also "over
-and out", "stop dictation"; env `VOICE2CLIPBOARD_STOP_PHRASES`), decoded by the streaming
-helper and dropped from the transcript, or Escape in the recorder window. Audio cues with a
-350 ms silent lead-in (`sounds/cue_start.aiff`, `cue_stop.aiff`) mark start and stop, because
-the earbuds swallow the first fraction of a second of any sound.
+dictation (verified live 21:53, single press). Escape in the recorder window also works. A
+spoken stop phrase exists but is OFF by default at Remi's request (brittle); enable with
+`VOICE2CLIPBOARD_STOP_PHRASES="roger stop"` in the helper's environment.
+
+Sounds, all with a 350 ms silent lead-in because the earbuds swallow the head of short sounds:
+`sounds/cue_start.aiff` (rising, mic is live), `cue_stop.aiff` (descending, recording ended),
+`cue_ding.aiff` (two high notes, a spoken message is waiting). The transcriber's "done" sound is
+still the system Glass sound.
 
 ## Daily use
 

@@ -1,4 +1,4 @@
-"""Spoken stop phrase: while streaming, a short isolated "roger stop" must end the recording
+"""Spoken stop phrase (opt-in, off by default): while streaming, a short isolated "roger stop" must end the recording
 (touch the stop file), be dropped from the transcript, and nothing said after it is kept.
 Builds the audio from a real dictation plus macOS `say`; needs the recording and the model."""
 import os
@@ -26,11 +26,20 @@ def synth(text, path):
     subprocess.run(["say", "-v", "Samantha", "-o", path, "--file-format=WAVE", "--data-format=LEI16@16000", text], check=True)
 
 
+class StopPhraseDefaultOff(unittest.TestCase):
+    def test_no_phrases_by_default(self):
+        import mlx_whisper_helper as helper
+
+        self.assertEqual(helper.STOP_PHRASES, [])
+        s = helper.StreamSession("t", "/nonexistent", stop_file="/tmp/x")
+        self.assertFalse(s._probe_stop_phrase([{"start": 0, "end": 16000}]))
+
+
 class StopPhraseMatching(unittest.TestCase):
     def test_phrase_matching_is_strict_but_punctuation_tolerant(self):
         import mlx_whisper_helper as helper
 
-        s = helper.StreamSession("t", "/nonexistent", stop_file="/tmp/x")
+        s = helper.StreamSession("t", "/nonexistent", stop_file="/tmp/x", stop_phrases=["roger stop", "over and out"])
         self.assertTrue(s._matches_stop_phrase("Roger, stop."))
         self.assertTrue(s._matches_stop_phrase("Okay, roger stop"))
         self.assertTrue(s._matches_stop_phrase("Over and out!"))
@@ -61,7 +70,7 @@ class StopPhraseEndsStreaming(unittest.TestCase):
         pcm_path = os.path.join(tmp, "audio.pcm")
         open(pcm_path, "wb").close()
         stop_file = os.path.join(tmp, "stop.flag")
-        session = helper.StreamSession("t", pcm_path, stop_file=stop_file)
+        session = helper.StreamSession("t", pcm_path, stop_file=stop_file, stop_phrases=["roger stop"])
         session.start()
         stop = threading.Event()
         writer = threading.Thread(target=feed_pcm, args=(wav_path, pcm_path, 1.0, 0.25, stop))
@@ -108,7 +117,7 @@ class StopPhraseWithoutPause(unittest.TestCase):
         pcm_path = os.path.join(tmp, "audio.pcm")
         open(pcm_path, "wb").close()
         stop_file = os.path.join(tmp, "stop.flag")
-        session = helper.StreamSession("t2", pcm_path, stop_file=stop_file)
+        session = helper.StreamSession("t2", pcm_path, stop_file=stop_file, stop_phrases=["roger stop"])
         session.start()
         writer = threading.Thread(target=feed_pcm, args=(wav_path, pcm_path, 1.0, 0.25, threading.Event()))
         writer.start()
