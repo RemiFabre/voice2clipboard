@@ -50,31 +50,16 @@ source "$VENV"
 cd "$ROOT_DIR"
 
 helper_status_summary() {
-  python3 - "$HELPER_CTL" <<'PY'
-import json
-import subprocess
-import sys
-
-ctl = sys.argv[1]
-try:
-    raw = subprocess.check_output([ctl, "status"], text=True)
-    state = json.loads(raw)
-except Exception:
-    print("Model helper: status unavailable")
-    raise SystemExit(0)
-
-status = state.get("status", "unknown")
-repo = state.get("model_repo", "unknown")
-rss_mb = state.get("rss_mb")
-load_s = state.get("model_load_seconds")
-
-parts = [f"Model helper: {status}", f"repo={repo}"]
-if rss_mb is not None:
-    parts.append(f"rss≈{rss_mb} MB")
-if load_s is not None:
-    parts.append(f"load={load_s}s")
-print(" | ".join(parts))
-PY
+  # Plain shell on purpose: spawning python3 here delays the recorder start.
+  local state_file="${VOICE2CLIPBOARD_MLX_HELPER_STATE:-/tmp/voice2clipboard_mlx_helper_state.json}"
+  if [[ ! -f "$state_file" ]]; then
+    echo "Model helper: status unavailable"
+    return 0
+  fi
+  local status repo
+  status="$(sed -n 's/.*"status": *"\([^"]*\)".*/\1/p' "$state_file" | head -n 1)"
+  repo="$(sed -n 's/.*"model_repo": *"\([^"]*\)".*/\1/p' "$state_file" | head -n 1)"
+  echo "Model helper: ${status:-unknown} | repo=${repo:-unknown}"
 }
 
 ARGS=(--quick --target-window "${target_app:-}")

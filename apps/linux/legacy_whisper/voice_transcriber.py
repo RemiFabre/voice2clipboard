@@ -8,15 +8,12 @@ import queue
 import time
 import webbrowser
 import pyperclip
-import pyautogui
 import subprocess
-import requests
 import json
 import signal
 import socket
 import uuid
 from pynput import keyboard as pynput_keyboard
-from faster_whisper import WhisperModel
 import sys
 from datetime import datetime
 
@@ -237,6 +234,22 @@ def audio_callback(indata, frames, time_info, status):
     print(f"\r🎤 {elapsed:5.1f}s [{bar}]", end="", flush=True)
 
 
+GO_BANNER = """
+\033[1;32m
+  ██████╗  ██████╗
+ ██╔════╝ ██╔═══██╗
+ ██║  ███╗██║   ██║
+ ██║   ██║██║   ██║
+ ╚██████╔╝╚██████╔╝
+  ╚═════╝  ╚═════╝
+\033[0m\033[1m   SPEAK NOW — microphone is live\033[0m
+"""
+
+
+def go_banner():
+    return GO_BANNER
+
+
 def play_feedback(event, block=False):
     if IS_MAC:
         path = MAC_SOUNDS.get(event, "sounds/plop.mp3")
@@ -275,11 +288,16 @@ def record_audio(filename, quick_mode=False):
     with sf.SoundFile(filename, mode='w', samplerate=SAMPLE_RATE, channels=CHANNELS) as file:
         with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS, callback=_callback) as stream:
             active_input_stream = stream
-            play_feedback("record_start", block=True)  # wait for sound = go signal
-            print("\n🎤 Recording started.")
+            # The stream is capturing from here: tell the user immediately. The sound is
+            # only a secondary cue and must not block (afplay takes ~2.3 s to exit).
+            start_time = time.time()
             if quick_mode:
-                print("Press Escape to stop recording.\n")
                 write_phase_state("recording")
+            print(go_banner(), flush=True)
+            play_feedback("record_start", block=False)
+            print("🎤 Recording started.")
+            if quick_mode:
+                print("Press Escape or the shortcut again to stop recording.\n")
             else:
                 print("Press:")
                 print("  1 – Show transcription")
@@ -289,7 +307,6 @@ def record_audio(filename, quick_mode=False):
                 print("  5 – Cancel (discard and stop immediately)")
                 print("📋 Text will always be copied to clipboard.\n")
 
-            start_time = time.time()
             try:
                 while recording:
                     if quick_mode and stop_request_active():
@@ -308,6 +325,8 @@ def record_audio(filename, quick_mode=False):
 
 
 def focus_and_click_chatgpt_input(timeout=5):
+    import pyautogui  # lazy: not needed to start recording
+
     try:
         print("🔍 Looking for '+' icon to focus input...")
         start_time = time.time()
@@ -531,6 +550,8 @@ def transcribe_with_mlx_helper(filename):
 def transcribe_with_faster_whisper(filename):
     global whisper_model
     if whisper_model is None:
+        from faster_whisper import WhisperModel  # lazy: 0.7 s import, fallback path only
+
         print("⏳ Loading faster-whisper model...")
         whisper_model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
     model = whisper_model
@@ -561,6 +582,8 @@ def transcribe_with_best_backend(filename):
 
 
 def send_to_existing_chatgpt(text):
+    import pyautogui  # lazy
+
     print("📨 Focusing Firefox window...")
     try:
         if IS_MAC:
@@ -579,6 +602,8 @@ def send_to_existing_chatgpt(text):
 
 
 def send_to_new_chatgpt(text):
+    import pyautogui  # lazy
+
     print("🌐 Opening ChatGPT...")
     webbrowser.get("firefox").open_new_tab("https://chat.openai.com/")
     found = focus_and_click_chatgpt_input(timeout=5)
@@ -607,6 +632,8 @@ Text:
     }
     print("🤖 Calling local LLM...")
     try:
+        import requests  # lazy
+
         res = requests.post(OLLAMA_URL, json=payload)
         raw = res.json().get("response", "{}")
         data = json.loads(raw.split("```json")[-1].split("```")[0].strip()) if "```" in raw else json.loads(raw)
@@ -952,6 +979,8 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
                 print(f"🔄 Refocusing original window ({target_window})...")
                 subprocess.call(['xdotool', 'windowactivate', '--sync', target_window])
                 time.sleep(0.5)
+            import pyautogui  # lazy
+
             pyautogui.hotkey("ctrl", "shift", "v")
             time.sleep(0.3)
             pyautogui.press("enter")
