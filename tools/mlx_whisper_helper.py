@@ -30,8 +30,8 @@ VAD_SPEECH_PAD_MS = int(os.getenv("VOICE2CLIPBOARD_VAD_SPEECH_PAD_MS", "300"))
 # are decoded in the background so stream_end only has to decode the tail.
 STREAM_POLL_S = 1.0
 STREAM_CLOSE_MARGIN_S = 1.2       # a region is "closed" once the file extends this far past it
-STREAM_MIN_CHUNK_SPEECH_S = 4.0   # accumulate closed regions until this much speech...
-STREAM_MAX_CHUNK_WAIT_S = 8.0     # ...or the oldest closed region has waited this long
+STREAM_MIN_CHUNK_SPEECH_S = 15.0  # accumulate closed regions until this much speech (15 s beat whole-file WER)
+STREAM_MAX_CHUNK_WAIT_S = 20.0    # ...or the oldest closed region has waited this long
 STREAM_IDLE_TIMEOUT_S = 60.0      # give up if the pcm file stops growing (recorder died)
 SAMPLE_RATE = 16000
 

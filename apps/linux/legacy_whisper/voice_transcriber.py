@@ -32,6 +32,9 @@ OLLAMA_MODEL = "gemma:2b"
 MLX_HELPER_SOCKET = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_SOCKET", "/tmp/voice2clipboard_mlx_helper.sock")
 MLX_HELPER_STATE = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_STATE", "/tmp/voice2clipboard_mlx_helper_state.json")
 MLX_HELPER_WAIT_TIMEOUT_S = float(os.getenv("VOICE2CLIPBOARD_MLX_HELPER_WAIT_TIMEOUT_S", "120"))
+# Streaming: while recording, the helper decodes VAD-closed speech in the background so the
+# stop-to-text delay no longer grows with dictation length. Set to 0 for whole-file decoding.
+STREAMING_ENABLED = os.getenv("VOICE2CLIPBOARD_STREAMING", "1") != "0"
 QUICK_SEND_TRACE_PATH = os.getenv("VOICE2CLIPBOARD_QUICK_SEND_TRACE", "/tmp/voice2clipboard_quick_send_trace.jsonl")
 STOP_REQUEST_FILE = os.getenv("VOICE2CLIPBOARD_STOP_REQUEST_FILE", "/tmp/voice2clipboard_quick_autopaste.stop")
 AUDIO_STATE_FILE = os.getenv("VOICE2CLIPBOARD_AUDIO_STATE_FILE", "/tmp/voice2clipboard_quick_autopaste.audio")
@@ -66,6 +69,7 @@ current_audio_path = None
 current_transcript_path = None
 current_stats_path = None
 last_backend_info = {}
+stream_session_id = None  # set when the helper accepted stream_begin for this recording
 
 
 def generate_paths():
@@ -285,6 +289,8 @@ def record_audio(filename, quick_mode=False):
         q.put(indata.copy())
         audio_callback(indata, frames, time_info, status)
 
+    pcm_path = os.path.splitext(filename)[0] + ".pcm"
+    pcm_file = open(pcm_path, "wb") if quick_mode and STREAMING_ENABLED else None
     with sf.SoundFile(filename, mode='w', samplerate=SAMPLE_RATE, channels=CHANNELS) as file:
         with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS, callback=_callback) as stream:
             active_input_stream = stream
@@ -293,6 +299,8 @@ def record_audio(filename, quick_mode=False):
             start_time = time.time()
             if quick_mode:
                 write_phase_state("recording")
+            if pcm_file is not None:
+                mlx_helper_stream_begin(pcm_path)
             print(go_banner(), flush=True)
             play_feedback("record_start", block=False)
             print("🎤 Recording started.")
@@ -313,11 +321,17 @@ def record_audio(filename, quick_mode=False):
                         request_recording_stop("stop_file_loop")
                         continue
                     try:
-                        file.write(q.get(timeout=0.1))
+                        block = q.get(timeout=0.1)
                     except queue.Empty:
                         continue
+                    file.write(block)
+                    if pcm_file is not None:
+                        pcm_file.write((np.clip(block[:, 0], -1.0, 1.0) * 32767).astype(np.int16).tobytes())
+                        pcm_file.flush()
             finally:
                 active_input_stream = None
+                if pcm_file is not None:
+                    pcm_file.close()
                 duration_sec = time.time() - start_time
                 callback_enabled = False
                 print("\r" + " " * (MIC_BAR_WIDTH + 20), end="\r", flush=True)
@@ -477,6 +491,10 @@ def read_mlx_helper_state():
         return {}
 
 
+class EmptyTranscription(RuntimeError):
+    """The helper decoded the audio and found no speech."""
+
+
 def transcribe_with_mlx_helper(filename):
     helper_state_at_start = read_mlx_helper_state()
     helper_status_at_start = helper_state_at_start.get("status", "missing")
@@ -520,7 +538,9 @@ def transcribe_with_mlx_helper(filename):
                         raise RuntimeError(data.get("error", "helper request failed"))
                     text = (data.get("text") or "").strip()
                     if not text:
-                        raise RuntimeError("helper returned empty transcription")
+                        # Final answer, not a transient failure: retrying until the
+                        # timeout used to hang the stop path for two minutes.
+                        raise EmptyTranscription("helper returned empty transcription (no speech detected)")
                     helper_state = data.get("helper_state", {})
                     info = {
                         "resolved_backend": "mlx_helper",
@@ -540,11 +560,77 @@ def transcribe_with_mlx_helper(filename):
                     else:
                         print(f"✅ MLX helper became ready after {waited_for_ready_s:.2f}s.")
                     return text, info
+            except EmptyTranscription:
+                raise
             except Exception as e:
                 last_error = str(e)
         time.sleep(0.1)
 
     raise RuntimeError(f"Timed out waiting for MLX helper: {last_error}")
+
+
+def mlx_helper_request(payload, timeout_s=None):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        if timeout_s is not None:
+            client.settimeout(timeout_s)
+        client.connect(MLX_HELPER_SOCKET)
+        client.sendall((json.dumps(payload) + "\n").encode("utf-8"))
+        response = b""
+        while not response.endswith(b"\n"):
+            chunk = client.recv(65536)
+            if not chunk:
+                break
+            response += chunk
+    if not response:
+        raise RuntimeError("empty helper response")
+    data = json.loads(response.decode("utf-8"))
+    if not data.get("ok"):
+        raise RuntimeError(data.get("error", "helper request failed"))
+    return data
+
+
+def mlx_helper_stream_begin(pcm_path):
+    """Ask a warm helper to transcribe the growing PCM file while we record.
+    Silently skipped when the helper is not ready yet: the stop path then decodes the whole file."""
+    global stream_session_id
+    stream_session_id = None
+    if os.getenv("VOICE2CLIPBOARD_MLX_HELPER") != "1" or not os.path.exists(MLX_HELPER_SOCKET):
+        return
+    session_id = str(uuid.uuid4())
+    try:
+        mlx_helper_request({"command": "stream_begin", "session_id": session_id, "pcm_path": os.path.abspath(pcm_path)}, timeout_s=2.0)
+        stream_session_id = session_id
+        print("🛰️  Streaming transcription active (text is decoded while you speak).")
+    except Exception as e:
+        print(f"ℹ️ Streaming not available ({e}); will transcribe the whole file at stop.")
+
+
+def transcribe_with_mlx_helper_stream_end():
+    """Finish the streaming session; raises so the caller can fall back to whole-file decoding."""
+    global stream_session_id
+    session_id, stream_session_id = stream_session_id, None
+    if not session_id:
+        raise RuntimeError("no streaming session")
+    data = mlx_helper_request({"command": "stream_end", "session_id": session_id}, timeout_s=120.0)
+    text = (data.get("text") or "").strip()
+    if not text:
+        raise RuntimeError("streaming returned empty transcription")
+    helper_state = data.get("helper_state", {})
+    stats = data.get("stream_stats", {})
+    info = {
+        "resolved_backend": "mlx_helper_stream",
+        "helper_rss_mb": helper_state.get("rss_mb"),
+        "helper_model_load_seconds": helper_state.get("model_load_seconds"),
+        "helper_transcription_time_seconds": stats.get("end_seconds"),
+        "helper_model_size": helper_state.get("model_size"),
+        "helper_model_repo": helper_state.get("model_repo"),
+        "helper_stream": stats,
+    }
+    print(
+        f"✅ Streamed: {stats.get('chunks')} chunks decoded while recording, "
+        f"final {stats.get('final_chunk_seconds')} s of speech in {stats.get('final_wait_seconds')} s."
+    )
+    return text, info
 
 
 def transcribe_with_faster_whisper(filename):
@@ -566,7 +652,15 @@ def transcribe_with_best_backend(filename):
         print("⚡ Trying mlx-whisper backend...")
         try:
             if os.getenv("VOICE2CLIPBOARD_MLX_HELPER") == "1":
-                text, info = transcribe_with_mlx_helper(filename)
+                if stream_session_id:
+                    try:
+                        text, info = transcribe_with_mlx_helper_stream_end()
+                    except Exception as e:
+                        print(f"⚠️ Streaming finish failed ({e}); transcribing the whole file instead.")
+                        text, info = transcribe_with_mlx_helper(filename)
+                        info["stream_fallback_error"] = str(e)
+                else:
+                    text, info = transcribe_with_mlx_helper(filename)
             else:
                 text = transcribe_with_mlx_subprocess(filename)
                 info = {"resolved_backend": "mlx_subprocess"}
