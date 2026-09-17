@@ -403,6 +403,7 @@ def mlx_repo_for_model(model_size):
         "medium": "mlx-community/whisper-medium-mlx",
         "large-v2": "mlx-community/whisper-large-v2-mlx",
         "large-v3": "mlx-community/whisper-large-v3-mlx",
+        "large-v3-turbo": "mlx-community/whisper-large-v3-turbo",
     }
     return mapping.get(model_size, "mlx-community/whisper-medium-mlx")
 
@@ -511,6 +512,9 @@ def transcribe_with_mlx_helper(filename):
                         "helper_rss_mb": helper_state.get("rss_mb"),
                         "helper_model_load_seconds": helper_state.get("model_load_seconds"),
                         "helper_transcription_time_seconds": data.get("transcription_time_seconds"),
+                        "helper_model_size": helper_state.get("model_size"),
+                        "helper_model_repo": helper_state.get("model_repo"),
+                        "helper_vad": data.get("vad"),
                     }
                     if helper_ready_at_start:
                         print("✅ MLX helper was warm for this run.")

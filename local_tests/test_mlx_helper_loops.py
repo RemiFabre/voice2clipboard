@@ -37,7 +37,7 @@ class MlxHelperDoesNotLoop(unittest.TestCase):
     def test_silence_after_speech_does_not_trigger_repetition_loop(self):
         import mlx_whisper_helper as helper
 
-        text, _elapsed = helper.transcribe(SOURCE_WAV)
+        text, _elapsed, _vad = helper.transcribe(SOURCE_WAV)
         stats = loop_stats(text)
         self.assertLessEqual(stats["longest_word_run"], 3, (stats, text))
         self.assertEqual(stats["consecutive_dup_sentences"], 0, (stats, text))

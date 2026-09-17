@@ -11,12 +11,20 @@ from datetime import datetime
 
 import mlx.core as mx
 import mlx_whisper
+import numpy as np
+import soundfile as sf
+from faster_whisper.vad import VadOptions, collect_chunks, get_speech_timestamps, get_vad_model
 from mlx_whisper.transcribe import ModelHolder
 
 SOCKET_PATH = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_SOCKET", "/tmp/voice2clipboard_mlx_helper.sock")
 STATE_PATH = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_STATE", "/tmp/voice2clipboard_mlx_helper_state.json")
 PID_PATH = os.getenv("VOICE2CLIPBOARD_MLX_HELPER_PID", "/tmp/voice2clipboard_mlx_helper.pid")
-MODEL_SIZE = os.getenv("VOICE2CLIPBOARD_MLX_MODEL_SIZE", "medium")
+MODEL_SIZE = os.getenv("VOICE2CLIPBOARD_MLX_MODEL_SIZE", "large-v3-turbo")
+# Silero VAD trimming: pauses longer than this are cut before Whisper sees the audio.
+# Silent 30 s windows are where every Whisper size hallucinates (loops, "Thank you.");
+# removing them halved medium's WER and makes large-v3-turbo usable. Set to 0 to disable.
+VAD_MIN_SILENCE_MS = int(os.getenv("VOICE2CLIPBOARD_VAD_MIN_SILENCE_MS", "1000"))
+VAD_SPEECH_PAD_MS = int(os.getenv("VOICE2CLIPBOARD_VAD_SPEECH_PAD_MS", "300"))
 
 
 def mlx_repo_for_model(model_size):
@@ -27,8 +35,9 @@ def mlx_repo_for_model(model_size):
         "medium": "mlx-community/whisper-medium-mlx",
         "large-v2": "mlx-community/whisper-large-v2-mlx",
         "large-v3": "mlx-community/whisper-large-v3-mlx",
+        "large-v3-turbo": "mlx-community/whisper-large-v3-turbo",
     }
-    return mapping.get(model_size, "mlx-community/whisper-medium-mlx")
+    return mapping.get(model_size, "mlx-community/whisper-large-v3-turbo")
 
 
 MODEL_REPO = mlx_repo_for_model(MODEL_SIZE)
@@ -93,21 +102,49 @@ def send_response(conn, payload):
     conn.sendall((json.dumps(payload) + "\n").encode("utf-8"))
 
 
+def trim_silence(audio_path):
+    """Return (speech-only float32 16 kHz audio, stats). Falls back to the raw file if
+    the WAV is not 16 kHz mono; returns None audio when no speech is detected."""
+    audio, sr = sf.read(audio_path, dtype="float32")
+    if audio.ndim > 1:
+        audio = audio.mean(axis=1)
+    total_s = len(audio) / sr
+    if sr != 16000 or VAD_MIN_SILENCE_MS <= 0:
+        return audio_path, {"vad": "skipped", "input_seconds": round(total_s, 2)}
+    regions = get_speech_timestamps(
+        audio, VadOptions(min_silence_duration_ms=VAD_MIN_SILENCE_MS, speech_pad_ms=VAD_SPEECH_PAD_MS)
+    )
+    if not regions:
+        return None, {"vad": "no_speech", "input_seconds": round(total_s, 2), "speech_seconds": 0.0}
+    chunks, _meta = collect_chunks(audio, regions, sr)
+    speech = np.concatenate(chunks)
+    return speech, {
+        "vad": "trimmed",
+        "input_seconds": round(total_s, 2),
+        "speech_seconds": round(len(speech) / sr, 2),
+        "speech_regions": len(regions),
+    }
+
+
 def transcribe(audio_path):
     start = time.time()
+    audio, vad_stats = trim_silence(audio_path)
+    if audio is None:
+        return "", time.time() - start, vad_stats
+    vad_stats["vad_seconds"] = round(time.time() - start, 3)
     # condition_on_previous_text=False: with the default (True) a hallucinated
     # sentence in a silent 30 s window is fed back as the prompt for the next
     # window and Whisper loops it for minutes ("filed filed filed ...").
     # Whisper never falls back on such windows because no_speech_prob > 0.6
     # disables the compression-ratio check. See local_tests/test_mlx_helper_loops.py.
     result = mlx_whisper.transcribe(
-        audio_path,
+        audio,
         path_or_hf_repo=MODEL_REPO,
         condition_on_previous_text=False,
     )
     text = result.get("text", "").strip() if isinstance(result, dict) else str(result).strip()
     elapsed = time.time() - start
-    return text, elapsed
+    return text, elapsed, vad_stats
 
 
 def main():
@@ -118,6 +155,8 @@ def main():
     load_start = time.time()
     dtype = mx.float16
     ModelHolder.get_model(MODEL_REPO, dtype)
+    if VAD_MIN_SILENCE_MS > 0:
+        get_vad_model()
     load_elapsed = time.time() - load_start
     write_state(
         status="ready",
@@ -159,12 +198,13 @@ def main():
                         last_request_started_at=datetime.now().isoformat(),
                         last_audio_path=audio_path,
                     )
-                    text, elapsed = transcribe(audio_path)
+                    text, elapsed, vad_stats = transcribe(audio_path)
                     write_state(
                         status="ready",
                         last_request_completed_at=datetime.now().isoformat(),
                         last_transcription_seconds=round(elapsed, 4),
                         last_output_chars=len(text),
+                        last_vad=vad_stats,
                     )
                     send_response(
                         conn,
@@ -172,6 +212,7 @@ def main():
                             "ok": True,
                             "text": text,
                             "transcription_time_seconds": round(elapsed, 4),
+                            "vad": vad_stats,
                             "helper_state": STATE,
                         },
                     )
