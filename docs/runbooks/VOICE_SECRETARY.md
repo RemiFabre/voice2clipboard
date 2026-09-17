@@ -16,15 +16,26 @@ without being at the screen: dictate to a router session, hear replies through K
 
 ## Button map (Shokz OpenFit 2+, both earbuds identical)
 
-| Press | Headset sends | Action |
-|---|---|---|
-| single | pause/play | pause speech; press again to resume; if nothing is playing, read the next queued message |
-| double | next track | start a dictation to the secretary; double again to stop and send |
-| triple | previous track | stop and repeat the last spoken message |
-| long | volume up/down | changes headset volume only, never reaches the Mac as a command |
+The headset sends the same commands from either side: single press = play/pause, double = next
+track, triple = previous track. Long press is volume on the headset only. What they do depends
+on the state (`scripts/mac/secretary/on_gesture.sh`):
 
-While another app is actually playing audio, macOS routes the buttons to that app. The button
-app takes them back at start, after each gesture, or with `scripts/mac/earbuds/ctl.sh reassert`.
+| State | single | double | triple |
+|---|---|---|---|
+| idle | start a dictation | read the next queued message | ask the secretary for a status |
+| dictating | (stop, keyboard path only) | (stop, keyboard path only) | ignored |
+| message playing | pause | stop the message | stop + status |
+| message paused | resume | stop the message | stop + status |
+
+**While a dictation is recording the buttons do not reach the Mac at all**: the headset switches
+its microphone into hands-free mode and its buttons become call controls. Verified 2026-09-17
+(4 min recording, zero commands received). To end a dictation hands-free, pause briefly and say
+the stop phrase: **"roger stop"** (also "over and out", "stop dictation"; env
+`VOICE2CLIPBOARD_STOP_PHRASES`). The streaming helper decodes short isolated utterances as soon
+as VAD closes them, drops the phrase from the transcript and stops the recorder. Escape in the
+recorder window still works. While another app is playing audio, macOS routes the buttons to
+that app; the button app takes them back at start, after each gesture, or with
+`scripts/mac/earbuds/ctl.sh reassert`.
 
 ## Daily use
 

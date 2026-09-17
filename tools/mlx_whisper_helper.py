@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -33,6 +34,12 @@ STREAM_CLOSE_MARGIN_S = 1.2       # a region is "closed" once the file extends t
 STREAM_MIN_CHUNK_SPEECH_S = 15.0  # accumulate closed regions until this much speech (15 s beat whole-file WER)
 STREAM_MAX_CHUNK_WAIT_S = 20.0    # ...or the oldest closed region has waited this long
 STREAM_IDLE_TIMEOUT_S = 60.0      # give up if the pcm file stops growing (recorder died)
+# Spoken stop command: a short isolated utterance (<= STOP_PROBE_MAX_S of speech, i.e. said after a
+# pause) is decoded on its own as soon as VAD closes it; if it is one of the stop phrases the
+# helper touches the recorder's stop file and drops the phrase from the transcript. Needed because
+# the headset buttons do not reach the Mac while its microphone is in hands-free mode.
+STOP_PROBE_MAX_S = 4.0
+STOP_PHRASES = [p.strip().lower() for p in os.getenv("VOICE2CLIPBOARD_STOP_PHRASES", "roger stop,over and out,stop dictation").split(",") if p.strip()]
 SAMPLE_RATE = 16000
 
 
@@ -159,9 +166,13 @@ class StreamSession:
     end() decodes whatever is left and returns the joined text.
     """
 
-    def __init__(self, session_id, pcm_path):
+    def __init__(self, session_id, pcm_path, stop_file=None, stop_phrases=None):
         self.session_id = session_id
         self.pcm_path = pcm_path
+        self.stop_file = stop_file
+        self.stop_phrases = [p.lower() for p in (stop_phrases or STOP_PHRASES)]
+        self.stop_hit = None                          # text that triggered the spoken stop
+        self.probed_until = 0                         # sample offset up to which short regions were probed
         self.audio = np.zeros(0, dtype=np.float32)   # everything read so far
         self.committed = 0                            # samples already decoded
         self.pending_regions = []                     # closed regions waiting for enough speech
@@ -202,6 +213,46 @@ class StreamSession:
         closed = [r for r in regions if r["end"] <= limit]
         return [{"start": r["start"] + self.committed, "end": r["end"] + self.committed} for r in closed]
 
+    @staticmethod
+    def _normalize(text):
+        return " ".join(re.sub(r"[^\w\s']", " ", text.lower()).split())
+
+    def _matches_stop_phrase(self, text):
+        norm = self._normalize(text)
+        if not norm:
+            return False
+        words = norm.split()
+        for phrase in self.stop_phrases:
+            if phrase in norm and len(words) <= len(phrase.split()) + 2:
+                return True
+        return False
+
+    def _probe_stop_phrase(self, closed):
+        """Decode the newest short closed region alone; returns True when it is a stop command."""
+        if not self.stop_file or not closed:
+            return False
+        region = closed[-1]
+        if region["end"] <= self.probed_until:
+            return False
+        if (region["end"] - region["start"]) / SAMPLE_RATE > STOP_PROBE_MAX_S:
+            self.probed_until = region["end"]
+            return False
+        self.probed_until = region["end"]
+        text = decode_speech(self.audio[region["start"]:region["end"]])
+        if not self._matches_stop_phrase(text):
+            return False
+        # Commit everything said before the command, drop the command itself, tell the recorder.
+        self._decode_regions(closed[:-1])
+        with self.lock:
+            self.committed = region["end"]
+            self.stop_hit = text
+        try:
+            with open(self.stop_file, "a"):
+                pass
+        except OSError as e:
+            self.error = f"could not touch stop file: {e}"
+        return True
+
     def _decode_regions(self, regions, final=False):
         if not regions:
             return
@@ -225,6 +276,8 @@ class StreamSession:
                     self.error = "pcm file stopped growing"
                     break
                 closed = self._closed_regions()
+                if closed and self._probe_stop_phrase(closed):
+                    break
                 if closed:
                     speech_s = sum(r["end"] - r["start"] for r in closed) / SAMPLE_RATE
                     if self.pending_since is None:
@@ -247,7 +300,7 @@ class StreamSession:
         self._read_new()
         tail = self.audio[self.committed:]
         final_regions = []
-        if len(tail) >= SAMPLE_RATE // 4:
+        if self.stop_hit is None and len(tail) >= SAMPLE_RATE // 4:
             regions = get_speech_timestamps(tail, vad_options())
             final_regions = [{"start": r["start"] + self.committed, "end": r["end"] + self.committed} for r in regions]
         t_final = time.time()
@@ -262,6 +315,7 @@ class StreamSession:
             "final_wait_seconds": round(final_wait, 3),
             "end_seconds": round(time.time() - t0, 3),
             "background_decode_seconds": round(sum(c["decode_s"] for c in self.chunk_stats if not c["final"]), 3),
+            "stop_phrase_hit": self.stop_hit,
         }
         return text, stats
 
@@ -335,7 +389,7 @@ def main():
                         old = STREAMS.pop(session_id, None)
                         if old:
                             old.stop_event.set()
-                        session = StreamSession(session_id, request["pcm_path"])
+                        session = StreamSession(session_id, request["pcm_path"], stop_file=request.get("stop_file"), stop_phrases=request.get("stop_phrases"))
                         session.start()
                         STREAMS[session_id] = session
                         write_state(status="streaming", last_stream_session=session_id)

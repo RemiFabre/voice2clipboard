@@ -598,7 +598,16 @@ def mlx_helper_stream_begin(pcm_path):
         return
     session_id = str(uuid.uuid4())
     try:
-        mlx_helper_request({"command": "stream_begin", "session_id": session_id, "pcm_path": os.path.abspath(pcm_path)}, timeout_s=2.0)
+        mlx_helper_request(
+            {
+                "command": "stream_begin",
+                "session_id": session_id,
+                "pcm_path": os.path.abspath(pcm_path),
+                # lets the helper end the recording when the spoken stop phrase is heard
+                "stop_file": STOP_REQUEST_FILE or None,
+            },
+            timeout_s=2.0,
+        )
         stream_session_id = session_id
         print("🛰️  Streaming transcription active (text is decoded while you speak).")
     except Exception as e:
