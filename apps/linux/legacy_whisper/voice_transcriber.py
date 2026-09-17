@@ -418,8 +418,10 @@ audio = sys.argv[1]
 repo = sys.argv[2]
 import mlx_whisper
 
+# condition_on_previous_text=False avoids repetition loops after silent windows
+# (same setting as tools/mlx_whisper_helper.py).
 try:
-    result = mlx_whisper.transcribe(audio, path_or_hf_repo=repo)
+    result = mlx_whisper.transcribe(audio, path_or_hf_repo=repo, condition_on_previous_text=False)
 except TypeError:
     result = mlx_whisper.transcribe(audio, repo)
 

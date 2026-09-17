@@ -95,7 +95,16 @@ def send_response(conn, payload):
 
 def transcribe(audio_path):
     start = time.time()
-    result = mlx_whisper.transcribe(audio_path, path_or_hf_repo=MODEL_REPO)
+    # condition_on_previous_text=False: with the default (True) a hallucinated
+    # sentence in a silent 30 s window is fed back as the prompt for the next
+    # window and Whisper loops it for minutes ("filed filed filed ...").
+    # Whisper never falls back on such windows because no_speech_prob > 0.6
+    # disables the compression-ratio check. See local_tests/test_mlx_helper_loops.py.
+    result = mlx_whisper.transcribe(
+        audio_path,
+        path_or_hf_repo=MODEL_REPO,
+        condition_on_previous_text=False,
+    )
     text = result.get("text", "").strip() if isinstance(result, dict) else str(result).strip()
     elapsed = time.time() - start
     return text, elapsed
