@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+# Keyboard-started dictation: manual mode, no spoken notifications.
+/Users/remi/voice2clipboard/scripts/mac/secretary/voice_mode.sh off >/dev/null 2>&1 || true
 
 # Headless quick mode with auto-paste.
 # Records -> transcribes (MLX) -> pastes into original frontmost app.

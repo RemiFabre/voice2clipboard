@@ -57,6 +57,21 @@ First use: macOS asks once whether EarbudButtons may control iTerm2 and System E
 dictation path uses AppleScript). Accept both. Hooks only apply to Claude Code sessions started
 after they were registered; open `/hooks` in an older session to reload them.
 
+## Two modes: headset and manual
+
+| | Headset mode | Manual mode |
+|---|---|---|
+| how it starts | a dictation started from an earbud press | a dictation started from the keyboard shortcut |
+| where text goes | the secretary session | the app or console that was frontmost |
+| notifications | agents' final messages queue with a ding; double press plays them | nothing: no ding, no queue, no speech |
+| switch | `voice_mode.on` exists (`voice_mode.sh on`) | flag absent (`voice_mode.sh off`) |
+
+The mode flips automatically with the next dictation of the other kind and persists in between,
+so an earbud dictation followed by keyboard work leaves headset mode the moment the first
+keyboard dictation starts. The recorder window prints `Mode: HEADSET` or `Mode: MANUAL` at
+every start; `voice_mode.sh status` prints it too. `start_secretary.sh` switches to headset
+mode, `stop_secretary.sh` to manual.
+
 ## Notification rule (Remi, 2026-09-17)
 
 Silence means success. Nothing speaks to Remi on its own: agent reports and the secretary's

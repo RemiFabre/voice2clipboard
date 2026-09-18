@@ -88,6 +88,11 @@ def build():
     for row in STATES:
         parts.append("<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>")
     parts.append("</table>")
+    parts.append("<h2>Two modes</h2><table><tr><th></th><th>Headset mode</th><th>Manual mode</th></tr>"
+                 "<tr><td>Starts when</td><td>you start a dictation with an earbud press</td><td>you start a dictation with the keyboard shortcut</td></tr>"
+                 "<tr><td>Text goes to</td><td>the secretary, which routes it</td><td>the console or app you were in</td></tr>"
+                 "<tr><td>Notifications</td><td>a ding when an agent has something for you; two presses to hear it</td><td>none at all</td></tr>"
+                 "<tr><td>Shown</td><td colspan='2'>the recorder window prints Mode: HEADSET or Mode: MANUAL at each start; the mode stays until a dictation of the other kind</td></tr></table>")
     parts.append("<h2>Stopping a dictation</h2><ul><li>Any press on either earbud (single, double, triple or long). While the mic is open the earbuds are in phone-call mode, and the recorder catches their hang-up and volume signals from the Bluetooth log.</li>"
                  "<li>Escape in the recorder window, or the keyboard shortcut again.</li>"
                  "<li>Spoken stop phrases are switched off.</li></ul>")

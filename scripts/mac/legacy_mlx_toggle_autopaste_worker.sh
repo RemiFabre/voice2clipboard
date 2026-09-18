@@ -77,6 +77,11 @@ if [[ -n "${target_iterm_session:-}" ]]; then
   echo "Target iTerm session: $target_iterm_session"
 fi
 echo "Helper launch state: ${helper_launch_state:-unknown}"
+if [[ "${voice_mode:-manual}" == "headset" ]]; then
+  echo "Mode: HEADSET — text goes to the secretary, agents notify you with a ding"
+else
+  echo "Mode: MANUAL — quiet, no notifications (an earbud dictation switches back)"
+fi
 helper_status_summary
 echo "Backend: mlx-whisper ${ARGS[*]}"
 echo "Press the same shortcut again to stop recording."

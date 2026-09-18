@@ -127,6 +127,19 @@ else
     TARGET_ITERM_SESSION="$(get_iterm_session_id)"
   fi
 fi
+# Mode follows how the dictation was started: an earbud press (explicit secretary target) means
+# headset mode with spoken notifications; a keyboard shortcut means manual mode, which is quiet.
+# The mode persists until a dictation of the other kind starts.
+VOICE_MODE_CTL="${ROOT_DIR}/scripts/mac/secretary/voice_mode.sh"
+if [[ -n "${VOICE2CLIPBOARD_TARGET_ITERM_SESSION:-}" ]]; then
+  VOICE_MODE="headset"; "$VOICE_MODE_CTL" on >/dev/null 2>&1 || true
+else
+  VOICE_MODE="manual"; "$VOICE_MODE_CTL" off >/dev/null 2>&1 || true
+fi
+if [[ "${VOICE2CLIPBOARD_DRY_RUN:-0}" == "1" ]]; then
+  echo "dry run: mode=$VOICE_MODE target_app=$ORIGINAL_APP target_iterm_session=${TARGET_ITERM_SESSION:-none}"
+  exit 0
+fi
 HELPER_LAUNCH_STATE="$("$HELPER_CTL" start)"
 SESSION_ID="$(uuidgen)"
 
@@ -136,6 +149,7 @@ started_at=$(date -Iseconds)
 target_app=$ORIGINAL_APP
 target_iterm_session=$TARGET_ITERM_SESSION
 helper_launch_state=$HELPER_LAUNCH_STATE
+voice_mode=$VOICE_MODE
 EOF
 
 osascript <<EOF >>"$LOG_FILE" 2>&1

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Keyboard-started dictation: manual mode, no spoken notifications.
+/Users/remi/voice2clipboard/scripts/mac/secretary/voice_mode.sh off >/dev/null 2>&1 || true
 # Standard mode: record → transcribe → choose action
 osascript << 'EOF'
 tell application "iTerm"
