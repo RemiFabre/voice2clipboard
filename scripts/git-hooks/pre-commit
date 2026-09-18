@@ -1,0 +1,35 @@
+#!/bin/bash
+# Blocks commits that would publish personal dictation content. Installed with:
+#   git config core.hooksPath scripts/git-hooks
+# This repository is public; transcripts belong in recordings/ or benchmarks/private/ (ignored).
+set -u
+fail=0
+while IFS= read -r f; do
+  [[ -f "$f" ]] || continue
+  case "$f" in
+    recordings/*|benchmarks/private/*|*transcript*.txt|*reference_adjudicated*)
+      echo "pre-commit: refusing '$f' (personal transcript location)"; fail=1; continue ;;
+  esac
+  case "$f" in *.wav|*.aiff|*.mp3|*.png|*.jpg|*.pdf) continue ;; esac
+  # a JSON "reference" field holding a long text, or a file dominated by one very long quoted line
+  if python3 - "$f" <<'PY'
+import re, sys
+p = sys.argv[1]
+try:
+    data = open(p, encoding="utf-8", errors="ignore").read()
+except Exception:
+    sys.exit(0)
+for m in re.finditer(r'"(?:reference|reference_manual|text|transcript)"\s*:\s*"((?:[^"\\]|\\.)*)"', data):
+    if len(m.group(1).split()) > 250:
+        print(f"pre-commit: refusing '{p}': a reference/transcript field of {len(m.group(1).split())} words")
+        sys.exit(1)
+sys.exit(0)
+PY
+  then :; else fail=1; fi
+done < <(git diff --cached --name-only --diff-filter=AM)
+if [[ "$fail" -ne 0 ]]; then
+  echo "pre-commit: this repository is public. Keep transcripts under recordings/ or benchmarks/private/."
+  echo "pre-commit: if this is really intended, commit with --no-verify."
+  exit 1
+fi
+exit 0

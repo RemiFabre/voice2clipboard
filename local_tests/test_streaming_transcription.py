@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 LONG_WAV = os.path.join(ROOT, "recordings", "2026-09-17", "10-13-06", "audio.wav")
 REAL_WAV = os.path.join(ROOT, "recordings", "2026-09-17", "20-40-30", "audio.wav")
-MANIFEST = os.path.join(ROOT, "benchmarks", "manifest_groundtruth_long_en_20260917.jsonl")
+MANIFEST = os.path.join(ROOT, "benchmarks", "private", "manifest_groundtruth_long_en_20260917.jsonl")  # private, gitignored
 
 
 def norm(t):

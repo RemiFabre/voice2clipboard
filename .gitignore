@@ -78,3 +78,9 @@ runtime/
 
 # Local external experiments/clones
 external/
+
+# Personal transcripts never go public: dictation references, adjudicated transcripts and
+# sentence-level analyses live here or under recordings/ (see CLAUDE.md and the pre-commit hook)
+benchmarks/private/
+**/reference_adjudicated*
+**/*transcript*.txt

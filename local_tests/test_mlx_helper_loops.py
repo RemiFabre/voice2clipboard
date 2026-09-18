@@ -1,8 +1,7 @@
 """Regression test: the MLX helper must not emit Whisper repetition loops.
 
 Reproduces the 2026-09-17 failure where a 60 s silent stretch after 60 s of speech
-made whisper-medium repeat "So, I'm going to start with a brief introduction."
-twenty times. Needs the local recording (recordings/ is gitignored) and the MLX
+made whisper-medium repeat one hallucinated sentence twenty times. Needs the local recording (recordings/ is gitignored) and the MLX
 model in the HF cache; skips otherwise. Runs the real model on the full 37 min
 file (~1 min on M3 Pro): a short slice does not reproduce the loop because
 Whisper normalises the log-mel spectrogram against the loudest point of the
@@ -42,7 +41,7 @@ class MlxHelperDoesNotLoop(unittest.TestCase):
         self.assertLessEqual(stats["longest_word_run"], 3, (stats, text))
         self.assertEqual(stats["consecutive_dup_sentences"], 0, (stats, text))
         self.assertLessEqual(stats["max_sentence_count"], 2, (stats, text))
-        self.assertIn("discord", text.lower(), text)
+        self.assertGreater(len(text.split()), 500, "transcript unexpectedly short")
 
 
 if __name__ == "__main__":
