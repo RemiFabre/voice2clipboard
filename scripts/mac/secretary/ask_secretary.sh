@@ -3,6 +3,7 @@
 source "$(dirname "$0")/lib.sh"
 session="$(cat "$SESSION_FILE" 2>/dev/null || true)"
 if [[ -z "$session" ]] || ! iterm_session_exists "$session"; then
+  if [[ "${ASK_SECRETARY_QUIET:-0}" == "1" ]]; then echo "secretary not running"; exit 3; fi
   exec "$(dirname "$0")/say_now.sh" "The secretary session is not running."
 fi
 text="${*:-$(cat)}"

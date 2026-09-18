@@ -43,12 +43,13 @@ RULES = [
     "The secretary's direct speech never overlaps you or another message: if you are dictating or listening, it waits and plays right after the current event ends. It is queued after the event, not dropped.",
     "Nothing speaks while a dictation is running, or in the second between the press and the recorder opening.",
     "Dings are the exception: a notification ding may sound at any time, even while you talk or listen, so you know something arrived. Dings are rate-limited to one per 20 seconds; the next playback tells you how many are waiting.",
+    "Who decides a notification: the secretary. Agents never ding by themselves. A flagged turn (a question for you, a permission prompt, an explicit Notify line, a possible problem) is handed to the secretary, which notifies only if you are being waited on, if it answers something you routed by voice, or if it matters. Routine completions of work you started at the keyboard stay in the ledger for the triple press. A per-project file can force always or never.",
     "Every played or discarded message is archived on disk (pruned only past 300 MB). Nothing is replayed automatically; ask the secretary to search the archive when you want to check what you were told.",
     "If the microphone stops delivering for 3 seconds, the recorder finishes with what it has after a failure buzz. If a recorder dies outright, the launcher recovers the saved audio and sends the text, or queues a note saying a dictation was lost and where the audio is.",
 ]
 
 QUESTIONS = [
-    ("Ding rate", "One ding per 20 seconds at most, and a ding for every finished agent turn in headset mode. If that is still too many, the next step is one ding per agent per few minutes, or only for messages flagged as needing you."),
+    ("Ding rate", "The secretary now decides; expect a handful a day. If a project is still too chatty, mute it in the per-project file, or tell the secretary to."),
 ]
 
 
@@ -70,7 +71,7 @@ def build():
     h.append("<h2>Two dictation modes</h2><table><tr><th></th><th>Headset mode</th><th>Manual mode</th></tr>"
              "<tr><td>Flips when</td><td>a dictation starts from an earbud press</td><td>a dictation starts from the keyboard shortcut</td></tr>"
              "<tr><td>Text goes to</td><td>the secretary</td><td>the console you were in</td></tr>"
-             "<tr><td>Dings and queued messages</td><td>yes</td><td>none</td></tr>"
+             "<tr><td>Notifications</td><td colspan='2'>identical in both modes: the secretary decides from agent reports</td></tr>"
              "<tr><td>Attention ledger</td><td colspan='2'>kept in both modes; three presses or asking the secretary reads it</td></tr>"
              "<tr><td>Shown</td><td colspan='2'>the recorder window prints Mode: HEADSET or Mode: MANUAL at every start; the mode stays until a dictation of the other kind</td></tr></table>")
     h.append("<h2>Decided on 2026-09-18</h2><ul><li>Long press: not an action anywhere.</li><li>Headset disconnected: nothing changes; keyboard use without the headset works as before.</li><li>Two presses during a message: stop and discard (archive kept for voluntary lookup).</li><li>Three presses: attention summary only when idle; otherwise stop and next.</li><li>One voice message at a time, enforced by a lock; direct speech that would collide is queued after the event.</li><li>Dings may sound at any time, rate-limited.</li></ul>")

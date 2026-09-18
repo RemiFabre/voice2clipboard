@@ -1,0 +1,6 @@
+{
+  "_comment": "Per-project notification policy. Key = project name as spoken (folder name with dashes and underscores as spaces). always = every finished turn is spoken in the agent's voice with a ding; never = ledger only, no notification ever; secretary-decides (default for unlisted projects) = flagged turns are handed to the secretary, which decides.",
+  "projects": {
+    "the secretary": "never"
+  }
+}

@@ -91,3 +91,42 @@ def age_text(ts):
     if s < 86400:
         return f"{s // 3600} hours ago"
     return f"{s // 86400} days ago"
+
+
+# ---- notification policy ------------------------------------------------------------------
+OVERRIDES_PATH = "/Users/remi/voice2clipboard/secretary/notify_overrides.json"
+PROBLEM_PATTERNS = re.compile(r"\b(failed|failure|error|crash|cannot|can.t|couldn.t|blocked|broken|security|vulnerab|leak|data loss|lost)\b", re.I)
+NOTIFY_MARKER = re.compile(r"(?m)^\**Notify( Remi)?:?\**\s*(.+)$", re.I)
+
+
+def policy_for(project):
+    try:
+        table = json.load(open(OVERRIDES_PATH)).get("projects", {})
+    except Exception:
+        table = {}
+    return table.get(project, "secretary-decides")
+
+
+def classify(msg):
+    """Why this turn might deserve Remi's attention: 'asked to notify', 'waiting on Remi', 'possible problem' or ''."""
+    if NOTIFY_MARKER.search(msg or ""):
+        return "asked to notify"
+    if needs_attention(msg):
+        return "waiting on Remi"
+    if PROBLEM_PATTERNS.search(spoken_text(msg, 120)):
+        return "possible problem"
+    return ""
+
+
+def forward_to_secretary(scripts_dir, project, session_id, reason, text):
+    """Hand a flagged turn to the secretary session as a typed message. Returns True if delivered."""
+    import subprocess
+    body = ("[Agent report] project: %s | session: %s | why: %s\n%s\n"
+            "(Decide: if Remi should hear this, run inbox_post.sh --from \"%s\" with the spoken text; "
+            "otherwise stay silent. The ledger already has it.)" % (project, session_id[:8], reason, text, project))
+    if os.getenv("SECRETARY_FORWARD_DRY_RUN") == "1":
+        print(body)
+        return True
+    env = dict(os.environ, ASK_SECRETARY_QUIET="1")
+    r = subprocess.run([os.path.join(scripts_dir, "ask_secretary.sh"), body], capture_output=True, text=True, env=env)
+    return r.returncode == 0

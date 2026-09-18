@@ -45,7 +45,7 @@ SOUNDS = [
     ("Working on it", "two soft mid ticks", f"{ROOT}/sounds/cue_ack.aiff",
      "Plays immediately after a double or triple press: your request was received and the voice is being prepared."),
     ("Message waiting", "two high notes", f"{ROOT}/sounds/cue_ding.aiff",
-     "A spoken message was queued for you (an agent finished, needs a permission, or the secretary has news). Press twice to hear it; nothing is read to you unless you ask."),
+     "The secretary decided you should hear something (an agent is waiting on you, answers a voice request, or reports a problem). Press twice to hear it; nothing is read to you unless you ask."),
 ]
 
 STATES = [
@@ -93,7 +93,7 @@ def build():
     parts.append("<h2>Two modes</h2><table><tr><th></th><th>Headset mode</th><th>Manual mode</th></tr>"
                  "<tr><td>Starts when</td><td>you start a dictation with an earbud press</td><td>you start a dictation with the keyboard shortcut</td></tr>"
                  "<tr><td>Text goes to</td><td>the secretary, which routes it</td><td>the console or app you were in</td></tr>"
-                 "<tr><td>Notifications</td><td>a ding when an agent has something for you; two presses to hear it</td><td>none at all</td></tr>"
+                 "<tr><td>Notifications</td><td colspan='2'>the same in both modes: the secretary decides what you hear; two presses to hear it</td></tr>"
                  "<tr><td>Attention ledger</td><td colspan='2'>in both modes every agent silently records what it last did and whether it is waiting on you; three presses ask the secretary what needs your attention</td></tr>"
                  "<tr><td>Shown</td><td colspan='2'>the recorder window prints Mode: HEADSET or Mode: MANUAL at each start; the mode stays until a dictation of the other kind</td></tr></table>")
     parts.append("<h2>Stopping a dictation</h2><ul><li>Any press on either earbud (single, double, triple or long). While the mic is open the earbuds are in phone-call mode, and the recorder catches their hang-up and volume signals from the Bluetooth log.</li>"

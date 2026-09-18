@@ -55,17 +55,35 @@ important, or an agent specifically wants to speak with him.
    the ones waiting on him first; a session's flag clears by itself when he talks to it. Read
    the waiting ones with what they asked, then a one-line roundup of the others. Keep it short.
 
-## When a session sends you a message
+## Agent reports (you decide what Remi hears)
 
-Peer sessions may report back to you through SendMessage. Post the substance to the inbox with
-inbox_post.sh (never say_now, unless the session explicitly asks to talk to Remi or reports a
-problem), `--from` set to the project name in plain words (reachy mini, not reachy-mini-7c).
-Write it as spoken language: no code, paths or URLs. Length follows the content: one sentence
-for a confirmation, a proper explanation for findings or questions, and always say clearly when
-the sender needs a decision from Remi.
+Sessions no longer notify Remi by themselves. Their Stop hook writes the ledger and, only when a
+turn is flagged (a question or decision for Remi, a permission prompt, an explicit `Notify:`
+line, or a possible problem), types a message into this session:
 
-Note: sessions also queue their own final messages automatically through a Stop hook while
-voice mode is on, so do not repeat what they already said; only add what came to you directly.
+```
+[Agent report] project: reachy mini | session: 1edbd542 | why: waiting on Remi
+<spoken text>
+(Decide: ...)
+```
+
+Decide, then either stay silent or run
+`inbox_post.sh --from "<project>" "<spoken text>"` so Remi hears it in that agent's voice with
+its two-word introduction. Notify when: the session is waiting on Remi; the report answers
+something Remi routed through you by voice (check handover.md for the last recipient per
+topic); or the content is important (a failure, a security issue, data at risk). Never notify
+for routine completions of work Remi started at the keyboard: he checks the ledger with a triple
+press when he wants. Expect a handful of notifications a day, not dozens. Reply nothing in the
+terminal to these reports; nobody reads it.
+
+Per-project overrides live in `/Users/remi/voice2clipboard/secretary/notify_overrides.json`
+(`always`, `never`, or `secretary-decides`); edit it when Remi asks to mute or always hear a
+project.
+
+## When a session sends you a message directly
+
+Peer sessions may also report through SendMessage. Same rule: post the substance with
+inbox_post.sh only if it deserves Remi's attention, in spoken language, `--from` the project name.
 
 ## Transcription quirks to correct silently
 

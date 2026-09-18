@@ -10,7 +10,7 @@ without being at the screen: dictate to a router session, hear replies through K
 | EarbudButtons.app | `scripts/mac/earbuds/` (built into `runtime/earbuds/`) | Registers as the macOS Now Playing app so headset presses reach it; runs `on_gesture.sh`. launchd agent `com.voice2clipboard.earbuds`. |
 | Gesture router | `scripts/mac/secretary/on_gesture.sh` | single → `tts_toggle.sh`, double → `dictate_toggle.sh`, triple → `tts_repeat_last.sh` |
 | Spoken inbox | `inbox_post.sh`, `inbox_read_next.sh`, `say_now.sh`, `ding.sh` | Queue in `runtime/secretary/inbox/`, archive in `spoken/`. Speech = kokoro-say → wav → afplay (pid in `tts.pid`, pausable with SIGSTOP). |
-| Hooks | `stop_hook.sh`, `notification_hook.sh` registered in `~/.claude/settings.json` | While `voice_mode.on` exists, every session's final message (its `Spoken:` paragraph if present) is queued with a ding; permission prompts and input requests too. Subagents and the secretary are skipped. |
+| Hooks | `stop_hook.sh`, `notification_hook.sh`, `user_prompt_hook.sh` in `~/.claude/settings.json` | Every session's final message goes to the attention ledger. Flagged turns (question, decision, permission prompt, `Notify:` line, possible problem) are typed into the secretary session as an `[Agent report]`; the secretary decides whether Remi hears it, in the agent's voice. `secretary/notify_overrides.json` can force `always` or `never` per project. |
 | Secretary session | `secretary/CLAUDE.md`, `start_secretary.sh`, `stop_secretary.sh` | A Claude Code session (permissions skipped) whose only job is routing `[Voice]` dictations to the right project session with SendMessage and speaking back. |
 | Dictation target | `legacy_mlx_toggle_autopaste.sh` honours `VOICE2CLIPBOARD_TARGET_ITERM_SESSION` | Earbud dictations paste into the secretary's iTerm session instead of the frontmost app. Keyboard shortcut behaviour unchanged. |
 
@@ -81,7 +81,7 @@ after they were registered; open `/hooks` in an older session to reload them.
 |---|---|---|
 | how it starts | a dictation started from an earbud press | a dictation started from the keyboard shortcut |
 | where text goes | the secretary session | the app or console that was frontmost |
-| notifications | agents' final messages queue with a ding; double press plays them | nothing: no ding, no queue, no speech |
+| notifications | decided by the secretary from agent reports (both modes) | same: the mode no longer changes notifications |
 | switch | `voice_mode.on` exists (`voice_mode.sh on`) | flag absent (`voice_mode.sh off`) |
 
 The mode flips automatically with the next dictation of the other kind and persists in between,
@@ -109,6 +109,14 @@ rate-limited (`SECRETARY_DING_COOLDOWN_S`, 20 s). Every played or discarded mess
 `runtime/secretary/spoken/` with a status line (pruned past `SECRETARY_ARCHIVE_MAX_MB`);
 `messages_search.sh` searches it on request. Long presses are not an action: the recorder stops
 on the hang-up only.
+
+## Notifications (Remi, 2026-09-18): the secretary decides
+
+Hooks never ding on their own. A flagged turn is handed to the secretary, which notifies only
+when the session is waiting on Remi, the report answers a voice-routed request, or the content
+is important. Routine completions of keyboard-driven work stay in the ledger for the triple
+press. Overrides per project: `secretary/notify_overrides.json`. If no secretary session is
+running, a session waiting on Remi posts directly so it is not lost.
 
 ## Notification rule (Remi, 2026-09-17)
 
