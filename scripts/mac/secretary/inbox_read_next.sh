@@ -10,6 +10,8 @@ lang="$(sed -n 's/^lang=//p' "$next" | head -n 1)"; from="$(sed -n 's/^from=//p'
 body="$(awk 'f{print} /^$/{f=1}' "$next")"
 mv "$next" "$SPOKEN_DIR/"
 remaining="$(ls "$INBOX_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ')"
-intro="$from says:"
-[[ "$remaining" -gt 0 ]] && intro="$from says, with $remaining older waiting:"
-exec "$(dirname "$0")/say_now.sh" --lang "${lang:-en}" "$intro $body"
+# The secretary speaks in the first person with its own voice; agents introduce themselves in
+# two words ("micro duck here.") and each keeps a consistent voice.
+if is_secretary_name "$from"; then intro=""; else intro="$from here."; fi
+[[ "$remaining" -gt 0 ]] && intro="$intro $remaining older waiting."
+exec "$(dirname "$0")/say_now.sh" --lang "${lang:-en}" --voice "$(voice_for "$from" "${lang:-en}")" "$intro $body"

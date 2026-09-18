@@ -42,6 +42,8 @@ SOUNDS = [
      "The transcriber has started working on the file. Usually right after the stop cue, very short."),
     ("Delivered", "system Glass", "/System/Library/Sounds/Glass.aiff",
      "The text has been delivered: pasted into the target, or sent to the secretary."),
+    ("Working on it", "two soft mid ticks", f"{ROOT}/sounds/cue_ack.aiff",
+     "Plays immediately after a double or triple press: your request was received and the voice is being prepared."),
     ("Message waiting", "two high notes", f"{ROOT}/sounds/cue_ding.aiff",
      "A spoken message was queued for you (an agent finished, needs a permission, or the secretary has news). Press twice to hear it; nothing is read to you unless you ask."),
 ]
@@ -82,7 +84,7 @@ def build():
     v = voice_sample()
     if v:
         parts.append(f"<div class='sound'><button onclick=\"new Audio('data:audio/wav;base64,{v}').play()\" aria-label='play voice sample'>&#9654;</button>"
-                     "<div><b>Spoken message <small>(Kokoro voice)</small></b><p>Queued messages and the secretary's answers are read like this, prefixed with who is speaking. One press pauses, one press resumes, two presses stop.</p></div></div>")
+                     "<div><b>Spoken message <small>(Kokoro voice)</small></b><p>The secretary speaks in this default voice, in the first person, with no prefix. Each agent has its own consistent voice (chosen from the agent's name) and introduces itself in two words, for example: micro duck here. One press pauses, one press resumes, two presses stop.</p></div></div>")
     parts.append("<h2>Buttons</h2><p class='lead'>Both earbuds send the same signals; left and right cannot be told apart, except that a long press is volume up on the right and volume down on the left.</p>"
                  "<table><tr><th>Situation</th><th>1 press</th><th>2 presses</th><th>3 presses</th><th>Long press</th></tr>")
     for row in STATES:

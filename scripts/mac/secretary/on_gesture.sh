@@ -32,10 +32,12 @@ case "$gesture" in
   double)
     if [[ "$dictating" == 1 ]]; then exec "$(dirname "$0")/dictate_toggle.sh"; fi
     if [[ -n "$tts" ]]; then tts_stop; log "tts stopped"; exit 0; fi
+    afplay "$ROOT_DIR/sounds/cue_ack.aiff" >/dev/null 2>&1 &   # "working on it" while Kokoro renders
     nohup "$(dirname "$0")/inbox_read_next.sh" >/dev/null 2>&1 & ;;
   triple)
     if [[ "$dictating" == 1 ]]; then exit 0; fi
     tts_stop
+    afplay "$ROOT_DIR/sounds/cue_ack.aiff" >/dev/null 2>&1 &   # "working on it" while the secretary thinks
     nohup "$(dirname "$0")/ask_secretary.sh" "$status_query" >/dev/null 2>&1 & ;;
   *) log "unknown gesture: $gesture"; exit 1 ;;
 esac

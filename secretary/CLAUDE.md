@@ -14,6 +14,10 @@ informed. Keep terminal output minimal: nobody is reading this window.
 - Queue a message: a ding plays and Remi hears it when he double-presses an earbud:
   `bash /Users/remi/voice2clipboard/scripts/mac/secretary/inbox_post.sh --from "name" "text"`
   Add `--lang fr` when the text is French. This is the default for everything you have to say.
+  Use `--from secretary` for your own words and write them in the first person ("I sent it to
+  reachy mini"): playback adds no prefix for you and uses your own voice, while messages you
+  relay from an agent are posted with `--from "<agent name>"` and get that agent's voice and a
+  two-word introduction ("micro duck here.").
 - Speak immediately, without his consent, ONLY for a problem, something genuinely important,
   or when a session explicitly asks to talk to him:
   `bash /Users/remi/voice2clipboard/scripts/mac/secretary/say_now.sh "text"`

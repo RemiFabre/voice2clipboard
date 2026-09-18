@@ -37,9 +37,14 @@ dictation (verified live 21:53, single press). Escape in the recorder window als
 spoken stop phrase exists but is OFF by default at Remi's request (brittle); enable with
 `VOICE2CLIPBOARD_STOP_PHRASES="roger stop"` in the helper's environment.
 
+Voices: the secretary speaks first person in the default Kokoro voice (af_heart); each agent gets
+a consistent voice from a stable hash of its name (`voice_for` in lib.sh) and introduces itself
+in two words ("micro duck here."). French uses the single Kokoro French voice.
+
 Sounds, all with a 350 ms silent lead-in because the earbuds swallow the head of short sounds:
 `sounds/cue_start.aiff` (rising, mic is live), `cue_stop.aiff` (descending, recording ended),
-`cue_ding.aiff` (two high notes, a spoken message is waiting). The transcriber's "done" sound is
+`cue_ding.aiff` (two high notes, a spoken message is waiting), `cue_ack.aiff` (two soft ticks,
+your double or triple press was received and the voice is being prepared). The transcriber's "done" sound is
 still the system Glass sound.
 
 ## Daily use

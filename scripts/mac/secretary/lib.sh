@@ -54,3 +54,19 @@ end tell
 return \"not_found\"" 2>/dev/null
 }
 iterm_session_exists() { [[ "$(iterm_session_action "$1" "get name")" == "ok" ]]; }
+
+# One consistent voice per agent, chosen by a stable hash of its name; the secretary keeps the
+# default voice (af_heart) so Remi always recognises it. French has a single Kokoro voice.
+VOICE_POOL_EN="af_bella af_nicole af_sky bf_emma bf_isabella am_adam am_michael bm_george bm_lewis am_liam af_nova bf_alice"
+is_secretary_name() { case "$(printf '%s' "${1:-}" | tr 'A-Z' 'a-z')" in secretary|"the secretary"|voice2clipboard|"voice to clipboard") return 0 ;; *) return 1 ;; esac; }
+voice_for() {
+  local name="${1:-}" lang="${2:-en}"
+  if [[ "$lang" == "fr" ]]; then echo "ff_siwis"; return; fi
+  if [[ -z "$name" ]] || is_secretary_name "$name"; then echo "af_heart"; return; fi
+  # positional parameters: same 1-based indexing in bash and zsh
+  set -- $(echo "$VOICE_POOL_EN")
+  local n=$# h idx
+  h="$(printf '%s' "$name" | tr 'A-Z' 'a-z' | cksum | cut -d' ' -f1)"
+  idx=$(( h % n + 1 ))
+  eval "echo \${$idx}"
+}
