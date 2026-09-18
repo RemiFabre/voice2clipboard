@@ -2,6 +2,7 @@
 # Speak the latest queued message (newest first, per Remi; moves it to the spoken archive).
 # Says so when the inbox is empty.
 source "$(dirname "$0")/lib.sh"
+if dictation_active; then log "inbox_read_next refused: dictation active"; exit 0; fi
 next="$(ls "$INBOX_DIR"/*.txt 2>/dev/null | sort | tail -n 1)"
 if [[ -z "$next" ]]; then
   exec "$(dirname "$0")/say_now.sh" "No new messages."

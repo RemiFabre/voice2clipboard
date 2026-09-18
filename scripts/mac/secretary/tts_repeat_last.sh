@@ -1,6 +1,7 @@
 #!/bin/bash
 # Triple earbud press: stop current speech and read the most recently spoken message again.
 source "$(dirname "$0")/lib.sh"
+if dictation_active; then log "tts_repeat_last refused: dictation active"; exit 0; fi
 tts_stop
 last="$(ls "$SPOKEN_DIR"/*.txt 2>/dev/null | sort | tail -n 1)"
 if [[ -z "$last" ]]; then exec "$(dirname "$0")/say_now.sh" "Nothing to repeat."; fi

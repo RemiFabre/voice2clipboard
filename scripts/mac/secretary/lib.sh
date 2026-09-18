@@ -70,3 +70,25 @@ voice_for() {
   idx=$(( h % n + 1 ))
   eval "echo \${$idx}"
 }
+
+# A dictation is running (recorder lock alive) or about to start (marker touched by the earbud
+# press, valid 20 s). Speech and dings must not start while this is true.
+DICTATION_LOCK="/tmp/voice2clipboard_quick_autopaste.pid"
+DICTATION_PENDING="$SECRETARY_RUNTIME/dictation_pending"
+dictation_active() {
+  local pid
+  pid="$(cat "$DICTATION_LOCK" 2>/dev/null || true)"
+  if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then return 0; fi
+  if [[ -f "$DICTATION_PENDING" ]]; then
+    local age=$(( $(date +%s) - $(stat -f %m "$DICTATION_PENDING" 2>/dev/null || echo 0) ))
+    [[ "$age" -lt 20 ]] && return 0
+    rm -f "$DICTATION_PENDING"
+  fi
+  return 1
+}
+# Block until no dictation is active, then a short grace so the stop cue and paste finish.
+wait_for_dictation_end() {
+  local waited=0
+  while dictation_active && [[ "$waited" -lt 1800 ]]; do sleep 0.5; waited=$((waited + 1)); done
+  sleep 2
+}
