@@ -28,10 +28,12 @@ tts_pid() {
 tts_stop() {
   local pid; pid="$(tts_pid)"
   if [[ -n "$pid" && "$pid" != "$$" ]]; then
+    archive_note stopped
     kill -CONT "$pid" 2>/dev/null; kill -TERM "$pid" 2>/dev/null
     pkill -TERM -P "$pid" 2>/dev/null   # a say_now still synthesizing: also its kokoro child
   fi
-  rm -f "$TTS_PID_FILE" "$TTS_STATE_FILE"
+  rm -f "$TTS_PID_FILE" "$TTS_STATE_FILE" "$TTS_CURRENT_FILE"
+  local o; o="$(cat "$SPEECH_LOCK/pid" 2>/dev/null || true)"; [[ -n "$o" && "$o" != "$$" ]] && rm -rf "$SPEECH_LOCK"
 }
 
 # Run AppleScript lines against the iTerm session with this unique id (sessions cannot be
@@ -104,3 +106,32 @@ wait_for_audio_free() {
   while audio_busy && [[ "$waited" -lt 1800 ]]; do sleep 0.5; waited=$((waited + 1)); done
   sleep 1
 }
+
+# Hard guard: exactly one speech at a time. The lock is an atomic mkdir holding the speaker's pid;
+# a stale lock (dead pid) is cleared. say_now takes it before synthesis and releases it at the end.
+SPEECH_LOCK="$SECRETARY_RUNTIME/speech.lock"
+speech_lock_acquire() {
+  local owner
+  if mkdir "$SPEECH_LOCK" 2>/dev/null; then echo $$ >"$SPEECH_LOCK/pid"; return 0; fi
+  owner="$(cat "$SPEECH_LOCK/pid" 2>/dev/null || true)"
+  if [[ -z "$owner" ]] || ! kill -0 "$owner" 2>/dev/null; then
+    rm -rf "$SPEECH_LOCK"; mkdir "$SPEECH_LOCK" 2>/dev/null && { echo $$ >"$SPEECH_LOCK/pid"; return 0; }
+  fi
+  return 1
+}
+speech_lock_release() { [[ "$(cat "$SPEECH_LOCK/pid" 2>/dev/null)" == "$$" ]] && rm -rf "$SPEECH_LOCK"; }
+speech_lock_owner() { local o; o="$(cat "$SPEECH_LOCK/pid" 2>/dev/null || true)"; [[ -n "$o" ]] && kill -0 "$o" 2>/dev/null && echo "$o"; }
+
+# Archive of every message ever played or discarded (spoken/); pruned only past ARCHIVE_MAX_MB.
+ARCHIVE_MAX_MB="${SECRETARY_ARCHIVE_MAX_MB:-300}"
+TTS_CURRENT_FILE="$SECRETARY_RUNTIME/tts.current"   # archived file of the message now playing
+archive_note() { local f; f="$(cat "$TTS_CURRENT_FILE" 2>/dev/null || true)"; [[ -n "$f" && -f "$f" ]] && printf 'status=%s %s\n' "$1" "$(date '+%Y-%m-%d %H:%M:%S')" >>"$f"; }
+archive_prune() {
+  local used; used="$(du -sm "$SPOKEN_DIR" 2>/dev/null | cut -f1)"
+  while [[ "${used:-0}" -gt "$ARCHIVE_MAX_MB" ]]; do
+    local oldest; oldest="$(ls "$SPOKEN_DIR"/*.txt 2>/dev/null | sort | head -n 1)"; [[ -n "$oldest" ]] || break
+    rm -f "$oldest"; used="$(du -sm "$SPOKEN_DIR" 2>/dev/null | cut -f1)"
+  done
+}
+DING_COOLDOWN_S="${SECRETARY_DING_COOLDOWN_S:-20}"
+DING_STAMP="$SECRETARY_RUNTIME/last_ding"

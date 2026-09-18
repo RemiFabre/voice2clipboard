@@ -874,7 +874,7 @@ headset_event_from_log_line.last_gain = None
 
 
 def handle_headset_buttons_during_recording():
-    """Stop the recording when the headset sends a hands-free button event (any press)."""
+    """Stop the recording when the headset sends its hands-free hang-up (a press)."""
     if not HEADSET_STOP_ENABLED:
         return
     cmd = ["/usr/bin/log", "stream", "--style", "compact", "--info", "--debug", "--predicate", HEADSET_LOG_PREDICATE]
@@ -897,7 +897,8 @@ def handle_headset_buttons_during_recording():
             if not recording:
                 break
             event = headset_event_from_log_line(line)
-            if event:
+            if event == "hangup":
+                # A press. Volume changes (long presses) are deliberately not an action.
                 print(f"\n🎧 Headset button ({event}) — stopping.")
                 request_recording_stop(f"headset:{event}")
                 break

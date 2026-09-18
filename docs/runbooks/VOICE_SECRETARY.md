@@ -22,10 +22,10 @@ on the state (`scripts/mac/secretary/on_gesture.sh`):
 
 | State | single | double | triple |
 |---|---|---|---|
-| idle | start a dictation | hear the latest notification | ask the secretary for a status |
+| idle | start a dictation | hear the latest notification | ask what needs your attention |
 | dictating | (stop, keyboard path only) | (stop, keyboard path only) | ignored |
-| message playing | pause | stop the message | stop + status |
-| message paused | resume | stop the message | stop + status |
+| message playing | pause | stop and discard | stop, play the next queued |
+| message paused | resume | stop and discard | stop, play the next queued |
 
 **While a dictation is recording, the headset is in hands-free mode** (macOS sets up a "virtual
 call" with it, seen in the Bluetooth log at 21:47:06 on 2026-09-17). Its buttons then send call
@@ -99,6 +99,16 @@ UserPromptSubmit hook clears the flag as soon as Remi talks to that session. Thi
 in both modes; only headset mode adds the ding and the spoken queue. `ledger.sh` prints it,
 sessions waiting on Remi first. Triple press, or asking the secretary "what needs my
 attention?", reads it aloud. The project `voice2clipboard` is reported as "the secretary".
+
+## Collision rules (Remi, 2026-09-18)
+
+One voice message at a time, enforced by an atomic lock in `say_now.sh` (taken before synthesis,
+released at the end or when a press stops it). Press-driven playback interrupts; direct speech
+that would collide waits and plays right after the current event. Dings may sound at any time,
+rate-limited (`SECRETARY_DING_COOLDOWN_S`, 20 s). Every played or discarded message stays in
+`runtime/secretary/spoken/` with a status line (pruned past `SECRETARY_ARCHIVE_MAX_MB`);
+`messages_search.sh` searches it on request. Long presses are not an action: the recorder stops
+on the hang-up only.
 
 ## Notification rule (Remi, 2026-09-17)
 

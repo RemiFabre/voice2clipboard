@@ -49,10 +49,10 @@ SOUNDS = [
 ]
 
 STATES = [
-    ("Nothing happening", "start a dictation", "hear the latest notification", "ask what needs your attention", "changes the headset volume only"),
-    ("Dictating (mic open)", "stop the dictation", "stop the dictation", "stop the dictation", "stop the dictation (also changes volume)"),
-    ("A message is playing", "pause it", "stop it", "stop it and ask what needs your attention", "changes the headset volume only"),
-    ("A message is paused", "resume it", "stop it", "stop it and ask what needs your attention", "changes the headset volume only"),
+    ("Nothing happening", "start a dictation", "hear the latest notification", "ask what needs your attention"),
+    ("Dictating (mic open)", "stop the dictation", "stop the dictation", "stop the dictation"),
+    ("A message is playing", "pause it", "stop and discard it", "stop it and play the next queued"),
+    ("A message is paused", "resume it", "stop and discard it", "stop it and play the next queued"),
 ]
 
 CSS = """
@@ -86,7 +86,7 @@ def build():
         parts.append(f"<div class='sound'><button onclick=\"new Audio('data:audio/wav;base64,{v}').play()\" aria-label='play voice sample'>&#9654;</button>"
                      "<div><b>Spoken message <small>(Kokoro voice)</small></b><p>The secretary speaks in this default voice, in the first person, with no prefix. Each agent has its own consistent voice (chosen from the agent's name) and introduces itself in two words, for example: micro duck here. One press pauses, one press resumes, two presses stop.</p></div></div>")
     parts.append("<h2>Buttons</h2><p class='lead'>Both earbuds send the same signals; left and right cannot be told apart, except that a long press is volume up on the right and volume down on the left.</p>"
-                 "<table><tr><th>Situation</th><th>1 press</th><th>2 presses</th><th>3 presses</th><th>Long press</th></tr>")
+                 "<table><tr><th>Situation</th><th>1 press</th><th>2 presses</th><th>3 presses</th></tr>")
     for row in STATES:
         parts.append("<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>")
     parts.append("</table>")
@@ -101,9 +101,9 @@ def build():
                  "<li>Spoken stop phrases are switched off.</li></ul>")
     parts.append("<h2>Where it differs from what you asked</h2><ul>"
                  "<li>Right = talk, left = pause was not possible: the earbuds send identical presses from both sides.</li>"
-                 "<li>While dictating, every kind of press stops the recording, not only the single press: in phone-call mode the earbuds only send hang-up or volume, and the volume side effect of a long press is real.</li>"
+                 "<li>While dictating, every kind of press stops the recording, not only the single press: in phone-call mode the earbuds send the same hang-up for one, two or three presses.</li>"
                  "<li>Two presses when nothing is happening plays the latest notification, as you asked; further double presses go back through older ones.</li>"
-                 "<li>Long presses only change the headset volume outside a dictation; they cannot be given a meaning there.</li></ul>")
+                 "<li>Long presses only change the headset volume; by your decision they are not an action anywhere.</li></ul>")
     parts.append("<div class='note'>Sound tip: every cue starts with a third of a second of silence because Bluetooth earbuds swallow the beginning of short sounds while the link wakes up. If a cue still gets lost, that lead-in can be lengthened.</div>")
     parts.append("</main></body></html>")
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

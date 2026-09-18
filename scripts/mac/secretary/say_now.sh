@@ -27,10 +27,19 @@ if [[ "${SAY_NOW_DEFERRED:-0}" != "1" ]]; then
     exit 0
   fi
 fi
-tts_stop
-# Hold the "speaking" slot from now on (synthesis takes 1-2 s): otherwise a second message could
-# start while this one is still being rendered and the two would overlap.
+if [[ "${SAY_NOW_INTERRUPT:-0}" == "1" ]]; then tts_stop; fi
+# Hard guard: the speech lock. If someone else holds it, this message waits in the background.
+if ! speech_lock_acquire; then
+  log "say_now deferred (speech lock held by $(speech_lock_owner)): $(printf '%s' "$text" | head -c 60)"
+  SAY_NOW_DEFERRED=1 nohup bash -c 'source "$1/lib.sh"; wait_for_audio_free; exec "$1/say_now.sh" --lang "$2" --voice "$3" "$4"' _ "$(cd "$(dirname "$0")" && pwd)" "$lang" "$voice" "$text" >/dev/null 2>&1 &
+  echo "deferred until the current audio ends"
+  exit 0
+fi
+trap 'speech_lock_release' EXIT
+# Hold the "speaking" slot from now on (synthesis takes 1-2 s).
 echo $$ >"$TTS_PID_FILE"; echo preparing >"$TTS_STATE_FILE"
+# Archived file of the message being read (set by inbox playback), for the played/stopped note.
+[[ -n "${SAY_NOW_ARCHIVE:-}" ]] && printf '%s' "$SAY_NOW_ARCHIVE" >"$TTS_CURRENT_FILE"
 text="$(printf '%s' "$text" | python3 "$(dirname "$0")/dictionary.py" pronounce)"
 "$KOKORO_CTL" kokoro-daemon status >/dev/null 2>&1 || "$KOKORO_CTL" kokoro-daemon start >/dev/null 2>&1
 if ! "$KOKORO_SAY" --lang "$lang" --voice "$voice" --no-play --output "$TTS_WAV" "$text" >/dev/null 2>&1; then
@@ -40,4 +49,5 @@ afplay "$TTS_WAV" &
 echo $! >"$TTS_PID_FILE"; echo playing >"$TTS_STATE_FILE"
 log "say_now [$voice]: $(printf '%s' "$text" | head -c 80)"
 wait $!
-rm -f "$TTS_PID_FILE" "$TTS_STATE_FILE"
+archive_note played
+rm -f "$TTS_PID_FILE" "$TTS_STATE_FILE" "$TTS_CURRENT_FILE"

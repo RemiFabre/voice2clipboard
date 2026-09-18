@@ -18,12 +18,12 @@ ul{padding-left:20px}li{margin:6px 0}.q{background:var(--card);border-left:4px s
 """
 
 STATES = [
-    ("Idle", "nothing plays, no dictation", "start a dictation", "hear the latest queued message", "ask what needs your attention", "headset volume only"),
-    ("Dictating", "mic open, headset in call mode", "stop and send", "stop and send", "stop and send", "stop and send (also changes volume)"),
-    ("Message playing", "a queued message or an answer", "pause", "stop it", "stop it, then ask what needs attention", "headset volume only"),
-    ("Message paused", "", "resume", "stop it", "stop it, then ask what needs attention", "headset volume only"),
-    ("Preparing (after 2 or 3 presses)", "two ticks played, voice being rendered or the secretary thinking, 2 to 15 s", "start a dictation (cancels nothing: the answer will still play after)", "no effect until the audio starts", "no effect", "headset volume only"),
-    ("Headset disconnected", "earbuds off or out of range", "nothing reaches the Mac", "nothing", "nothing", "nothing"),
+    ("Idle", "nothing plays, no dictation", "start a dictation", "hear the latest queued message", "ask what needs your attention"),
+    ("Dictating", "mic open, headset in call mode", "stop and send", "stop and send", "stop and send"),
+    ("Message playing", "a queued message or an answer", "pause", "stop and discard", "stop and play the next queued message"),
+    ("Message paused", "", "resume", "stop and discard", "stop and play the next queued message"),
+    ("Preparing (after 2 or 3 presses)", "two ticks played, voice being rendered or the secretary thinking, 2 to 15 s", "start a dictation (the prepared message plays afterwards)", "no effect until the audio starts", "no effect"),
+    ("Headset disconnected", "earbuds off or out of range", "nothing reaches the Mac", "nothing", "nothing"),
 ]
 
 SOUNDS = [
@@ -38,19 +38,17 @@ SOUNDS = [
 ]
 
 RULES = [
-    "Nothing speaks and nothing dings while a dictation is running, or in the second between the press and the recorder opening. Speech that was due is played two seconds after the recording ends.",
-    "One playback at a time. A press-driven playback (two presses, three presses) stops whatever is playing before it starts. Everything else, including the secretary's direct answers, waits for the current audio to end and then plays.",
-    "A message that arrives while something is playing is queued silently; its ding plays when the audio is free, and the next playback announces how many older messages are waiting.",
-    "The secretary never speaks unasked, except to ask a question when a dictation cannot be routed. Everything else is a queued message you choose to hear.",
-    "A press while a message is being prepared is honoured in order: the press acts first (for example starts a dictation), and the prepared message plays afterwards once the audio is free.",
-    "If the microphone stops delivering for 3 seconds (headset dropped its link), the recorder finishes with what it has, plays the failure buzz, and sends the text. If the recorder dies outright, the launcher recovers the saved audio, transcribes it and sends it; if even that fails, a queued message says a dictation was lost and where the audio is.",
+    "Hard guard: exactly one voice message at a time. Every speech path goes through one atomic lock taken before synthesis and released when playback ends or a press stops it. A second message cannot start while the first is playing; it queues and plays right after.",
+    "Press-driven playback (two or three presses) is the only thing that interrupts speech. Two presses stop and discard; three presses stop and continue with the next queued message.",
+    "The secretary's direct speech never overlaps you or another message: if you are dictating or listening, it waits and plays right after the current event ends. It is queued after the event, not dropped.",
+    "Nothing speaks while a dictation is running, or in the second between the press and the recorder opening.",
+    "Dings are the exception: a notification ding may sound at any time, even while you talk or listen, so you know something arrived. Dings are rate-limited to one per 20 seconds; the next playback tells you how many are waiting.",
+    "Every played or discarded message is archived on disk (pruned only past 300 MB). Nothing is replayed automatically; ask the secretary to search the archive when you want to check what you were told.",
+    "If the microphone stops delivering for 3 seconds, the recorder finishes with what it has after a failure buzz. If a recorder dies outright, the launcher recovers the saved audio and sends the text, or queues a note saying a dictation was lost and where the audio is.",
 ]
 
 QUESTIONS = [
-    ("Preparing state", "Should a single press during the 2 to 15 s preparation start a dictation (current) or be ignored until the answer plays? Current choice favours you never being blocked."),
-    ("Long press while dictating", "Any press stops a dictation because the earbuds only send hang-up or volume in call mode. A long press therefore also changes your volume. Acceptable, or should long presses be ignored there (losing a stop path)?"),
-    ("Headset disconnected", "The Mac plays cues on its speakers and records from its own microphone. Should a dictation refuse to start when the headset is not connected?"),
-    ("Interrupted answers", "When your press stops the secretary's answer mid-sentence, the rest is lost. Should stopped messages be re-queued so they can be replayed with three presses?"),
+    ("Ding rate", "One ding per 20 seconds at most, and a ding for every finished agent turn in headset mode. If that is still too many, the next step is one ding per agent per few minutes, or only for messages flagged as needing you."),
 ]
 
 
@@ -58,10 +56,10 @@ def build():
     h = [f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
          f"<title>Interaction model</title><style>{CSS}</style></head><body><main>"
          "<h1>Interaction model</h1><p class='lead'>Every state the earbud system can be in, what each press does there, every sound, and the rules that prevent collisions. Built 2026-09-18 for review; open questions are marked.</p>"
-         "<h2>States and presses</h2><table><tr><th>State</th><th>What it is</th><th>1 press</th><th>2 presses</th><th>3 presses</th><th>Long press</th></tr>"]
+         "<h2>States and presses</h2><table><tr><th>State</th><th>What it is</th><th>1 press</th><th>2 presses</th><th>3 presses</th></tr>"]
     for row in STATES:
         h.append("<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>")
-    h.append("</table><p class='lead'>Both earbuds send the same signals. In call mode (while dictating) they only send hang-up or volume, which is why every press stops a dictation.</p>")
+    h.append("</table><p class='lead'>Both earbuds send the same signals. In call mode (while dictating) every press arrives as a hang-up, which is why any press stops a dictation. Long presses only change the headset volume and are not part of the model. Keyboard-driven use without the headset is unchanged.</p>")
     h.append("<h2>Sounds</h2><table><tr><th>Sound</th><th>Meaning</th></tr>")
     for a, b in SOUNDS:
         h.append(f"<tr><td>{a}</td><td>{b}</td></tr>")
@@ -75,7 +73,8 @@ def build():
              "<tr><td>Dings and queued messages</td><td>yes</td><td>none</td></tr>"
              "<tr><td>Attention ledger</td><td colspan='2'>kept in both modes; three presses or asking the secretary reads it</td></tr>"
              "<tr><td>Shown</td><td colspan='2'>the recorder window prints Mode: HEADSET or Mode: MANUAL at every start; the mode stays until a dictation of the other kind</td></tr></table>")
-    h.append("<h2>Open questions for you</h2>")
+    h.append("<h2>Decided on 2026-09-18</h2><ul><li>Long press: not an action anywhere.</li><li>Headset disconnected: nothing changes; keyboard use without the headset works as before.</li><li>Two presses during a message: stop and discard (archive kept for voluntary lookup).</li><li>Three presses: attention summary only when idle; otherwise stop and next.</li><li>One voice message at a time, enforced by a lock; direct speech that would collide is queued after the event.</li><li>Dings may sound at any time, rate-limited.</li></ul>")
+    h.append("<h2>Open question</h2>")
     for t, q in QUESTIONS:
         h.append(f"<div class='q'><b>{t}.</b> {q}</div>")
     h.append("</main></body></html>")

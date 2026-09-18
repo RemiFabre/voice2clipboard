@@ -1,10 +1,10 @@
 #!/bin/bash
 # Entry point called by the earbud button app. Gestures: single | double | triple
 # State machine (Remi's spec, 2026-09-17 evening):
-#   idle            single = start dictation      double = hear the latest notification  triple = ask secretary for status
+#   idle            single = start dictation      double = hear the latest notification  triple = ask secretary what needs attention
 #   dictating       single = stop dictation       double = stop dictation             triple = (ignored)
-#   message playing single = pause                double = stop message               triple = stop + status
-#   message paused  single = resume               double = stop message               triple = stop + status
+#   message playing single = pause                double = stop and discard           triple = stop and play the next queued
+#   message paused  single = resume               double = stop and discard           triple = stop and play the next queued
 # Note: while the headset mic is open (dictating) its buttons arrive as hands-free call commands,
 # not media commands; the recorder itself watches the Bluetooth log for them and stops. The
 # single/double handling below only serves the keyboard-started path.
@@ -36,7 +36,13 @@ case "$gesture" in
     nohup "$(dirname "$0")/inbox_read_next.sh" >/dev/null 2>&1 & ;;
   triple)
     if [[ "$dictating" == 1 ]]; then exit 0; fi
-    tts_stop
+    if [[ -n "$tts" ]]; then
+      # while a message plays or is paused: stop it and go straight to the next queued one
+      tts_stop; log "tts stopped, next"
+      afplay "$ROOT_DIR/sounds/cue_ack.aiff" >/dev/null 2>&1 &
+      nohup "$(dirname "$0")/inbox_read_next.sh" >/dev/null 2>&1 &
+      exit 0
+    fi
     afplay "$ROOT_DIR/sounds/cue_ack.aiff" >/dev/null 2>&1 &   # "working on it" while the secretary thinks
     nohup "$(dirname "$0")/ask_secretary.sh" "$status_query" >/dev/null 2>&1 & ;;
   *) log "unknown gesture: $gesture"; exit 1 ;;

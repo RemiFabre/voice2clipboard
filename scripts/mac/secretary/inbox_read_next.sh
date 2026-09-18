@@ -10,6 +10,8 @@ fi
 lang="$(sed -n 's/^lang=//p' "$next" | head -n 1)"; from="$(sed -n 's/^from=//p' "$next" | head -n 1)"
 body="$(awk 'f{print} /^$/{f=1}' "$next")"
 mv "$next" "$SPOKEN_DIR/"
+export SAY_NOW_ARCHIVE="$SPOKEN_DIR/$(basename "$next")"
+archive_prune
 remaining="$(ls "$INBOX_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ')"
 # The secretary speaks in the first person with its own voice; agents introduce themselves in
 # two words ("micro duck here.") and each keeps a consistent voice.

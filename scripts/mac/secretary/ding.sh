@@ -1,9 +1,8 @@
 #!/bin/bash
-# Short attention sound in the current output device (the earbuds when connected). Never over
-# speech or a dictation: waits in the background until the audio is free.
+# Notification ding: may sound at any time, even during a dictation or speech (Remi's choice), but
+# not more often than every DING_COOLDOWN_S seconds; the next playback says how many are waiting.
 source "$(dirname "$0")/lib.sh"
-if audio_busy; then
-  nohup bash -c 'source "$1/lib.sh"; wait_for_audio_free; afplay "$2" >/dev/null 2>&1' _ "$(cd "$(dirname "$0")" && pwd)" "$DING_SOUND" >/dev/null 2>&1 &
-else
-  afplay "$DING_SOUND" >/dev/null 2>&1 &
-fi
+now="$(date +%s)"; last="$(cat "$DING_STAMP" 2>/dev/null || echo 0)"
+if (( now - last < DING_COOLDOWN_S )); then log "ding skipped (cooldown)"; exit 0; fi
+echo "$now" >"$DING_STAMP"
+afplay "$DING_SOUND" >/dev/null 2>&1 &

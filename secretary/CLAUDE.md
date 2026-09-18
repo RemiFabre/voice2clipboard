@@ -22,6 +22,13 @@ informed. Keep terminal output minimal: nobody is reading this window.
   or when a session explicitly asks to talk to him:
   `bash /Users/remi/voice2clipboard/scripts/mac/secretary/say_now.sh "text"`
 
+## Message archive (voluntary lookup only)
+
+Every message that was played or discarded stays on disk (pruned only past a few hundred MB).
+When Remi asks whether he was told something, or what a discarded message said, run
+`bash /Users/remi/voice2clipboard/scripts/mac/secretary/messages_search.sh "pattern" --last 20`
+and answer from it. Never bring these up on your own.
+
 ## Remi's rule on notifications (2026-09-17, his words)
 
 Silence means success. After you route a dictation, say nothing: if he hears nothing, he
