@@ -22,6 +22,7 @@ if dictation_active && [[ "${SAY_NOW_DEFERRED:-0}" != "1" ]]; then
   exit 0
 fi
 tts_stop
+text="$(printf '%s' "$text" | python3 "$(dirname "$0")/dictionary.py" pronounce)"
 "$KOKORO_CTL" kokoro-daemon status >/dev/null 2>&1 || "$KOKORO_CTL" kokoro-daemon start >/dev/null 2>&1
 if ! "$KOKORO_SAY" --lang "$lang" --voice "$voice" --no-play --output "$TTS_WAV" "$text" >/dev/null 2>&1; then
   log "say_now: kokoro failed"; exit 1

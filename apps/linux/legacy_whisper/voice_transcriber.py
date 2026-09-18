@@ -266,8 +266,23 @@ def play_feedback(event, block=False):
         playsound("sounds/plop.mp3", block=block)
 
 
+def apply_word_dictionary(text):
+    """Fix words the transcriber gets wrong (secretary/dictionary.json), e.g. product names."""
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "voice_dictionary", "/Users/remi/voice2clipboard/scripts/mac/secretary/dictionary.py"
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.apply(text, "transcribe")
+    except Exception:
+        return text
+
+
 def format_quick_text(text):
-    return f"{QUICK_MODE_PREFIX}{text.strip()}"
+    return f"{QUICK_MODE_PREFIX}{apply_word_dictionary(text.strip())}"
 
 
 def audio_is_effectively_silent(filename):

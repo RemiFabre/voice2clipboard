@@ -47,6 +47,19 @@ Sounds, all with a 350 ms silent lead-in because the earbuds swallow the head of
 your double or triple press was received and the voice is being prepared). The transcriber's "done" sound is
 still the system Glass sound.
 
+## Boot, rotation, dictionary
+
+- **Login:** `scripts/mac/secretary/secretary_ctl.sh install-boot` installs a LaunchAgent that,
+  20 s after login, warms Kokoro, starts the earbud app and opens the secretary in iTerm.
+- **Rotation:** the secretary's own Stop hook sums the last turn's `input + cache_read +
+  cache_creation` tokens from its transcript; past `SECRETARY_ROTATE_TOKENS` (700k of the 1M
+  window) it queues a note, runs `start_secretary.sh --rotate` (new session registered first,
+  old window closed 20 s later). The secretary keeps `runtime/secretary/handover.md` for its
+  successor and reads it plus the ledger on start.
+- **Dictionary:** `secretary/dictionary.json`; `dictionary.py transcribe` fixes dictations
+  (applied in the recorder before pasting), `dictionary.py pronounce` rewrites words for Kokoro
+  (applied in say_now.sh). Add entries as mistakes recur.
+
 ## Daily use
 
 ```bash

@@ -46,3 +46,16 @@ class HeadsetLogParsing(unittest.TestCase):
             "... [com.apple.bluetooth:Server.Handsfree] Received speaker gain event from device A0:0C:E2:E9:6D:45 - new gain is 2"), "gain_down")
         self.assertIsNone(vt.headset_event_from_log_line(
             "2026-09-17 21:47:14.059 I  bluetoothd[43329:a8ab681] [com.apple.bluetooth:Server.Handsfree] Filling done, not enough data.  shared 624, fill 0"))
+
+
+class WordDictionary(unittest.TestCase):
+    def test_transcription_fixes_product_name_and_claude(self):
+        self.assertEqual(vt.apply_word_dictionary("the community of rich many users and the Ricci Mini app"),
+                         "the community of Reachy Mini users and the Reachy Mini app")
+        self.assertEqual(vt.apply_word_dictionary("send it to the cloud session"), "send it to Claude")
+        self.assertEqual(vt.apply_word_dictionary("a cloudy day"), "a cloudy day")
+
+    def test_pronunciation_rewrite(self):
+        out = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "mac", "secretary", "dictionary.py"), "pronounce"],
+                             input="Reachy Mini is fixed", capture_output=True, text=True).stdout
+        self.assertEqual(out, "Reechy Mini is fixed")
