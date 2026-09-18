@@ -47,10 +47,10 @@ SOUNDS = [
 ]
 
 STATES = [
-    ("Nothing happening", "start a dictation", "hear the latest notification", "ask the secretary for a spoken status", "changes the headset volume only"),
+    ("Nothing happening", "start a dictation", "hear the latest notification", "ask what needs your attention", "changes the headset volume only"),
     ("Dictating (mic open)", "stop the dictation", "stop the dictation", "stop the dictation", "stop the dictation (also changes volume)"),
-    ("A message is playing", "pause it", "stop it", "stop it and ask for a status", "changes the headset volume only"),
-    ("A message is paused", "resume it", "stop it", "stop it and ask for a status", "changes the headset volume only"),
+    ("A message is playing", "pause it", "stop it", "stop it and ask what needs your attention", "changes the headset volume only"),
+    ("A message is paused", "resume it", "stop it", "stop it and ask what needs your attention", "changes the headset volume only"),
 ]
 
 CSS = """
@@ -92,6 +92,7 @@ def build():
                  "<tr><td>Starts when</td><td>you start a dictation with an earbud press</td><td>you start a dictation with the keyboard shortcut</td></tr>"
                  "<tr><td>Text goes to</td><td>the secretary, which routes it</td><td>the console or app you were in</td></tr>"
                  "<tr><td>Notifications</td><td>a ding when an agent has something for you; two presses to hear it</td><td>none at all</td></tr>"
+                 "<tr><td>Attention ledger</td><td colspan='2'>in both modes every agent silently records what it last did and whether it is waiting on you; three presses ask the secretary what needs your attention</td></tr>"
                  "<tr><td>Shown</td><td colspan='2'>the recorder window prints Mode: HEADSET or Mode: MANUAL at each start; the mode stays until a dictation of the other kind</td></tr></table>")
     parts.append("<h2>Stopping a dictation</h2><ul><li>Any press on either earbud (single, double, triple or long). While the mic is open the earbuds are in phone-call mode, and the recorder catches their hang-up and volume signals from the Bluetooth log.</li>"
                  "<li>Escape in the recorder window, or the keyboard shortcut again.</li>"

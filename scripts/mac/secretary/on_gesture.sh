@@ -18,7 +18,7 @@ if [[ -f "$LOCK_FILE" ]]; then
 fi
 tts="$(tts_pid)"; tts_state="$(cat "$TTS_STATE_FILE" 2>/dev/null || true)"
 log "gesture: $gesture (dictating=$dictating tts=${tts:+${tts_state:-playing}})"
-status_query='[Voice] Secretary: give me a short spoken status. What is pending or waiting on me across the agents, and anything I should know? Answer with say_now.'
+status_query='[Voice] Secretary: what needs my attention? Run ledger.sh and answer by voice with say_now: first the sessions waiting on me and what they asked, then a one-line roundup of the others.'
 
 case "$gesture" in
   single)

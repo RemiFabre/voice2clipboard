@@ -72,6 +72,16 @@ keyboard dictation starts. The recorder window prints `Mode: HEADSET` or `Mode: 
 every start; `voice_mode.sh status` prints it too. `start_secretary.sh` switches to headset
 mode, `stop_secretary.sh` to manual.
 
+## Attention ledger (both modes)
+
+Every session's Stop hook writes its latest message to `runtime/secretary/ledger/<session>.json`
+(project name, summary, `needs_attention` when the message ends with a question or asks for a
+decision); the Notification hook flags permission prompts and input requests; the
+UserPromptSubmit hook clears the flag as soon as Remi talks to that session. This runs silently
+in both modes; only headset mode adds the ding and the spoken queue. `ledger.sh` prints it,
+sessions waiting on Remi first. Triple press, or asking the secretary "what needs my
+attention?", reads it aloud. The project `voice2clipboard` is reported as "the secretary".
+
 ## Notification rule (Remi, 2026-09-17)
 
 Silence means success. Nothing speaks to Remi on its own: agent reports and the secretary's
