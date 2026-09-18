@@ -27,7 +27,10 @@ tts_pid() {
 
 tts_stop() {
   local pid; pid="$(tts_pid)"
-  if [[ -n "$pid" ]]; then kill -CONT "$pid" 2>/dev/null; kill -TERM "$pid" 2>/dev/null; fi
+  if [[ -n "$pid" && "$pid" != "$$" ]]; then
+    kill -CONT "$pid" 2>/dev/null; kill -TERM "$pid" 2>/dev/null
+    pkill -TERM -P "$pid" 2>/dev/null   # a say_now still synthesizing: also its kokoro child
+  fi
   rm -f "$TTS_PID_FILE" "$TTS_STATE_FILE"
 }
 
@@ -91,4 +94,13 @@ wait_for_dictation_end() {
   local waited=0
   while dictation_active && [[ "$waited" -lt 1800 ]]; do sleep 0.5; waited=$((waited + 1)); done
   sleep 2
+}
+
+# One playback at a time. tts_pid() already tells whether afplay is speaking; "audio busy" also
+# covers a dictation. Press-driven playback interrupts (SAY_NOW_INTERRUPT=1); anything else waits.
+audio_busy() { dictation_active || [[ -n "$(tts_pid)" ]]; }
+wait_for_audio_free() {
+  local waited=0
+  while audio_busy && [[ "$waited" -lt 1800 ]]; do sleep 0.5; waited=$((waited + 1)); done
+  sleep 1
 }

@@ -144,6 +144,18 @@ while kill -0 "$CHILD_PID" >/dev/null 2>&1; do
 done
 if [[ "$forced_recovery" -eq 0 ]]; then
   wait "$CHILD_PID"
+  child_status=$?
+  # Orphaned audio: the recorder ended without producing a transcript (crash, killed, device
+  # gone). Never lose a dictation silently: signal it and transcribe what was captured.
+  audio_path="$(cat "$AUDIO_STATE_FILE" 2>/dev/null || true)"
+  if [[ -n "$audio_path" && -f "$audio_path" && ! -f "$(dirname "$audio_path")/stats.json" ]]; then
+    echo
+    echo "⚠️ The recorder ended (status $child_status) without a transcript; recovering $audio_path"
+    afplay "$ROOT_DIR/sounds/cue_fail.aiff" >/dev/null 2>&1 &
+    VOICE2CLIPBOARD_BACKEND=mlx VOICE2CLIPBOARD_HELPER_LAUNCH_STATE="${helper_launch_state:-unknown}" \
+      "$ROOT_DIR/scripts/mac/recover_orphaned_recording.sh" "$audio_path" "${ARGS[@]}" \
+      || "$ROOT_DIR/scripts/mac/secretary/inbox_post.sh" --from secretary "A dictation was lost. Its audio is saved under recordings, and it could not be transcribed."
+  fi
 fi
 
 echo

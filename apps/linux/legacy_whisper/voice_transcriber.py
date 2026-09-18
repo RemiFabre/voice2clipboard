@@ -27,6 +27,7 @@ DEVICE = "cpu" if IS_MAC else "cuda"
 COMPUTE_TYPE = "int8" if IS_MAC else "float16"
 TRANSCRIBE_BACKEND = os.getenv("VOICE2CLIPBOARD_BACKEND", "auto")  # auto|faster|mlx
 MIC_BAR_WIDTH = 30
+INPUT_LOSS_SECONDS = float(os.getenv("VOICE2CLIPBOARD_INPUT_LOSS_SECONDS", "3"))
 CHATGPT_ICON_IMAGE = "assets/chatgpt_plus.jpeg"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "gemma:2b"
@@ -184,6 +185,7 @@ MAC_SOUNDS = {
     # second while the audio link wakes up, so the 0.1 s system "Pop" was often never heard.
     "record_start": "sounds/cue_start.aiff",
     "record_stop": "sounds/cue_stop.aiff",
+    "record_lost": "sounds/cue_fail.aiff",
     "transcribe_start": "/System/Library/Sounds/Tink.aiff",
     "done": "/System/Library/Sounds/Glass.aiff",
 }
@@ -304,7 +306,10 @@ def record_audio(filename, quick_mode=False):
     global duration_sec, recording, callback_enabled, start_time, stop_requested_by_signal, active_input_stream
     q = queue.Queue()
 
+    last_audio = {"t": time.time()}
+
     def _callback(indata, frames, time_info, status):
+        last_audio["t"] = time.time()
         q.put(indata.copy())
         audio_callback(indata, frames, time_info, status)
 
@@ -335,9 +340,18 @@ def record_audio(filename, quick_mode=False):
                 print("📋 Text will always be copied to clipboard.\n")
 
             try:
+                input_lost = False
                 while recording:
                     if quick_mode and stop_request_active():
                         request_recording_stop("stop_file_loop")
+                        continue
+                    if quick_mode and time.time() - last_audio["t"] > INPUT_LOSS_SECONDS:
+                        # The input device stopped delivering (Bluetooth headset dropped its
+                        # audio link, device removed): keep what we have and finish normally.
+                        input_lost = True
+                        print("\n⚠️ Microphone stopped delivering audio (headset disconnected?) — finishing with what was recorded.")
+                        play_feedback("record_lost", block=False)
+                        request_recording_stop("input_lost")
                         continue
                     try:
                         block = q.get(timeout=0.1)
