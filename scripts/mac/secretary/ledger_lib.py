@@ -15,6 +15,76 @@ ATTENTION_PATTERNS = re.compile(
 )
 
 
+SECRETARY_RUNTIME = os.getenv("SECRETARY_RUNTIME", "/Users/remi/voice2clipboard/runtime/secretary")
+if os.getenv("SECRETARY_RUNTIME"):
+    LEDGER_DIR = os.path.join(SECRETARY_RUNTIME, "ledger")   # tests keep their own ledger
+
+# Keep-warm pings (2026-09-21). The Session Tower types a prompt starting with PING_PREFIX into an
+# idle session so its prompt cache does not expire; the session answers with the single word
+# "coconut". Such a turn is not activity: it must not replace the session's real last message in
+# the ledger, clear a "waiting on Remi" flag, or be reported to the secretary. The prompt hook
+# leaves a marker per session; the Stop hook takes it and, if the answer really is the ping's
+# answer, records nothing. A marker without that answer (the session said something real) counts
+# as a normal turn, and a marker older than PING_MARK_MAX_S is forgotten.
+PING_PREFIX = "banana (automatic keep-warm ping"
+PING_DIR = os.path.join(SECRETARY_RUNTIME, "pings")
+PING_MARK_MAX_S = 900
+
+
+def is_ping_prompt(prompt):
+    return (prompt or "").lstrip().lower().startswith(PING_PREFIX)
+
+
+def _ping_mark_path(session_id):
+    return os.path.join(PING_DIR, re.sub(r"[^A-Za-z0-9_-]", "_", session_id or "unknown"))
+
+
+def ping_mark(session_id):
+    os.makedirs(PING_DIR, exist_ok=True)
+    with open(_ping_mark_path(session_id), "w") as f:
+        f.write(str(time.time()))
+
+
+def is_ping_answer(msg):
+    m = re.sub(r"[^a-z]", "", (msg or "").lower())
+    return m == "coconut"
+
+
+def ping_take(session_id, msg):
+    """True when the turn that just ended was a keep-warm ping (marker left by the prompt hook and
+    the expected one-word answer). The marker is removed either way."""
+    path = _ping_mark_path(session_id)
+    try:
+        fresh = time.time() - os.stat(path).st_mtime < PING_MARK_MAX_S
+        os.remove(path)
+    except OSError:
+        return False
+    return fresh and is_ping_answer(msg)
+
+
+def is_secretary(cwd, session_id=""):
+    """The secretary is the session started in the secretary directory, or the Claude session
+    that registered itself as the secretary (it may have been resumed by hand from anywhere:
+    on 2026-09-19 it came back in /Users/remi and every check based on the directory missed it)."""
+    if (cwd or "").rstrip("/").endswith("/secretary"):
+        return True
+    try:
+        known = open(os.path.join(SECRETARY_RUNTIME, "secretary_claude_session")).read().strip()
+    except OSError:
+        known = ""
+    return bool(known) and known == session_id
+
+
+def register_secretary_window(scripts_dir, session_id):
+    """Called on the secretary's own turns: keep the dictation target pointing at the window this
+    session really runs in. Cheap, silent, and only logs when something changed."""
+    import subprocess
+    if not os.getenv("ITERM_SESSION_ID"):
+        return
+    subprocess.run([os.path.join(scripts_dir, "register_secretary.sh"), "--quiet",
+                    "--claude-session", session_id], check=False, capture_output=True, timeout=10)
+
+
 def project_name(cwd):
     base = os.path.basename((cwd or "").rstrip("/")) or "an agent"
     if base == "voice2clipboard":
@@ -25,9 +95,11 @@ def project_name(cwd):
 
 
 def spoken_text(msg, limit=70):
-    m = re.search(r"(?ms)^\**Spoken:?\**\s*(.+?)(?:\n\s*\n|\Z)", msg or "")
+    # Everything after "Spoken:" is meant for the ears, however many paragraphs it takes (it used
+    # to stop at the first blank line, which cut long reports short); a Notify line ends it.
+    m = re.search(r"(?ms)^\**Spoken:?\**\s*(.+?)(?=^\**Notify:|\Z)", msg or "")
     if m:
-        return m.group(1).strip()
+        return re.sub(r"\s*\n\s*", " ", m.group(1)).strip()
     plain = re.sub(r"```.*?```", " ", msg or "", flags=re.S)
     plain = re.sub(r"[`*_#>|]", "", plain)
     plain = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", plain)
@@ -121,9 +193,19 @@ def classify(msg):
 def forward_to_secretary(scripts_dir, project, session_id, reason, text):
     """Hand a flagged turn to the secretary session as a typed message. Returns True if delivered."""
     import subprocess
-    body = ("[Agent report] project: %s | session: %s | why: %s\n%s\n"
-            "(Decide: if Remi should hear this, run inbox_post.sh --from \"%s\" with the spoken text; "
-            "otherwise stay silent. The ledger already has it.)" % (project, session_id[:8], reason, text, project))
+    # The full spoken text also goes to a file: a long report typed into a terminal is easy to
+    # lose part of, and the secretary can post it straight from the file (inbox_post.sh reads stdin).
+    reports = os.path.join(SECRETARY_RUNTIME, "reports")
+    os.makedirs(reports, exist_ok=True)
+    path = os.path.join(reports, "%s-%d.txt" % (session_id[:8], int(time.time())))
+    with open(path, "w") as f:
+        f.write(text + "\n")
+    for old_report in sorted(glob.glob(os.path.join(reports, "*.txt")))[:-200]:
+        os.remove(old_report)
+    body = ("[Agent report] project: %s | session: %s | why: %s | words: %d | full text: %s\n%s\n"
+            "(Decide: if Remi should hear this, run inbox_post.sh --from \"%s\" < that file, or with the "
+            "spoken text; otherwise stay silent. The ledger already has it.)"
+            % (project, session_id[:8], reason, len(text.split()), path, text, project))
     if os.getenv("SECRETARY_FORWARD_DRY_RUN") == "1":
         print(body)
         return True

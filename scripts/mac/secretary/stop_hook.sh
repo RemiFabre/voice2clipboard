@@ -6,6 +6,9 @@
 # The secretary's own turns trigger the context-rotation check instead. Never blocks (exit 0).
 source "$(dirname "$0")/lib.sh"
 input="$(cat)"
+# Memory watch (2026-09-21 freeze): agents finishing turns is exactly when memory matters, so every
+# turn end triggers one cheap check in the background; it never blocks or delays this hook.
+( nohup "$(dirname "$0")/memory_guard.sh" >/dev/null 2>&1 & ) 2>/dev/null
 python3 - "$input" "$(dirname "$0")" <<'PY'
 import json, os, subprocess, sys
 sys.path.insert(0, sys.argv[2])
@@ -18,7 +21,10 @@ scripts = sys.argv[2]
 cwd = d.get("cwd") or ""
 if d.get("agent_id"):
     sys.exit(0)
-if cwd.rstrip("/").endswith("/secretary"):
+if L.ping_take(d.get("session_id", "unknown"), d.get("last_assistant_message") or ""):
+    sys.exit(0)   # a keep-warm ping answered "coconut": no ledger entry, no report, no rotation check
+if L.is_secretary(cwd, d.get("session_id", "")):
+    L.register_secretary_window(scripts, d.get("session_id", ""))
     limit = int(os.getenv("SECRETARY_ROTATE_TOKENS", "700000"))
     used = 0
     try:

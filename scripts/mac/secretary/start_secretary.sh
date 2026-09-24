@@ -1,6 +1,8 @@
 #!/bin/bash
 # Opens the secretary Claude Code session in a new iTerm window, registers its session id as the
 # target for earbud dictations, and turns voice mode on. Idempotent: reuses a live session.
+# The secretary always runs on Fable 5.1 (Remi, 2026-09-24: new sessions default to Opus 5.5, the
+# secretary keeps its voice); SECRETARY_MODEL overrides it.
 source "$(dirname "$0")/lib.sh"
 SECRETARY_DIR="$ROOT_DIR/secretary"
 rotate=0; [[ "${1:-}" == "--rotate" ]] && rotate=1
@@ -14,7 +16,7 @@ if [[ -n "$existing" && "$rotate" == 0 ]]; then
 fi
 session_id="$(osascript <<EOS
 tell application "iTerm2"
-    set w to (create window with default profile command "/bin/bash -lc 'cd \"$SECRETARY_DIR\" && claude --dangerously-skip-permissions; echo claude exited; sleep 60'")
+    set w to (create window with default profile command "/bin/bash -lc 'cd \"$SECRETARY_DIR\" && claude --model ${SECRETARY_MODEL:-claude-fable-5-1} --effort xhigh --dangerously-skip-permissions; echo claude exited; sleep 60'")
     tell current session of w
         return unique id
     end tell

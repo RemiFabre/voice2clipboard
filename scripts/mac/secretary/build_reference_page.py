@@ -44,13 +44,21 @@ SOUNDS = [
      "The text has been delivered: pasted into the target, or sent to the secretary."),
     ("Working on it", "two soft mid ticks", f"{ROOT}/sounds/cue_ack.aiff",
      "Plays immediately after a double or triple press: your request was received and the voice is being prepared."),
+    ("Dictation cancelled", "one quick downward sweep", f"{ROOT}/sounds/cue_cancel.aiff",
+     "The dictation was cancelled: nothing was sent, and the audio and its text are kept. Today this happens when a dictation under 15 seconds contains no speech (started by mistake). Ask the secretary to recover it if that was a mistake."),
+    ("Cannot do that now", "one short falling tone", f"{ROOT}/sounds/cue_refuse.aiff",
+     "Your press was received but cannot be honoured right now (for example a message was requested while a dictation is starting). Silence never means broken."),
+    ("Ready", "one soft chord", f"{ROOT}/sounds/cue_ready.aiff",
+     "The headset reconnected and the self-check passed: button app, secretary window, voice, microphone and recorder are all in place."),
+    ("Something went wrong", "low double buzz", f"{ROOT}/sounds/cue_fail.aiff",
+     "The headset dropped, the microphone went silent, a recording held no speech or could not be delivered, or the self-check failed. After a failed self-check a spoken reason follows."),
     ("Message waiting", "two high notes", f"{ROOT}/sounds/cue_ding.aiff",
      "The secretary decided you should hear something (an agent is waiting on you, answers a voice request, or reports a problem). Press twice to hear it; nothing is read to you unless you ask."),
 ]
 
 STATES = [
     ("Nothing happening", "start a dictation", "hear the latest notification", "ask what needs your attention"),
-    ("Dictating (mic open)", "stop the dictation", "stop the dictation", "stop the dictation"),
+    ("Dictating (mic open)", "stop and send (nothing said: cancelled)", "never reaches the Mac", "untested"),
     ("A message is playing", "pause it", "stop and discard it", "stop it and play the next queued"),
     ("A message is paused", "resume it", "stop and discard it", "stop it and play the next queued"),
 ]

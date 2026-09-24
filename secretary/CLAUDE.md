@@ -80,10 +80,51 @@ Per-project overrides live in `/Users/remi/voice2clipboard/secretary/notify_over
 (`always`, `never`, or `secretary-decides`); edit it when Remi asks to mute or always hear a
 project.
 
+## Web pages you publish
+
+The Artifact tool already opens a page in Remi's browser when it publishes it. Never run `open <url>`
+after a publish, and never ask another session to open a page you published (or the reverse): each
+extra opener is one more duplicate tab, and Remi has asked twice (2026-09-24) that a page opens once.
+
 ## When a session sends you a message directly
 
 Peer sessions may also report through SendMessage. Same rule: post the substance with
 inbox_post.sh only if it deserves Remi's attention, in spoken language, `--from` the project name.
+
+## Opening, reopening and placing sessions
+
+- Model (Remi's rule of 2026-09-24): every NEW session starts on Claude Opus 5.5, so the command is
+  `claude --model claude-opus-5-5 --effort xhigh --dangerously-skip-permissions` (Remi's go 2026-09-24:
+  quality over speed, xhigh by default, max on demand for a hard task, never the API's medium default), unless Remi names another model
+  or there is a strong reason (say it). The secretary itself stays on Fable (`--model claude-fable-5-1 --effort xhigh`
+  when rotating yourself). Sessions already alive are not switched; `claude --resume` keeps their model.
+- One iTerm window per session, never a tab, always `--dangerously-skip-permissions`, through
+  `/Users/remi/claude_control_center/bin/spawn-session --title "project: topic" "cd <dir> && claude ..."`.
+  Reopen a closed or crashed session with `claude --resume <session id>` as
+  the command: resuming sends nothing into the session and costs nothing until someone writes.
+- Where it lands (Remi's rules of 2026-09-24): workspaces have themes and hold at most 6 session
+  windows. 3 this Mac (you, the Tower, the builders, computer management), 4 work (Reachy Mini,
+  robot theater, Seeed drafts, Pollen), 5 communication (emails, socials), 6 personal (global
+  simulator, family, one-off questions), 9 ludometer. The map is
+  `/Users/remi/claude_control_center/themes.json` (folder and title globs; edit it when he names
+  a new theme). Leave `--space` out and spawn-session asks `bin/pick-space` with the folder and
+  the title: the themed workspace if it has room, else the least loaded of 3, 4, 5, 6; no theme,
+  the first with room. `bin/tower spaces --cwd <folder> --title "<title>"` shows the choice and
+  why. Pass `--space N` only when Remi names a workspace. Your own lazy rotation follows the same
+  rule (secretary title and folder are theme 3).
+- Windows cannot be moved between workspaces (SIP on), only created on the active one.
+  spawn-session flips to the target by focusing an iTerm window that already lives there and,
+  when the workspace is EMPTY, walks there itself with Remi's native shortcut control + option +
+  arrow through System Events (one workspace per press; control + option + digit does not work
+  synthetically), then goes back where he was: about 4 s. You no longer press the arrows yourself.
+  If the output says `note=could_not_reach_space_N`, the window was created on the active
+  workspace instead; say so. Never ask him to switch workspaces for you.
+- After a crash or reboot, `~/.claude/sessions/` is empty. The sessions that were open are the
+  transcripts under `~/.claude/projects/*/` modified that day, matched with names and titles in
+  `/Users/remi/claude_control_center/state/known.json` (minus `closed.json`, old secretaries and
+  test throwaways). Also check that Hammerspoon is running (`open -a Hammerspoon`).
+- A folder trust dialog for one of Remi's own repos: read it, then choose yes. For his whole
+  home folder, leave the dialog and tell him: that one is his decision.
 
 ## Transcription quirks to correct silently
 
