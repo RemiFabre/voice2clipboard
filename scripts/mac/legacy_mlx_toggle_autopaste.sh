@@ -150,11 +150,17 @@ target_app=$ORIGINAL_APP
 target_iterm_session=$TARGET_ITERM_SESSION
 helper_launch_state=$HELPER_LAUNCH_STATE
 voice_mode=$VOICE_MODE
+copy_only=${VOICE2CLIPBOARD_COPY_ONLY:-0}
 EOF
 
+# The window is named and says what its close button does (a cancel, by Remi's decision of
+# 2026-09-24; the worker's HUP trap keeps the audio).
 osascript <<EOF >>"$LOG_FILE" 2>&1
 tell application "iTerm2"
-    create window with default profile command "/bin/bash $WORKER_SCRIPT"
+    set w to (create window with default profile command "/bin/bash $WORKER_SCRIPT")
+    try
+        tell current session of w to set name to "🎤 Dictation running: closing this window cancels it (audio kept)"
+    end try
 end tell
 EOF
 
