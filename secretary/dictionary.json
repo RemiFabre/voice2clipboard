@@ -1,10 +1,59 @@
 {
   "_comment": "Words the transcriber or the voice get wrong. 'say' is the correct spelling; 'hear' lists mis-transcriptions to replace in dictations (case-insensitive, whole words); 'pronounce' is how Kokoro should read it. Add entries as they come up.",
   "entries": [
-    {"say": "Reachy Mini", "hear": ["ricci mini", "rich many", "reach mini", "richie mini", "richiemini", "reachymini", "reachy meaning", "reach meaning", "reach me need", "rachimini", "richemini", "reachme"], "pronounce": "Reechy Mini"},
-    {"say": "Reachy", "hear": ["ricci", "richie"], "pronounce": "Reechy"},
-    {"say": "Claude", "hear": ["cloud code", "the cloud session", "cloud session", "cloud agent"], "pronounce": "Clawed"},
-    {"say": "Pollen Robotics", "hear": ["pollen robotic", "polen robotics"], "pronounce": "Pollen Robotics"},
-    {"say": "Kokoro", "hear": ["cocoro", "kokoro tts"], "pronounce": "Ko-ko-ro"}
+    {
+      "say": "Reachy Mini",
+      "hear": [
+        "ricci mini",
+        "rich many",
+        "reach mini",
+        "richie mini",
+        "richiemini",
+        "reachymini",
+        "reachy meaning",
+        "reach meaning",
+        "reach me need",
+        "rachimini",
+        "richemini",
+        "reachme"
+      ],
+      "pronounce": "Reechy Mini"
+    },
+    {
+      "say": "Reachy",
+      "hear": [
+        "ricci",
+        "richie"
+      ],
+      "pronounce": "Reechy"
+    },
+    {
+      "say": "Claude",
+      "hear": [
+        "cloud code",
+        "the cloud session",
+        "cloud session",
+        "cloud agent"
+      ],
+      "pronounce": "Clawed"
+    },
+    {
+      "say": "Pollen Robotics",
+      "hear": [
+        "pollen robotic",
+        "polen robotics",
+        "polygon robotics",
+        "pollen robotix"
+      ],
+      "pronounce": "Pollen Robotics"
+    },
+    {
+      "say": "Kokoro",
+      "hear": [
+        "cocoro",
+        "kokoro tts"
+      ],
+      "pronounce": "Ko-ko-ro"
+    }
   ]
 }
