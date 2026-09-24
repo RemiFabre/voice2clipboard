@@ -8,5 +8,6 @@
   <key>CFBundleVersion</key><string>1</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>LSUIElement</key><true/>
+  <key>NSBluetoothAlwaysUsageDescription</key><string>Detects when the earbuds connect or disconnect, to stop a dictation that lost its headset and to confirm the system is ready.</string>
   <key>NSSupportsAutomaticTermination</key><false/>
 </dict></plist>
