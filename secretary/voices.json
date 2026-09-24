@@ -1,0 +1,26 @@
+{
+  "_about": [
+    "Which voice speaks for whom in the earbuds. A role is a project or a durable job; every name an agent",
+    "may announce itself with (inbox_post.sh --from, the ledger's project name) is listed as an alias, so a",
+    "rebuilt or renamed agent keeps its voice. 'role' is also what is spoken as the introduction ('<role> here.').",
+    "Names not found here get the least used voice of the pool and are remembered in the untracked file",
+    "runtime/secretary/voices.learned.json (same format; move an entry here to make it permanent, or edit its voice).",
+    "This file is public: project and job names only. Voices must be in VOICE_POOL_EN of lib.sh, except the secretary's."
+  ],
+  "roles": [
+    {"role": "secretary", "aliases": ["the secretary", "voice2clipboard", "voice to clipboard"], "voice": "anna"},
+    {"role": "secretary builder", "aliases": ["voice secretary builder", "builder"], "voice": "bill_boerst"},
+    {"role": "session tower", "aliases": ["claude control center", "control center", "tower", "tower builder", "session tower builder"], "voice": "caro_davy"},
+    {"role": "reachy mini", "aliases": [], "voice": "stuart_bell"},
+    {"role": "reachy mini wobbler", "aliases": ["wobbler", "wobbler agent"], "voice": "charles"},
+    {"role": "robot theater", "aliases": ["agentic robot theater"], "voice": "michael"},
+    {"role": "voice lab", "aliases": ["local tts lab", "tts lab"], "voice": "jane"},
+    {"role": "ludometer", "aliases": [], "voice": "peter_yearsley"},
+    {"role": "open warlock", "aliases": ["openwarlock", "openwarlock agent"], "voice": "george"},
+    {"role": "agentic socials", "aliases": ["open social platform"], "voice": "eve"},
+    {"role": "claude usage study", "aliases": ["usage study"], "voice": "azelma"},
+    {"role": "micro duck", "aliases": [], "voice": "paul"},
+    {"role": "english coach", "aliases": ["english coaching"], "voice": "fantine"},
+    {"role": "family and one-off questions", "aliases": ["family research", "research", "one-off", "one-off question", "quick question"], "voice": "vera"}
+  ]
+}

@@ -1,12 +1,13 @@
 #!/bin/bash
 # Single earbud press: pause speech if speaking, resume if paused, otherwise read the next queued message.
 source "$(dirname "$0")/lib.sh"
+tts_finish_if_over
 pid="$(tts_pid)"
 if [[ -n "$pid" ]]; then
   if [[ "$(cat "$TTS_STATE_FILE" 2>/dev/null)" == "paused" ]]; then
-    kill -CONT "$pid" && echo playing >"$TTS_STATE_FILE" && log "tts resumed"
+    tts_resume "$pid"
   else
-    kill -STOP "$pid" && echo paused >"$TTS_STATE_FILE" && log "tts paused"
+    tts_pause "$pid"
   fi
   exit 0
 fi
