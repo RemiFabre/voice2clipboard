@@ -46,6 +46,28 @@ for i in 1 2 3 4 5 6; do voice_for "parallel $i" >/dev/null & done; wait
 check "parallel learning loses nothing" "[[ \$(grep -c '\"role\": \"parallel' '$SECRETARY_RUNTIME/voices.learned.json') == 6 ]]"
 check "the tracked file was not written" "[[ \"\$(cksum <'$ROOT/secretary/voices.json')\" == '$before' ]]"
 
+# French messages: introduction in French, with the role's French name when it has one (2026-09-25)
+check "French introduction uses the French name" "[[ \"\$(intro_text_for 'claude control center' fr)\" == 'Un message de la tour de contrôle.' ]]"
+check "English introduction unchanged" "[[ \"\$(intro_text_for 'claude control center' en)\" == 'session tower here.' ]]"
+check "a product name stays as it is in French" "[[ \"\$(intro_text_for 'micro duck' fr)\" == 'Un message de micro duck.' ]]"
+check "the secretary has no introduction in French either" "[[ -z \"\$(intro_text_for 'the secretary' fr)\" ]]"
+check "repeat: 'again' in the message's language" "[[ \"\$(intro_text_for secretary en again)\" == 'Again.' && \"\$(intro_text_for secretary fr again)\" == 'Encore une fois.' && \"\$(intro_text_for tower en again)\" == 'session tower here, again.' && \"\$(intro_text_for tower fr again)\" == 'Un message de la tour de contrôle, encore une fois.' ]]"
+check "every tracked French name is a non-empty string" "python3 - <<PY
+import json,sys
+roles=json.load(open('$ROOT/secretary/voices.json'))['roles']
+sys.exit(0 if all(isinstance(r.get('role_fr', 'x'), str) and r.get('role_fr', 'x').strip() for r in roles) else 1)
+PY"
+python3 - "$SECRETARY_RUNTIME/voices.learned.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["roles"] += [{"role": "family and one-off questions", "aliases": ["kitchen table"], "voice": "vera"},
+               {"role": "garden study", "role_fr": "l'étude du jardin", "aliases": [], "voice": "alba"}]
+json.dump(d, open(sys.argv[1], "w"))
+PY
+check "a learned alias of a tracked role takes its French name" "[[ \"\$(intro_text_for 'kitchen table' fr)\" == 'Un message des questions diverses.' ]]"
+check "a learned role can carry its own French name" "[[ \"\$(intro_text_for 'garden study' fr)\" == \"Un message de l'étude du jardin.\" && \"\$(intro_text_for 'garden study')\" == 'garden study here.' ]]"
+check "counts: English digits, French words" "[[ \"\$(count_text en 2)\" == '2 older waiting.' && \"\$(count_text fr 1)\" == 'Encore un message en attente.' && \"\$(count_text fr 3)\" == 'Encore trois messages en attente.' ]]"
+
 # fallbacks: a broken or missing roles file, or a voice that does not exist, must still speak
 printf '{ broken' >"$TMP/bad.json"
 check "broken roles file: still a pool voice" "v=\$(SECRETARY_VOICES_FILE='$TMP/bad.json' voice_for 'ludometer'); [[ ' $VOICE_POOL_EN ' == *\" \$v \"* ]]"

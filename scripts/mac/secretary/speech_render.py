@@ -4,6 +4,7 @@
   speech_render.py render --lang en --voice af_heart --out file.wav "text"
   speech_render.py concat --out file.wav [--lead-in-ms 350] [--gap-ms 150] a.wav b.wav ...
   speech_render.py normalize a.wav b.wav ...      (in place: same speech level for every voice)
+  speech_render.py lang "text"                     -> en or fr (for messages posted without --lang)
 
 render applies the pronunciation dictionary and splits long texts into chunks of a few
 sentences. The daemon serves one request at a time (measured 2026-09-19: a 600 word text takes
@@ -125,7 +126,9 @@ def normalize(path):
 
 
 def render(text, lang, voice, out):
-    text = dictionary.apply(text, "pronounce")
+    # respellings are per language: an English one ("Claude" -> "Clawed") read by the French voice
+    # was one more English sound in a French message (2026-09-25)
+    text = dictionary.apply(text, "pronounce" if lang == "en" else "pronounce_" + lang)
     parts = chunks(text)
     if not parts:
         raise SystemExit("empty text")
@@ -145,6 +148,29 @@ def render(text, lang, voice, out):
             normalize(out)
         except Exception as e:      # a voice at its own level is better than no voice
             print(f"speech_render: not normalised ({e})", file=sys.stderr)
+
+
+# Language of a message whose sender did not give one (inbox_post.sh without --lang: the hooks
+# relaying an agent's "Spoken:" paragraph). Remi, 2026-09-25: French messages must be French from
+# the first word to the last, voice included. English stays the default: French needs at least
+# two French marks (common words, elisions such as "l'" or "c'", accents) and more of them than
+# English common words.
+FR_WORDS = set("""le la les des du une est et que qui pour pas dans avec sur ce cette ces il elle ils elles je tu
+    nous vous sont mais au aux ne se sa ses mon ma mes leur leurs été être avoir fait très aussi donc alors comme tout
+    tous rien quand encore déjà ça voilà merci oui non peut faut suis sommes""".split())
+EN_WORDS = set("""the and is are to of that it for with this was be not you we have has will from at by or an as but
+    they can what there which do does did would should could now so if all my your our been were no yes just here
+    i me it's don't""".split())
+
+
+def guess_lang(text):
+    low = text.lower().replace("\u2019", "'")
+    words = re.findall(r"[a-zà-ÿœ']+", low)
+    en = sum(w in EN_WORDS for w in words)
+    fr = sum(w.strip("'") in FR_WORDS for w in words)
+    fr += len(re.findall(r"\b(?:c|d|j|l|m|n|qu|s|t)'[a-zà-ÿ]", low))
+    fr += 1 if re.search(r"[àâçéèêëîïôûùœ]", low) else 0
+    return "fr" if fr >= 2 and fr > en else "en"
 
 
 def tail(path, out, from_s, lead_in_ms=350):
@@ -171,8 +197,11 @@ def main():
     n = sub.add_parser("normalize"); n.add_argument("files", nargs="+")
     t = sub.add_parser("tail"); t.add_argument("--out", required=True); t.add_argument("--from-s", type=float, required=True)
     t.add_argument("--lead-in-ms", type=int, default=350); t.add_argument("file")
+    g = sub.add_parser("lang"); g.add_argument("text", nargs="+")
     a = ap.parse_args()
-    if a.cmd == "render":
+    if a.cmd == "lang":
+        print(guess_lang(" ".join(a.text)))
+    elif a.cmd == "render":
         render(" ".join(a.text), a.lang, a.voice, a.out)
     elif a.cmd == "normalize":
         for f in a.files:

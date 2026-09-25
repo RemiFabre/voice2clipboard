@@ -2,25 +2,28 @@
   "_about": [
     "Which voice speaks for whom in the earbuds. A role is a project or a durable job; every name an agent",
     "may announce itself with (inbox_post.sh --from, the ledger's project name) is listed as an alias, so a",
-    "rebuilt or renamed agent keeps its voice. 'role' is also what is spoken as the introduction ('<role> here.').",
+    "rebuilt or renamed agent keeps its voice. 'role' is also what is spoken as the introduction ('<role> here.');",
+    "'role_fr', when present, is the name in French messages ('Un message de la tour de contrôle.'), with its",
+    "article (le, la, les, l'); without it the English name is used. Product names (reachy mini, micro duck,",
+    "open warlock) keep their English name.",
     "Names not found here get the least used voice of the pool and are remembered in the untracked file",
     "runtime/secretary/voices.learned.json (same format; move an entry here to make it permanent, or edit its voice).",
     "This file is public: project and job names only. Voices must be in VOICE_POOL_EN of lib.sh, except the secretary's."
   ],
   "roles": [
-    {"role": "secretary", "aliases": ["the secretary", "voice2clipboard", "voice to clipboard"], "voice": "anna"},
-    {"role": "secretary builder", "aliases": ["voice secretary builder", "builder"], "voice": "bill_boerst"},
-    {"role": "session tower", "aliases": ["claude control center", "control center", "tower", "tower builder", "session tower builder"], "voice": "caro_davy"},
+    {"role": "secretary", "role_fr": "la secrétaire", "aliases": ["the secretary", "voice2clipboard", "voice to clipboard"], "voice": "anna"},
+    {"role": "secretary builder", "role_fr": "le développeur de la secrétaire", "aliases": ["voice secretary builder", "builder"], "voice": "bill_boerst"},
+    {"role": "session tower", "role_fr": "la tour de contrôle", "aliases": ["claude control center", "control center", "tower", "tower builder", "session tower builder"], "voice": "caro_davy"},
     {"role": "reachy mini", "aliases": [], "voice": "stuart_bell"},
-    {"role": "reachy mini wobbler", "aliases": ["wobbler", "wobbler agent"], "voice": "charles"},
-    {"role": "robot theater", "aliases": ["agentic robot theater"], "voice": "michael"},
-    {"role": "voice lab", "aliases": ["local tts lab", "tts lab"], "voice": "jane"},
-    {"role": "ludometer", "aliases": [], "voice": "peter_yearsley"},
+    {"role": "reachy mini wobbler", "role_fr": "le wobbler de Reachy Mini", "aliases": ["wobbler", "wobbler agent"], "voice": "charles"},
+    {"role": "robot theater", "role_fr": "le théâtre de robots", "aliases": ["agentic robot theater"], "voice": "michael"},
+    {"role": "voice lab", "role_fr": "le labo des voix", "aliases": ["local tts lab", "tts lab"], "voice": "jane"},
+    {"role": "ludometer", "role_fr": "le ludomètre", "aliases": [], "voice": "peter_yearsley"},
     {"role": "open warlock", "aliases": ["openwarlock", "openwarlock agent"], "voice": "george"},
-    {"role": "agentic socials", "aliases": ["open social platform"], "voice": "eve"},
-    {"role": "claude usage study", "aliases": ["usage study"], "voice": "azelma"},
+    {"role": "agentic socials", "role_fr": "les réseaux sociaux", "aliases": ["open social platform"], "voice": "eve"},
+    {"role": "claude usage study", "role_fr": "l'étude sur l'usage de Claude", "aliases": ["usage study"], "voice": "azelma"},
     {"role": "micro duck", "aliases": [], "voice": "paul"},
-    {"role": "english coach", "aliases": ["english coaching"], "voice": "fantine"},
-    {"role": "family and one-off questions", "aliases": ["family research", "research", "one-off", "one-off question", "quick question"], "voice": "vera"}
+    {"role": "english coach", "role_fr": "le coach d'anglais", "aliases": ["english coaching"], "voice": "fantine"},
+    {"role": "family and one-off questions", "role_fr": "les questions diverses", "aliases": ["family research", "research", "one-off", "one-off question", "quick question"], "voice": "vera"}
   ]
 }

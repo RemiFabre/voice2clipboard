@@ -10,14 +10,16 @@ next="$(inbox_next_playable)"
 if [[ -z "$next" && "$(inbox_rendering_count)" -gt 0 ]]; then
   log "inbox_read_next: only messages still being rendered: saying so, the ding will follow"
   : >"$DING_OWED"
-  wait_clip="$(cached_clip en "$SECRETARY_VOICE" "$NOT_READY_TEXT")"
-  SAY_NOW_INTERRUPT=1 exec "$(dirname "$0")/say_now.sh" ${wait_clip:+--wav "$wait_clip"} "$NOT_READY_TEXT"
+  lang="$(rendering_lang)"; voice="$(voice_for "" "$lang")"; line="$(not_ready_text "$lang")"
+  wait_clip="$(cached_clip "$lang" "$voice" "$line")"
+  SAY_NOW_INTERRUPT=1 exec "$(dirname "$0")/say_now.sh" --lang "$lang" --voice "$voice" ${wait_clip:+--wav "$wait_clip"} "$line"
 fi
 if [[ -z "$next" ]]; then
-  empty="$(cached_clip en "$SECRETARY_VOICE" "No new messages.")"
-  SAY_NOW_INTERRUPT=1 exec "$(dirname "$0")/say_now.sh" ${empty:+--wav "$empty"} "No new messages."
+  lang="$(last_heard_lang)"; voice="$(voice_for "" "$lang")"; line="$(no_messages_text "$lang")"
+  empty="$(cached_clip "$lang" "$voice" "$line")"
+  SAY_NOW_INTERRUPT=1 exec "$(dirname "$0")/say_now.sh" --lang "$lang" --voice "$voice" ${empty:+--wav "$empty"} "$line"
 fi
-lang="$(sed -n 's/^lang=//p' "$next" | head -n 1)"; from="$(sed -n 's/^from=//p' "$next" | head -n 1)"; lang="${lang:-en}"
+lang="$(message_lang "$next")"; from="$(sed -n 's/^from=//p' "$next" | head -n 1)"
 body="$(awk 'f{print} /^$/{f=1}' "$next")"
 body_wav="${next%.txt}.wav"
 mv "$next" "$SPOKEN_DIR/"
@@ -26,10 +28,11 @@ export SAY_NOW_ARCHIVE="$SPOKEN_DIR/$(basename "$next")"
 archive_prune
 remaining=$(( $(ls "$INBOX_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ') - $(inbox_rendering_count) ))   # rendered ones only
 # The secretary speaks in the first person with its own voice; agents introduce themselves in
-# two words ("micro duck here.") and each keeps a consistent voice.
+# two words ("micro duck here.") and each keeps a consistent voice. Introduction and count are in
+# the message's language ("Un message de la tour de contrôle.", "Encore deux messages en attente.").
 voice="$(voice_for "$from" "$lang")"
-intro="$(intro_text_for "$from")"
-count=""; [[ "$remaining" -gt 0 ]] && count="$remaining older waiting."
+intro="$(intro_text_for "$from" "$lang")"
+count=""; [[ "$remaining" -gt 0 ]] && count="$(count_text "$lang" "$remaining")"
 if [[ -s "$body_wav" ]]; then
   # Introduction and count are small cached clips; joining files takes milliseconds.
   clips=()

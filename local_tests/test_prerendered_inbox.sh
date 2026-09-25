@@ -97,4 +97,55 @@ python3 "$SEC/speech_render.py" render --lang en --voice af_heart --out "$TMP/lo
 check "a 240 word text is split into several requests" "[[ \$(wc -l <'$STUB_LOG') -ge 3 ]]"
 check "chunks are joined into one file" "python3 -c \"import wave; w = wave.open('$TMP/long.wav'); assert w.getnframes() >= 3 * 4800\""
 
+# 5. French messages are French from the first word to the last (Remi, 2026-09-25): introduction,
+#    count, and the short answers of a double press, in the French voice
+idle() { for _ in $(seq 1 50); do [[ -z "$(source "$SEC/lib.sh"; tts_pid)" ]] && break; /bin/sleep 0.1; done; }
+for _ in 1 2 3; do idle; ls "$INBOX"/*.txt >/dev/null 2>&1 && bash "$SEC/inbox_read_next.sh" >/dev/null 2>&1; done   # drain
+idle; : >"$STUB_LOG"; : >"$LOG"
+FR="$(source "$SEC/lib.sh"; echo "$FRENCH_VOICE")"
+bash "$SEC/inbox_post.sh" --from "session tower" --lang fr "Premier rapport." >/dev/null
+wait_for "! ls '$INBOX'/*.rendering >/dev/null 2>&1"
+bash "$SEC/inbox_post.sh" --from "session tower" "Tout est prêt." >/dev/null
+wait_for "! ls '$INBOX'/*.rendering >/dev/null 2>&1"
+check "a French text posted without --lang is recognised" "grep -q 'lang=fr (guessed)' '$LOG'"
+check "French introduction pre-rendered in the French voice" "grep -q \"^$FR|Un message de la tour de contrôle.\$\" '$STUB_LOG'"
+check "no English introduction for a French message" "! grep -q 'session tower here' '$STUB_LOG'"
+check "French count pre-rendered" "grep -q \"^$FR|Encore un message en attente.\$\" '$STUB_LOG'"
+check "French short answers pre-rendered" "grep -q \"^$FR|Le message n'est pas encore prêt.\$\" '$STUB_LOG' && grep -q \"^$FR|Il n'y a pas de nouveau message.\$\" '$STUB_LOG'"
+before=$(wc -l <"$STUB_LOG"); idle
+bash "$SEC/inbox_read_next.sh" >/dev/null 2>&1
+wait_for "grep -q 'say_now.*pre-rendered' '$LOG'"
+check "played: French introduction, message, French count" "grep -q \"say_now \\[$FR pre-rendered\\]: Un message de la tour de contrôle. Tout est prêt. Encore un message\" '$LOG'"
+idle; bash "$SEC/inbox_read_next.sh" >/dev/null 2>&1; idle; : >"$LOG"
+bash "$SEC/inbox_read_next.sh" >/dev/null 2>&1
+wait_for "grep -q 'say_now' '$LOG'"
+check "empty inbox after a French message: said in French, from the cache" "grep -q \"say_now \\[$FR pre-rendered\\]: Il n'y a pas de nouveau message.\" '$LOG'"
+check "nothing rendered at read time" "[[ \$(wc -l <'$STUB_LOG') -eq $before ]]"
+bash "$SEC/inbox_post.sh" --from "session tower" "The third report is ready." >/dev/null
+wait_for "! ls '$INBOX'/*.rendering >/dev/null 2>&1"
+check "an English text posted without --lang stays English" "grep -q 'lang=en (guessed)' '$LOG'"
+idle; bash "$SEC/inbox_read_next.sh" >/dev/null 2>&1; idle; : >"$LOG"
+bash "$SEC/inbox_read_next.sh" >/dev/null 2>&1
+wait_for "grep -q 'say_now' '$LOG'"
+check "empty inbox after an English message: English again" "grep -q 'say_now \\[.*\\]: No new messages.' '$LOG' && ! grep -q \"$FR\" '$LOG'"
+# a French message still being rendered: "Le message n'est pas encore prêt."
+printf 'lang=fr\nfrom=micro duck\n\nEn cours.\n' >"$INBOX/9-micro_duck.txt"; : >"$INBOX/9-micro_duck.rendering"
+check "a press is answered at once in French too (cached)" "( source '$SEC/lib.sh'; next_message_ready )"
+idle; : >"$LOG"; bash "$SEC/inbox_read_next.sh" >/dev/null 2>&1
+wait_for "grep -q 'say_now' '$LOG'"
+check "waiting for a French message: not ready, in French" "grep -q \"say_now \\[$FR pre-rendered\\]: Le message n'est pas encore prêt.\" '$LOG'"
+
+# 6. language guess and per-language respellings
+for t in "The antenna script is fixed." "I sent it to reachy mini, the tests pass." "Done. Le Mans is not relevant here." "OK."; do
+  check "guessed English: $t" "[[ \$(python3 '$SEC/speech_render.py' lang \"$t\") == en ]]"
+done
+for t in "C'est prêt." "J'ai envoyé le rapport à la tour de contrôle." "Tout est fini, les tests passent."; do
+  check "guessed French: $t" "[[ \$(python3 '$SEC/speech_render.py' lang \"$t\") == fr ]]"
+done
+printf '{"entries":[{"say":"Claude","pronounce":"Clawed"},{"say":"Reachy","pronounce":"Reechy","pronounce_fr":"Ritchi"}]}' >"$TMP/dict.json"
+: >"$STUB_LOG"
+VOICE2CLIPBOARD_DICTIONARY="$TMP/dict.json" python3 "$SEC/speech_render.py" render --lang en --voice x --out "$TMP/d1.wav" "Claude and Reachy."
+VOICE2CLIPBOARD_DICTIONARY="$TMP/dict.json" python3 "$SEC/speech_render.py" render --lang fr --voice y --out "$TMP/d2.wav" "Claude et Reachy."
+check "respellings per language (English ones never reach the French voice)" "grep -q '^x|Clawed and Reechy.' '$STUB_LOG' && grep -q '^y|Claude et Ritchi.' '$STUB_LOG'"
+
 echo; [[ "$fails" == 0 ]] && echo "all passed" || { echo "$fails failed"; exit 1; }

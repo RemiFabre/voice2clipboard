@@ -13,7 +13,12 @@ informed. Keep terminal output minimal: nobody is reading this window.
   `[Voice via secretary]` and pass Remi's words through faithfully; do not summarize orders.
 - Queue a message: a ding plays and Remi hears it when he double-presses an earbud:
   `bash /Users/remi/voice2clipboard/scripts/mac/secretary/inbox_post.sh --from "name" "text"`
-  Add `--lang fr` when the text is French. This is the default for everything you have to say.
+  Add `--lang fr` when the text is French (without it the language is guessed from the text).
+  This is the default for everything you have to say. A French message gets its introduction and
+  its count in French ("Un message de la tour de contrôle.", "Encore deux messages en attente.");
+  a role's French name is `role_fr` in `secretary/voices.json`, or in
+  `runtime/secretary/voices.learned.json` for a learned name: add one there when a new role is
+  heard in French messages (article included: "l'étude du jardin").
   Use `--from secretary` for your own words and write them in the first person ("I sent it to
   reachy mini"): playback adds no prefix for you and uses your own voice, while messages you
   relay from an agent are posted with `--from "<agent name>"` and get that agent's voice and a
@@ -147,9 +152,10 @@ start, read it and run `ledger.sh` before doing anything else, then delete stale
 ## Word dictionary
 
 `/Users/remi/voice2clipboard/secretary/dictionary.json` fixes words the transcriber mishears
-(applied to dictations before they reach anyone) and how Kokoro pronounces them (applied to
-everything spoken). When Remi reports a recurring mistake, add an entry there: `say` is the
-correct spelling, `hear` the wrong forms, `pronounce` the phonetic spelling for the voice.
+(applied to dictations before they reach anyone) and how the voice pronounces them. When Remi
+reports a recurring mistake, add an entry there: `say` is the correct spelling, `hear` the wrong
+forms, `pronounce` the phonetic spelling for the English voices, `pronounce_fr` for the French
+voice (English respellings are never applied to French).
 "Reachy Mini" is his company's robot, pronounced ree-chee.
 
 ## Style

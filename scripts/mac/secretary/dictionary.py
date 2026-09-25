@@ -2,6 +2,8 @@
 """Word dictionary for the voice layer (secretary/dictionary.json).
   dictionary.py transcribe  < text   -> fixes mis-transcribed words in a dictation
   dictionary.py pronounce   < text   -> rewrites words so Kokoro pronounces them right
+  dictionary.py pronounce_fr < text  -> same for the French voice, from "pronounce_fr" only: the
+                                        English respellings ("Clawed") are wrong in French
 Importable: apply(text, mode)."""
 import json
 import os
@@ -20,14 +22,15 @@ def _load():
     if _cache["mtime"] != mtime:
         with open(DICT_PATH) as f:
             entries = json.load(f).get("entries", [])
-        transcribe, pronounce = [], []
+        transcribe, pronounce, pronounce_fr = [], [], []
         for e in entries:
             say = e.get("say", "")
             for h in sorted(e.get("hear", []), key=len, reverse=True):  # longest first
                 transcribe.append((re.compile(r"\b" + re.escape(h) + r"\b", re.I), say))
-            if e.get("pronounce") and e["pronounce"] != say:
-                pronounce.append((re.compile(r"\b" + re.escape(say) + r"\b", re.I), e["pronounce"]))
-        _cache.update(mtime=mtime, rules={"transcribe": transcribe, "pronounce": pronounce})
+            for field, rules in (("pronounce", pronounce), ("pronounce_fr", pronounce_fr)):
+                if e.get(field) and e[field] != say:
+                    rules.append((re.compile(r"\b" + re.escape(say) + r"\b", re.I), e[field]))
+        _cache.update(mtime=mtime, rules={"transcribe": transcribe, "pronounce": pronounce, "pronounce_fr": pronounce_fr})
     return _cache["rules"]
 
 

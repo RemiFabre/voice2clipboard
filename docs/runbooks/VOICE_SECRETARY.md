@@ -46,7 +46,8 @@ found nowhere gets the least used voice of the pool and is remembered in
 `runtime/secretary/voices.learned.json`, untracked because the repository is public and sender
 names can be personal; move an entry to the tracked file to make it permanent, or edit its voice
 (clips are cached by voice and text, so a changed mapping re-renders by itself). The introduction
-speaks the role's name ("session tower here."), so aliases also sound the same. The secretary is
+speaks the role's name ("session tower here."; in French messages its `role_fr`, "Un message de la
+tour de contrôle.", see 2026-09-25 below), so aliases also sound the same. The secretary is
 always `anna` (Remi's choice on 2026-09-20 late evening after hearing it; it was `alba` until
 then, which moved to the end of the pool, last to be handed out) and has no introduction, French is always `estelle`, and if the file or the helper
 is broken the old hash of the name over the pool still answers. To keep voices rotating, roles
@@ -129,6 +130,42 @@ cached clip "Not ready yet." at once, nothing is consumed, and `ding_owed` makes
 ding ignore its 20 s cooldown, since he is waiting for it. A marker older than 180 s
 (`SECRETARY_RENDERING_MAX_S`) belongs to a render that died and no longer hides the message.
 The "N older waiting" count ignores unrendered messages.
+
+## French messages are French from the first word to the last (2026-09-25)
+
+Reported by Remi at night: in French messages the middle was fine but the start and the end
+sounded bad. Cause: the message's language (`lang=` in the inbox file) chose the voice of the
+body only. The introduction ("<role> here.") and the count ("N older waiting.") were always the
+English sentences, rendered by the French voice, with English role names.
+
+Now `lib.sh` builds every sentence around a message in its language: `intro_text_for <name>
+<lang>` ("Un message de la tour de contrôle."), `count_text <lang> <n>` ("Encore deux messages en
+attente.", numbers in words), and the two short answers of a double press: "Il n'y a pas de
+nouveau message." when the last message heard was French, "Le message n'est pas encore prêt."
+when the one being rendered is French. Clips are cached per language, voice and text;
+`inbox_post.sh` pre-renders the French ones with a French message. Roles carry a French name,
+article included (`role_fr` in `secretary/voices.json`, and in the untracked learned file for
+learned roles); product names keep their English name; "de" contracts (du, des, d').
+`tts_repeat_last.sh` says "encore une fois" in French.
+
+Wording chosen by measurement, never by playing into the earbuds: each candidate rendered three
+times by the real French voice to files, transcribed by Whisper large-v3-turbo. The engine
+garbles very short sentences about one time in three, and a clip is cached from one render, so
+only sentences right three times out of three were kept. "Ici Reachy Mini." lost "Mini" in
+every render and "Ici micro duck." was never understood, while "Un message de ..." was right
+every time; "Pas encore prêt." and "Aucun nouveau message." each failed once in three.
+
+Two more causes of English sounds in French messages, fixed at the same time:
+- `inbox_post.sh` without `--lang` (the hooks relaying an agent's "Spoken:" paragraph) was always
+  English. The language is now guessed (`speech_render.py lang`): English unless there are at
+  least two French marks (common words, elisions such as "l'" or "c'", accents) and more of them
+  than English common words. The log says `lang=fr (guessed)`.
+- The pronunciation respellings of `secretary/dictionary.json` ("Claude" read as "Clawed") were
+  applied to French too. `pronounce` is now English only; an entry may add `pronounce_fr` for the
+  French voice.
+
+Tests: `bash local_tests/test_sticky_voices.sh`, `bash local_tests/test_prerendered_inbox.sh`
+(stand-in voice, sections 5 and 6).
 
 ## Pause and resume of a message (2026-09-21)
 

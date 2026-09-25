@@ -3,6 +3,8 @@
 
   voices.py voice <name>     -> the voice for that sender
   voices.py display <name>   -> the role's spoken name ("session tower" for "claude control center")
+  voices.py display <name> fr -> its French name ("la tour de contrôle"), from "role_fr"; the
+                                English one when the role has none
   voices.py list             -> every role, its voice and aliases
 
 secretary/voices.json (tracked, edited by hand) maps roles and their aliases to voices. A name
@@ -95,6 +97,17 @@ def resolve(name):
     return role
 
 
+def display(role, lang):
+    """Spoken name of a role in a language. A French voice reading "session tower here." is what
+    Remi heard as a bad start of French messages (2026-09-25): roles may carry "role_fr". A learned
+    entry filed under a tracked role's name (an extra alias) takes that role's French name."""
+    if lang == "fr":
+        fr = role.get("role_fr") or (find(role["role"], load(ROLES_FILE)) or {}).get("role_fr")
+        if fr:
+            return fr
+    return role["role"]
+
+
 def main(argv):
     if len(argv) >= 2 and argv[1] == "list":
         for r in load(ROLES_FILE) + load(LEARNED_FILE):
@@ -105,7 +118,7 @@ def main(argv):
     role = resolve(argv[2])
     if role is None:
         return 1
-    print(role["voice"] if argv[1] == "voice" else role["role"])
+    print(role["voice"] if argv[1] == "voice" else display(role, argv[3] if len(argv) > 3 else "en"))
     return 0
 
 

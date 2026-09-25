@@ -173,9 +173,10 @@ VOICE_POOL_EN="vera fantine charles paul eponine azelma george mary jane michael
 # The old hash of the name stays as the fallback, so a broken file never means silence.
 VOICES_PY="$ROOT_DIR/scripts/mac/secretary/voices.py"
 VOICES_LEARNED="${SECRETARY_VOICES_LEARNED:-$SECRETARY_RUNTIME/voices.learned.json}"   # per runtime: tests learn elsewhere
-voices_query() { SECRETARY_VOICES_LEARNED="$VOICES_LEARNED" SECRETARY_VOICE_POOL="$VOICE_POOL_EN" python3 "$VOICES_PY" "$1" "$2" 2>/dev/null; }
+voices_query() { SECRETARY_VOICES_LEARNED="$VOICES_LEARNED" SECRETARY_VOICE_POOL="$VOICE_POOL_EN" python3 "$VOICES_PY" "$@" 2>/dev/null; }
 # The role's spoken name: "session tower" for "claude control center"; the name itself when unknown.
-display_name_for() { local d; d="$(voices_query display "${1:-}")"; printf '%s' "${d:-${1:-}}"; }
+# display_name_for <name> fr: its French name ("la tour de contrôle", role_fr in voices.json).
+display_name_for() { local d; d="$(voices_query display "${1:-}" "${2:-en}")"; printf '%s' "${d:-${1:-}}"; }
 is_secretary_name() {
   case "$(printf '%s' "${1:-}" | tr 'A-Z' 'a-z')" in secretary|"the secretary") return 0 ;; esac
   [[ "$(voices_query display "${1:-}")" == "secretary" ]]
@@ -233,6 +234,7 @@ clip_is_cached() { local key; key="$(printf '%s|%s|%s' "$1" "$2" "$3" | cksum | 
 # render that died: the message is then read anyway, rendered on demand as before.
 RENDERING_MAX_S="${SECRETARY_RENDERING_MAX_S:-180}"
 NOT_READY_TEXT="Not ready yet."    # said (cached clip, plays at once) when only unrendered messages wait
+NO_MESSAGES_TEXT="No new messages."
 DING_OWED="$SECRETARY_RUNTIME/ding_owed"   # he was told "not ready yet": the ding that follows must not be skipped
 message_rendering() {   # message_rendering <message.txt>
   local m="${1%.txt}.rendering"
@@ -246,16 +248,65 @@ inbox_next_playable() {   # newest message that is not being rendered; prints no
   return 1
 }
 inbox_rendering_count() { local f n=0; for f in "$INBOX_DIR"/*.txt; do [[ -f "$f" ]] && message_rendering "$f" && n=$((n + 1)); done; printf '%s' "$n"; }
+
+# The sentences around a message are spoken in its language and voice (Remi, 2026-09-25: in
+# French messages the introduction and the count were English, read by the French voice, so
+# the start and the end sounded bad while the middle was fine). A message's language is the
+# "lang=" line inbox_post.sh writes (given with --lang, or guessed from the text).
+# The French wording was chosen by measurement (three renders of each candidate in the French
+# voice, transcribed by Whisper large-v3-turbo): the engine garbles very short sentences about
+# one time in three ("Ici Reachy Mini." lost "Mini", "Pas encore prêt." and "Aucun nouveau
+# message." came out wrong once each), and a clip is cached from a single render, so every
+# French sentence here is one that came out right three times out of three.
+message_lang() { [[ "$(sed -n 's/^lang=//p' "$1" 2>/dev/null | head -n 1)" == "fr" ]] && printf fr || printf en; }
+# "Not ready yet." in the language of the message he is waiting for (the newest being rendered);
+# "No new messages." in the language of the last message he heard.
+rendering_lang() {
+  local f
+  for f in $(ls "$INBOX_DIR"/*.txt 2>/dev/null | sort -r); do message_rendering "$f" && { message_lang "$f"; return; }; done
+  printf en
+}
+last_heard_lang() { local f; f="$(ls -t "$SPOKEN_DIR"/*.txt 2>/dev/null | head -n 1)"; if [[ -n "$f" ]]; then message_lang "$f"; else printf en; fi; }
+not_ready_text() { if [[ "${1:-en}" == "fr" ]]; then printf "Le message n'est pas encore prêt."; else printf '%s' "$NOT_READY_TEXT"; fi; }
+no_messages_text() { if [[ "${1:-en}" == "fr" ]]; then printf "Il n'y a pas de nouveau message."; else printf '%s' "$NO_MESSAGES_TEXT"; fi; }
+count_text() {   # count_text <lang> <n>: "2 older waiting." / "Encore deux messages en attente."
+  if [[ "$1" != "fr" ]]; then printf '%s older waiting.' "$2"; return; fi
+  local n="$2"   # in words: the French voice reads digits less surely
+  case "$2" in 2) n=deux ;; 3) n=trois ;; 4) n=quatre ;; 5) n=cinq ;; 6) n=six ;; 7) n=sept ;; 8) n=huit ;; 9) n=neuf ;; 10) n=dix ;; esac
+  if [[ "$2" == "1" ]]; then printf 'Encore un message en attente.'; else printf 'Encore %s messages en attente.' "$n"; fi
+}
 # True when a double press will produce speech at once (pre-rendered message, or one of the two
 # cached sentences): the speech itself is then the feedback, and the "working on it" ticks
 # would only play over its first words.
 next_message_ready() {
   local next; next="$(inbox_next_playable)"
   if [[ -n "$next" ]]; then [[ -s "${next%.txt}.wav" ]]; return; fi
-  if [[ "$(inbox_rendering_count)" -gt 0 ]]; then clip_is_cached en "$SECRETARY_VOICE" "$NOT_READY_TEXT"
-  else clip_is_cached en "$SECRETARY_VOICE" "No new messages."; fi
+  local lang
+  if [[ "$(inbox_rendering_count)" -gt 0 ]]; then lang="$(rendering_lang)"; clip_is_cached "$lang" "$(voice_for "" "$lang")" "$(not_ready_text "$lang")"
+  else lang="$(last_heard_lang)"; clip_is_cached "$lang" "$(voice_for "" "$lang")" "$(no_messages_text "$lang")"; fi
 }
-intro_text_for() { local d; d="$(display_name_for "$1")"; if [[ "$d" == "secretary" ]] || is_secretary_name "$1"; then printf ''; else printf '%s here.' "$d"; fi; }
+# "de" before a French name: "du développeur", "des questions", "d'Open Warlock", "de la tour".
+fr_of() {
+  case "$1" in
+    "le "*|"Le "*) printf 'du %s' "${1#[Ll]e }" ;;
+    "les "*|"Les "*) printf 'des %s' "${1#[Ll]es }" ;;
+    [aeiouyAEIOUY]*|é*|É*|è*|ê*|à*|â*|î*|ô*|û*) printf "d'%s" "$1" ;;
+    *) printf 'de %s' "$1" ;;
+  esac
+}
+# Introduction of a relayed message: "session tower here." / "Un message de la tour de contrôle.";
+# none for the secretary. intro_text_for <name> [lang] [again]: "again" is the triple-press repeat.
+intro_text_for() {
+  local lang="${2:-en}" again="${3:-}" d
+  if is_secretary_name "$1"; then
+    [[ -n "$again" ]] || return 0
+    if [[ "$lang" == "fr" ]]; then printf 'Encore une fois.'; else printf 'Again.'; fi
+    return 0
+  fi
+  d="$(display_name_for "$1" "$lang")"
+  if [[ "$lang" == "fr" ]]; then printf 'Un message %s%s.' "$(fr_of "$d")" "${again:+, encore une fois}"
+  else printf '%s here%s.' "$d" "${again:+, again}"; fi
+}
 
 # Dictation state. The recorder lock (pid of the running recorder) is the source of truth. The
 # pending marker only bridges the second between an earbud press and the recorder writing its
