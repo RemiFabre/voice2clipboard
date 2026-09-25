@@ -96,8 +96,9 @@ inbox_post.sh only if it deserves Remi's attention, in spoken language, `--from`
 - Model (Remi's rule of 2026-09-24): every NEW session starts on Claude Opus 5.5, so the command is
   `claude --model claude-opus-5-5 --effort xhigh --dangerously-skip-permissions` (Remi's go 2026-09-24:
   quality over speed, xhigh by default, max on demand for a hard task, never the API's medium default), unless Remi names another model
-  or there is a strong reason (say it). The secretary itself stays on Fable (`--model claude-fable-5-1 --effort xhigh`
-  when rotating yourself). Sessions already alive are not switched; `claude --resume` keeps their model.
+  or there is a strong reason (say it). The secretary itself runs on Opus 5.5 too since 2026-09-25 (Remi moved it off Fable when the Fable
+  limit ran out; the rotation scripts start it with `--model claude-opus-5-5 --effort xhigh`). When a
+  session Remi talks to is on Fable and the Fable limit is out, open a fresh Opus session for it instead. Sessions already alive are not switched; `claude --resume` keeps their model.
 - One iTerm window per session, never a tab, always `--dangerously-skip-permissions`, through
   `/Users/remi/claude_control_center/bin/spawn-session --title "project: topic" "cd <dir> && claude ..."`.
   Reopen a closed or crashed session with `claude --resume <session id>` as

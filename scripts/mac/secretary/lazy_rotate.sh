@@ -77,7 +77,7 @@ log "lazy rotation: $advice -> starting a fresh secretary while he dictates"
 
 # The model is named: since 2026-09-24 spawn-session gives every new session Opus 5.5 by default,
 # and the secretary stays on Fable 5.1 by Remi's rule (he likes the way this one talks).
-cmd="cd '$ROOT_DIR/secretary' && claude --model ${SECRETARY_MODEL:-claude-fable-5-1} --effort xhigh --dangerously-skip-permissions"
+cmd="cd '$ROOT_DIR/secretary' && claude --model ${SECRETARY_MODEL:-claude-opus-5-5} --effort xhigh --dangerously-skip-permissions"
 out="$("$SPAWN" --title "secretary" "$cmd" 2>&1)" || out="spawn failed: $out"
 new="$(printf '%s' "$out" | sed -n 's/.*iterm=\([^ ]*\).*/\1/p' | head -n 1)"
 [[ -n "$new" ]] || give_up "no new window (${out:0:120})"
