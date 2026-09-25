@@ -45,7 +45,7 @@ check "switch off: nothing" "[[ ! -f '$TMP/spawn.log' ]]"
 # 2. rotate, the new session is ready while he still talks
 reset; tower 'echo "rotate cold, 339k context"'; recorder; touch "$TMP/new_is_ready"
 bash "$STAGE/lazy_rotate.sh" OLD & rot=$!
-check "new window asked in danger mode, titled, on Fable" "wait_for \"grep -q -- '--title secretary .*--model claude-fable-5-1 --effort xhigh --dangerously-skip-permissions' '$TMP/spawn.log' 2>/dev/null\" 3"
+check "new window asked in danger mode, titled, on Opus 5.5" "wait_for \"grep -q -- '--title secretary .*--model claude-opus-5-5 --effort xhigh --dangerously-skip-permissions' '$TMP/spawn.log' 2>/dev/null\" 3"
 check "hand-over published" "wait_for \"[[ \\\"\\\$(cat '$ROT/ready' 2>/dev/null)\\\" == 'OLD NEW' ]]\" 5"
 check "new secretary registered" "[[ \"\$(cat '$SESSION_FILE')\" == NEW ]]"
 check "old window still open during the dictation" "! grep -q 'close OLD' '$TMP/probe.log'"
