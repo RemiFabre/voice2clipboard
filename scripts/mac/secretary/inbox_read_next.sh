@@ -5,6 +5,7 @@
 # on demand when that file is missing. Says so when the inbox is empty.
 source "$(dirname "$0")/lib.sh"
 if dictation_active; then refuse_cue "inbox_read_next: a dictation is active"; exit 0; fi
+deferred_recover   # deferred speech whose waiter died: into the inbox before looking at it
 # A message whose voice is still being rendered is not there yet: never make him wait for it.
 next="$(inbox_next_playable)"
 if [[ -z "$next" && "$(inbox_rendering_count)" -gt 0 ]]; then

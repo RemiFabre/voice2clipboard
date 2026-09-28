@@ -115,6 +115,7 @@ tts_requeue_if_unheard() {
   [[ -n "$text" ]] || return 0
   if [[ "$voice" == "$SECRETARY_VOICE" || "$voice" == "$FRENCH_VOICE" ]]; then
     log "speech stopped before it was heard: moved to the inbox: $(printf '%s' "$text" | head -c 60)"
+    rm -f "$DEFERRED_DIR/$(cat "$TTS_PID_FILE" 2>/dev/null).txt"   # queued here: not a second time by deferred_recover
     "$ROOT_DIR/scripts/mac/secretary/inbox_post.sh" --from secretary --lang "${lang:-en}" "$text" >/dev/null 2>&1
   else
     log "speech in voice $voice stopped before it was heard (not re-queued: not the secretary's): $(printf '%s' "$text" | head -c 60)"
@@ -130,6 +131,31 @@ tts_stop() {
   fi
   rm -f "$TTS_PID_FILE" "$TTS_STATE_FILE" "$TTS_CURRENT_FILE" "$TTS_CLOCK_FILE" "$TTS_PAUSE_FILE" "$TTS_RESUME_FILE"
   local o; o="$(cat "$SPEECH_LOCK/pid" 2>/dev/null || true)"; [[ -n "$o" && "$o" != "$$" ]] && rm -rf "$SPEECH_LOCK"
+}
+
+# Deferred speech records (say_now.sh, 2026-09-28): deferred/<pid>.txt holds a speech waiting for
+# the audio to be free ("lang=", "voice=", "wav=", a blank line, the text) until it starts to
+# sound. A record whose process is gone, or no longer a say_now waiter, was never heard: it goes to
+# the inbox (render, ding, double press), the only place where speech waits safely.
+DEFERRED_DIR="$SECRETARY_RUNTIME/deferred"
+deferred_record() {   # deferred_record <pid> <lang> <voice> <wav> <text>
+  mkdir -p "$DEFERRED_DIR"
+  printf 'lang=%s\nvoice=%s\nwav=%s\nsince=%s\n\n%s\n' "$2" "$3" "$4" "$(date '+%Y-%m-%d %H:%M:%S')" "$5" >"$DEFERRED_DIR/.$1.tmp" &&
+    mv "$DEFERRED_DIR/.$1.tmp" "$DEFERRED_DIR/$1.txt"
+}
+deferred_recover() {
+  local f pid cmd lang text
+  for f in "$DEFERRED_DIR"/*.txt; do
+    [[ -f "$f" ]] || continue
+    pid="$(basename "$f" .txt)"
+    cmd="$(ps -ww -o command= -p "$pid" 2>/dev/null || true)"   # -ww: the waiter's command line is long
+    [[ "$cmd" == *say_now* ]] && continue   # still waiting, or preparing to speak
+    mv "$f" "$f.lost" 2>/dev/null || continue   # one rescuer at a time
+    lang="$(sed -n 's/^lang=//p' "$f.lost" | head -n 1)"; text="$(awk 'f{print} /^$/{f=1}' "$f.lost")"
+    log "deferred speech lost its waiter (pid $pid): moved to the inbox: $(printf '%s' "$text" | head -c 60)"
+    [[ -n "$text" ]] && "$ROOT_DIR/scripts/mac/secretary/inbox_post.sh" --from secretary --lang "${lang:-en}" "$text" >/dev/null 2>&1
+    rm -f "$f.lost"
+  done
 }
 
 # Run AppleScript lines against the iTerm session with this unique id (sessions cannot be

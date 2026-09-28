@@ -11,6 +11,9 @@
 # is Remi's decision. One exception inside our own system: the warm voice daemon is restarted
 # when it has grown past POCKET_MAX_MB and nothing is speaking (it reloads in about a second).
 source "$(dirname "$0")/lib.sh"
+# Not about memory: this script is the builder's once-a-minute housekeeping (the Tower runs it),
+# so deferred speech whose waiter died is rescued here too (lib.sh, deferred_recover).
+[[ "${1:-}" == "--status" ]] || deferred_recover
 WARN_COMPRESSED_PCT="${SECRETARY_MEM_WARN_COMPRESSED_PCT:-35}"   # compressor size as % of RAM
 REPEAT_S="${SECRETARY_MEM_REPEAT_S:-600}"
 POCKET_MAX_MB="${SECRETARY_POCKET_MAX_MB:-4000}"

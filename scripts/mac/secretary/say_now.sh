@@ -22,30 +22,39 @@ text="${*:-$(cat)}"
 #  - press-driven playback (SAY_NOW_INTERRUPT=1: inbox playback, repeat) stops current speech;
 #  - anything else (the secretary's direct speech, deferred speech) waits its turn instead of
 #    cutting what is playing. Waiting happens in a detached process so the caller returns at once.
+# Deferred speech can no longer be lost (2026-09-28: an answer deferred at 09:42:45 was never
+# spoken and left no trace; its waiter was gone before it tried to speak). The waiter runs in a
+# session of its own, away from the caller's process group, logs a termination, and the speech
+# is written to deferred/<waiter pid>.txt until it starts to sound. The pid stays the same through
+# the waiter's exec of this script. A record whose process is gone is moved to the inbox by
+# deferred_recover (lib.sh): at the next double press, and every minute through memory_guard.sh.
+defer_speech() {   # defer_speech <why>
+  log "say_now deferred ($1): $(printf '%s' "$text" | head -c 60)"
+  SAY_NOW_DEFERRED=1 nohup python3 -c 'import os, sys; os.setsid(); os.execvp("bash", ["bash"] + sys.argv[1:])' -c '
+    source "$1/lib.sh"
+    trap "log \"deferred speech: waiter $$ ended by SIGTERM before speaking\"; exit 143" TERM
+    wait_for_audio_free
+    exec "$1/say_now.sh" --lang "$2" --voice "$3" ${5:+--wav "$5"} "$4"' _ "$(cd "$(dirname "$0")" && pwd)" "$lang" "$voice" "$text" "$wav" >/dev/null 2>&1 &
+  deferred_record "$!" "$lang" "$voice" "$wav" "$text"
+  rm -f "$DEFERRED_DIR/$$.txt"   # this process was a waiter itself: the new one carries the speech now
+  echo "deferred until the current audio ends"
+  exit 0
+}
 if [[ "${SAY_NOW_DEFERRED:-0}" != "1" ]]; then
-  if dictation_active || { [[ "${SAY_NOW_INTERRUPT:-0}" != "1" ]] && [[ -n "$(tts_pid)" ]]; }; then
-    log "say_now deferred (audio busy): $(printf '%s' "$text" | head -c 60)"
-    SAY_NOW_DEFERRED=1 nohup bash -c 'source "$1/lib.sh"; wait_for_audio_free; exec "$1/say_now.sh" --lang "$2" --voice "$3" ${5:+--wav "$5"} "$4"' _ "$(cd "$(dirname "$0")" && pwd)" "$lang" "$voice" "$text" "$wav" >/dev/null 2>&1 &
-    echo "deferred until the current audio ends"
-    exit 0
-  fi
+  if dictation_active || { [[ "${SAY_NOW_INTERRUPT:-0}" != "1" ]] && [[ -n "$(tts_pid)" ]]; }; then defer_speech "audio busy"; fi
 fi
 if [[ "${SAY_NOW_INTERRUPT:-0}" == "1" ]]; then tts_stop; fi
 # Hard guard: the speech lock. If someone else holds it, this message waits in the background.
-if ! speech_lock_acquire; then
-  log "say_now deferred (speech lock held by $(speech_lock_owner)): $(printf '%s' "$text" | head -c 60)"
-  SAY_NOW_DEFERRED=1 nohup bash -c 'source "$1/lib.sh"; wait_for_audio_free; exec "$1/say_now.sh" --lang "$2" --voice "$3" ${5:+--wav "$5"} "$4"' _ "$(cd "$(dirname "$0")" && pwd)" "$lang" "$voice" "$text" "$wav" >/dev/null 2>&1 &
-  echo "deferred until the current audio ends"
-  exit 0
-fi
+if ! speech_lock_acquire; then defer_speech "speech lock held by $(speech_lock_owner)"; fi
 trap 'speech_lock_release' EXIT
-# Hold the "speaking" slot from now on (synthesis takes 1-2 s).
-echo $$ >"$TTS_PID_FILE"; echo preparing >"$TTS_STATE_FILE"; rm -f "$TTS_CLOCK_FILE"
 # Direct speech that still has to be rendered: keep its text until it starts to sound, so a stop
 # in between moves it to the inbox instead of losing it (tts_requeue_if_unheard in lib.sh).
-# Inbox playback is not concerned: its text is already in the archive.
+# Inbox playback is not concerned: its text is already in the archive. Written before the state
+# says "preparing": a stop that found "preparing" without the text killed the speech unrecorded.
 rm -f "$TTS_TEXT_FILE"
 if [[ -z "$wav" && -z "${SAY_NOW_ARCHIVE:-}" ]]; then printf '%s\n%s\n%s\n' "$lang" "$voice" "$text" >"$TTS_TEXT_FILE"; fi
+# Hold the "speaking" slot from now on (synthesis takes 1-2 s).
+echo $$ >"$TTS_PID_FILE"; echo preparing >"$TTS_STATE_FILE"; rm -f "$TTS_CLOCK_FILE"
 # Archived file of the message being read (set by inbox playback), for the played/stopped note.
 [[ -n "${SAY_NOW_ARCHIVE:-}" ]] && printf '%s' "$SAY_NOW_ARCHIVE" >"$TTS_CURRENT_FILE"
 source_note=""
@@ -65,7 +74,7 @@ if [[ "${SECRETARY_END_TONE:-1}" == "1" && -s "$END_TONE" ]]; then
     || log "say_now: end tone could not be joined (format mismatch?), message plays without it"
 fi
 log "say_now [$voice$source_note]: $(printf '%s' "$text" | head -c 80)"
-rm -f "$TTS_TEXT_FILE"   # from here on it is being heard
+rm -f "$TTS_TEXT_FILE" "$DEFERRED_DIR/$$.txt"   # from here on it is being heard
 player_pid=""
 # muted: tests run the whole path without sound, or with a stand-in player (SECRETARY_PLAYER)
 if [[ "${SECRETARY_CUES_MUTED:-0}" != "1" || -n "${SECRETARY_PLAYER:-}" ]]; then

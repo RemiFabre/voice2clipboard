@@ -131,6 +131,37 @@ ding ignore its 20 s cooldown, since he is waiting for it. A marker older than 1
 (`SECRETARY_RENDERING_MAX_S`) belongs to a render that died and no longer hides the message.
 The "N older waiting" count ignores unrendered messages.
 
+## Deferred speech can no longer be lost (2026-09-28)
+
+Reported by Remi: an answer he asked the secretary for never came. At 09:42:45 the secretary's
+`say_now.sh` found a message playing and deferred (the usual detached waiter, which waits for the
+audio to be free and then runs `say_now.sh` again). Nothing followed: none of the three lines a
+waiter's `say_now` writes (spoken, deferred again, stopped before it was heard) is in the log, and
+no waiter was left at 09:53. The waiter was gone before it tried to speak.
+
+Not found: what ended it. Ruled out by test: Claude Code 2.1.283 (installed 2026-09-26; this was
+the first deferral since) keeps such waiters alive in headless and interactive sessions, across
+the end of a turn, a following command, a second prompt and the session's exit; no script here,
+in the Tower or in Hammerspoon kills by name; the hooks kill nothing. The timing was tight: the
+previous player ended at 09:42:45.9 (unified log), Remi double-pressed at 09:42:47 and the next
+message started at 09:42:49, so the waiter and a press-driven `say_now` met within one second.
+One race there was real and is closed: `say_now` claimed "preparing" before writing the text that
+a stop re-queues, so a stop landing in between ended the speech with no record.
+
+The guarantee no longer depends on the waiter surviving:
+- every deferral writes `runtime/secretary/deferred/<waiter pid>.txt` (language, voice, text); the
+  pid stays the same through the waiter's exec of `say_now.sh`, which deletes the record once the
+  speech starts to sound (or hands it to its own waiter when it has to wait again);
+- `deferred_recover` (`lib.sh`) moves any record whose process is gone, or no longer a `say_now`,
+  to the inbox (render, ding, double press): at every double press (`inbox_read_next.sh`) and
+  every minute (`memory_guard.sh`, run by the Tower and by the Stop hooks); logged as "deferred
+  speech lost its waiter";
+- the waiter runs in a session of its own (`setsid`), away from the caller's process group, and
+  logs "ended by SIGTERM before speaking" if it is terminated; speech re-queued by a stop removes
+  its record, so nothing is queued twice.
+
+Test: `bash local_tests/test_deferred_speech.sh`.
+
 ## French messages are French from the first word to the last (2026-09-25)
 
 Reported by Remi at night: in French messages the middle was fine but the start and the end
