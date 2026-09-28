@@ -363,8 +363,12 @@ class PressArbiter:
         self.last_at = None
         self.count = 0
         self.cancel = False
+        # Where each counted press came from (2026-09-28: a dictation stopped at 10:19:44 on
+        # "1 press" while no channel showed one: no headset hang-up in bluetoothd's log, no button
+        # command, no hand-over by on_gesture.sh). The decision line now names its sources.
+        self.sources = []
 
-    def press(self, kind="hangup", now=None):
+    def press(self, kind="hangup", now=None, source=None):
         now = time.time() if now is None else now
         if kind == "double":
             self.cancel = True
@@ -374,6 +378,7 @@ class PressArbiter:
         if self.first_at is None:
             self.first_at = now
         self.count += 1
+        self.sources.append(source or kind)
 
     def decision(self, now=None):
         now = time.time() if now is None else now
@@ -1179,14 +1184,15 @@ def handle_external_stop_during_recording():
             with open(PRESS_FILE) as f:
                 f.seek(press_offset)
                 for kind in f.read().split():
-                    press_arbiter.press(kind)
+                    press_arbiter.press(kind, source=f"press file ({kind})")
                 press_offset = f.tell()
         except OSError:
             pass
         verdict = press_arbiter.decision()
         if verdict:
             gap = (press_arbiter.last_at - press_arbiter.first_at) if press_arbiter.first_at and press_arbiter.last_at else 0.0
-            secretary_log(f"press decision: {verdict} ({press_arbiter.count} press(es), {gap:.2f} s apart, window {DOUBLE_PRESS_WINDOW_S} s)")
+            secretary_log(f"press decision: {verdict} ({press_arbiter.count} press(es), {gap:.2f} s apart, window {DOUBLE_PRESS_WINDOW_S} s)"
+                          f" from: {'; '.join(press_arbiter.sources) or 'unknown'}")
         if verdict == "cancel":
             cancel_requested = True
             print("\n🗑️ Second press — cancelling this dictation (audio kept, nothing sent).")
@@ -1290,7 +1296,7 @@ def handle_headset_buttons_during_recording():
                 # A press. Volume changes (long presses) are deliberately not an action. The
                 # watcher thread decides between stop and cancel once it knows if a second follows.
                 print(f"\n🎧 Headset button ({event}).")
-                press_arbiter.press("hangup")
+                press_arbiter.press("hangup", source="headset " + line[:23] + " " + line.split("] ")[-1].split(" from device")[0].strip()[:100])
                 continue
             if event in ("gain_up", "gain_down", "gain_change"):
                 if hold_cancels(event, start_time):
@@ -1304,7 +1310,7 @@ def handle_headset_buttons_during_recording():
             other = headset_other_command(line)
             if other:
                 secretary_log(f"headset sent an unknown command while recording: {other} (counted as a press)")
-                press_arbiter.press("other")
+                press_arbiter.press("other", source=f"headset unknown command: {other}")
                 continue
             if event == "disconnected":
                 # Out of range or switched off: nothing more will come. Keep what was said.

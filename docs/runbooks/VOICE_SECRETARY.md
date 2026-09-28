@@ -162,6 +162,30 @@ The guarantee no longer depends on the waiter surviving:
 
 Test: `bash local_tests/test_deferred_speech.sh`.
 
+## A dictation stopped with no press anywhere (2026-09-28, open)
+
+At 10:19:44 a dictation stopped 28 s in while Remi was still talking ("press decision: stop, 1
+press"; the audio is loud up to the cut). He pressed nothing. Nothing was lost (the 28 s were
+delivered) and he dictated again at 10:19:58. Not the headset: bluetoothd logged nothing
+between the call set-up at 10:19:16.9 and our teardown at 10:19:46.9, while the real stop at
+10:20:23 shows "Received call hangup event (AT+CHUP)". The recorder, which prints "Headset
+button (hangup)" on a hang-up, printed nothing. No button app command, no hand-over by
+`on_gesture.sh`, no Escape (the stop said "press:stop"), no unknown hands-free command. That
+leaves the recorder's press file, whose only known writer (`on_gesture.sh`) logs every hand-over
+and logged none. Unexplained. Also unlike the charger phantom, which is a start, not a stop.
+
+The "press decision" line now names where each counted press came from (press file, the
+headset's own log line, or an unknown command), so the next one explains itself. No guard
+against early stops yet: ignoring a stop while he is still talking would also swallow real
+stops, which usually come at the end of a word.
+
+The refused "pause" at 10:19:54 was most likely Remi's own press to start again: after a
+dictation the headset may still send Pause for a press, and a pause with nothing playing or
+recording is refused because it is also what docking an earbud sends. Treating a pause in the
+seconds after a dictation as a press, as is already done after a message, would have started that
+dictation at once. It would also start one when he docks the headset right after dictating,
+so that is Remi's call.
+
 ## French messages are French from the first word to the last (2026-09-25)
 
 Reported by Remi at night: in French messages the middle was fine but the start and the end

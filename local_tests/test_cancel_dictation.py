@@ -33,6 +33,12 @@ a = vt.PressArbiter(window_s=W)
 a.press("hangup", now=50.0); a.press("hangup", now=50.02)  # the log repeats a line
 check("the same press logged twice within 80 ms is one press", a.decision(now=50.1) is None and a.decision(now=50.8) == "stop")
 
+a = vt.PressArbiter(window_s=W)
+a.press("hangup", now=55.0, source="headset hang-up"); a.press("hangup", now=55.02, source="repeat")
+a.press("single", now=55.3, source="press file (single)")
+check("each counted press keeps its source (a repeated log line is not counted)",
+      a.sources == ["headset hang-up", "press file (single)"])
+
 a = vt.PressArbiter(window_s=0)
 a.press("hangup", now=60.0)
 check("window 0 disables the feature: immediate stop", a.decision(now=60.0) == "stop")
