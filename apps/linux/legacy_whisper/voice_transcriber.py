@@ -36,6 +36,12 @@ VOICE_MODE = os.getenv("VOICE2CLIPBOARD_VOICE_MODE", "manual")
 HEADSET_INPUT_PATTERN = os.getenv("VOICE2CLIPBOARD_HEADSET_PATTERN", "Shokz|OpenFit")
 SILENCE_STOP_RMS = float(os.getenv("VOICE2CLIPBOARD_SILENCE_STOP_RMS", "0.002"))
 SILENCE_STOP_SECONDS = float(os.getenv("VOICE2CLIPBOARD_SILENCE_STOP_SECONDS", "60"))
+# Only a sound that lasts counts as sound (2026-09-28): a dictation started by docking an earbud ran
+# for 17 minutes because clicks of 0.1 to 0.3 s from the charger kept restarting the 60 s clock, and
+# Whisper turned the silence into "Thank you." lines that were delivered. Measured over the 182
+# earbud dictations of September: every real one holds sounds of 0.7 s and more (usually 2 to 6 s);
+# the phantoms never reach 0.5 s.
+SILENCE_SUSTAIN_S = float(os.getenv("VOICE2CLIPBOARD_SILENCE_SUSTAIN_S", "0.5"))
 # Presses while recording. One press stops and sends. A cancel (nothing sent, audio and transcript
 # kept, recoverable) needs a gesture the Mac can see, and in call mode that is not a double
 # press: tested with Remi on 2026-09-19, the Shokz firmware swallows it, the Mac receives nothing
@@ -347,6 +353,28 @@ def audio_is_effectively_silent(filename):
     return rms <= SILENCE_RMS_THRESHOLD
 
 
+def longest_sound_seconds(filename, rms_threshold=None, block_s=0.064):
+    """Length of the longest stretch of the recording above the near-silence level (64 ms blocks).
+    Unreadable audio counts as sound: it must never make a recording look empty."""
+    rms_threshold = SILENCE_STOP_RMS if rms_threshold is None else rms_threshold
+    try:
+        audio, samplerate = sf.read(filename)
+    except Exception:
+        return float("inf")
+    if getattr(audio, "ndim", 1) > 1:
+        audio = audio[:, 0]
+    n = max(1, int(samplerate * block_s))
+    k = len(audio) // n
+    if k == 0:
+        return 0.0
+    rms = np.sqrt(np.mean(audio[:k * n].astype(np.float64).reshape(k, n) ** 2, axis=1))
+    longest = run = 0
+    for loud in rms >= rms_threshold:
+        run = run + 1 if loud else 0
+        longest = max(longest, run)
+    return longest * block_s
+
+
 class PressArbiter:
     """Tells one press (stop and send) from two (cancel) while recording.
 
@@ -396,20 +424,29 @@ cancel_requested = False
 
 
 class SilenceTracker:
-    """Trips once the input has stayed under rms_threshold for limit_seconds (0 disables it)."""
+    """Trips once the input has stayed under rms_threshold for limit_seconds (0 disables it).
+    With sustain_s, only a sound lasting that long counts: shorter clicks leave the clock running."""
 
-    def __init__(self, rms_threshold, limit_seconds):
+    def __init__(self, rms_threshold, limit_seconds, sustain_s=0.0):
         self.rms_threshold = rms_threshold
         self.limit_seconds = limit_seconds
+        self.sustain_s = sustain_s
         self.quiet_since = None
-        self.heard_sound = False   # anything above the threshold, ever
+        self.loud_since = None
+        self.heard_sound = False   # a sound (lasting sustain_s), ever
 
     def update(self, rms, now=None):
         now = time.time() if now is None else now
         if rms >= self.rms_threshold:
-            self.heard_sound = True
-        if self.limit_seconds <= 0 or rms >= self.rms_threshold:
-            self.quiet_since = None
+            if self.loud_since is None:
+                self.loud_since = now
+            if now - self.loud_since >= self.sustain_s:
+                self.heard_sound = True
+                self.quiet_since = None
+                return False
+        else:
+            self.loud_since = None
+        if self.limit_seconds <= 0:
             return False
         if self.quiet_since is None:
             self.quiet_since = now
@@ -536,7 +573,7 @@ def record_audio(filename, quick_mode=False):
                 print("  5 – Cancel (discard and stop immediately)")
                 print("📋 Text will always be copied to clipboard.\n")
 
-            silence = SilenceTracker(SILENCE_STOP_RMS, SILENCE_STOP_SECONDS if quick_mode and headset_mode() else 0)
+            silence = SilenceTracker(SILENCE_STOP_RMS, SILENCE_STOP_SECONDS if quick_mode and headset_mode() else 0, SILENCE_SUSTAIN_S)
             try:
                 input_lost = False
                 while recording:
@@ -673,6 +710,11 @@ def transcribe_audio(filename):
                 "the recorded audio is digitally silent (on macOS this usually means the recorder "
                 "was launched from a process without microphone access)"
             )
+        if phantom_start(quick_stop_source) and longest_sound_seconds(filename) < SILENCE_SUSTAIN_S:
+            # Nobody ended it and no sound in it lasted half a second: clicks from a charger, not a
+            # voice. Not transcribed at all: Whisper turns such silence into "Thank you." lines, and
+            # on 2026-09-28 those reached the secretary as a dictation.
+            raise EmptyTranscription(f"no sound lasting {SILENCE_SUSTAIN_S:g} s in the whole recording, only clicks")
         text = transcribe_with_best_backend(filename)
     except EmptyTranscription as e:
         print(f"⚠️ No speech in this recording ({e}). Nothing to send; the audio is kept.")

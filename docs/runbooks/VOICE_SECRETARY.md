@@ -162,6 +162,29 @@ The guarantee no longer depends on the waiter surviving:
 
 Test: `bash local_tests/test_deferred_speech.sh`.
 
+## A docked headset dictated "Thank you." for 17 minutes (2026-09-28 evening)
+
+At 18:45:48 a double press played "No new messages."; at 18:45:52 the headset sent Pause, which
+`on_gesture.sh` took as a press (a pause within 8 s of a message) and a dictation started. The
+headset was in its charger: the recording is 1019 s of digital silence with clicks from the case,
+at most 0.32 s long. Two rules failed. The near-silence stop restarted its 60 s clock on any block
+above 0.002 rms, so a click every minute or so kept it going for 17 minutes. The phantom check
+only fired on an empty transcript, and Whisper turned the silence into "Thank you." lines, which
+reached the secretary as a dictation (it did not route it).
+
+Only a sound that lasts counts now (`VOICE2CLIPBOARD_SILENCE_SUSTAIN_S`, 0.5 s): shorter clicks
+leave the near-silence clock running, and a dictation that nobody ended (silence, lost input,
+headset gone) with no sound of half a second anywhere is a phantom start. It is not transcribed,
+nothing is sent, the audio is kept and a note is queued, as before. Measured over the 182 earbud
+dictations of September: every real one holds sounds of 0.7 s and more (usually 2 to 6 s). Only
+four have none, and each was already a phantom or a no-speech recording: this one, 2026-09-20
+23:38, and two of 2026-09-18, one of which was also delivered as "Thank you." lines. A dictation
+ended by a press is never judged this way, since a one-word answer can be shorter than half a
+second. The pause-after-a-message rule stays: answering right after a message is the main use,
+and a docking phantom now costs about a minute of call mode and a note.
+
+Test: `python local_tests/test_phantom_start.py`.
+
 ## A dictation stopped with no press anywhere (2026-09-28, open)
 
 At 10:19:44 a dictation stopped 28 s in while Remi was still talking ("press decision: stop, 1
@@ -184,7 +207,8 @@ dictation the headset may still send Pause for a press, and a pause with nothing
 recording is refused because it is also what docking an earbud sends. Treating a pause in the
 seconds after a dictation as a press, as is already done after a message, would have started that
 dictation at once. It would also start one when he docks the headset right after dictating,
-so that is Remi's call.
+so that is Remi's call. The docking phantom of the same evening (the section above) shows
+that risk is real.
 
 ## French messages are French from the first word to the last (2026-09-25)
 

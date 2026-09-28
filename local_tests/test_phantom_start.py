@@ -61,4 +61,44 @@ t = vt.SilenceTracker(0.002, 60); t.update(0.02, now=0.0)
 for s in range(1, 62): tripped = t.update(0.0003, now=float(s))
 check("speech then silence: trips and did hear sound", tripped and t.heard_sound)
 
+# 2026-09-28: a docked headset's clicks (0.1 to 0.3 s) kept the clock at zero for 17 minutes
+def clicks_then(tracker, seconds, click_s=0.3, every_s=20.0, step=0.064):
+    tripped, now = False, 0.0
+    while now < seconds and not tripped:
+        loud = (now % every_s) < click_s
+        tripped = tracker.update(0.05 if loud else 0.0003, now=now); now += step
+    return tripped, now
+t = vt.SilenceTracker(0.002, 60, sustain_s=0.5)
+tripped, at = clicks_then(t, 1100)
+check("clicks shorter than half a second do not reset the clock: trips at 60 s", tripped and 60 <= at < 61 and not t.heard_sound)
+t = vt.SilenceTracker(0.002, 60, sustain_s=0.5)
+tripped, at = clicks_then(t, 200, click_s=1.0, every_s=40.0)
+check("a voice lasting a second resets it and counts as sound", not tripped and t.heard_sound)
+check("the recorder counts only sounds of half a second", vt.SILENCE_SUSTAIN_S == 0.5)
+
+# ... and Whisper turned the silence into "Thank you." lines, delivered as a dictation
+import numpy as np, soundfile as sf
+sr = 16000; clip = np.zeros(sr * 30)
+for start in range(0, 30, 5): clip[start * sr: start * sr + int(0.3 * sr)] = 0.05
+sf.write(os.path.join(d, "clicks.wav"), clip, sr)
+voice = clip.copy(); voice[10 * sr: 12 * sr] = 0.05
+sf.write(os.path.join(d, "voice.wav"), voice, sr)
+check("longest sound: clicks only (a 0.3 s click spans up to six 64 ms blocks)", 0.25 <= vt.longest_sound_seconds(os.path.join(d, "clicks.wav")) < vt.SILENCE_SUSTAIN_S)
+check("longest sound: a two-second voice", vt.longest_sound_seconds(os.path.join(d, "voice.wav")) >= 1.9)
+check("unreadable audio never looks empty", vt.longest_sound_seconds(os.path.join(d, "missing.wav")) == float("inf"))
+calls = []
+def fake_whisper(f):
+    calls.append(f); raise vt.EmptyTranscription("stub: the model said nothing")
+vt.audio_is_effectively_silent = lambda f: False
+vt.transcribe_with_best_backend = fake_whisper
+vt.longest_sound_seconds = lambda f, *a, **k: 0.32
+text = run("headset", "silence", 1019.0)
+check("clicks only, nobody ended it: not even transcribed, nothing sent", text == "" and calls == [])
+check("clicks only: silent, one note, one phantom log line", played == [] and len(notes) == 1 and any("phantom start" in m for m in logged))
+run("headset", "press:stop", 30.0)
+check("clicks only but he pressed stop: transcribed as usual (a short word stays possible)", calls == [vt.current_audio_path])
+calls.clear(); vt.longest_sound_seconds = lambda f, *a, **k: 3.6
+run("headset", "silence", 90.0)
+check("a real voice, then 60 s of silence: transcribed as usual", calls == [vt.current_audio_path])
+
 print(); print("all passed" if not fails else f"{fails} failed"); sys.exit(1 if fails else 0)
