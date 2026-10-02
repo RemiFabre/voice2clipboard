@@ -76,6 +76,24 @@ tripped, at = clicks_then(t, 200, click_s=1.0, every_s=40.0)
 check("a voice lasting a second resets it and counts as sound", not tripped and t.heard_sound)
 check("the recorder counts only sounds of half a second", vt.SILENCE_SUSTAIN_S == 0.5)
 
+# 2026-10-02: once he has spoken, only he ends a dictation (twice a long dictation was cut while he paused)
+def voice_then_quiet(tracker, voice_s, quiet_s, step=0.064):
+    now, tripped = 0.0, False
+    while now < voice_s + quiet_s and not tripped:
+        loud = now < voice_s or (now % 15.0) < 0.2          # then a short noise now and then (breath, movement)
+        tripped = tracker.update(0.05 if loud else 0.0003, now=now); now += step
+    return tripped, now
+check("by default silence never ends a dictation after a voice", vt.SILENCE_AFTER_VOICE_SECONDS == 0)
+t = vt.SilenceTracker(0.002, 60, sustain_s=0.5, limit_after_sound=0)
+tripped, at = voice_then_quiet(t, 20, 3600)
+check("he spoke, then an hour of quiet: still recording", not tripped and t.heard_sound)
+t = vt.SilenceTracker(0.002, 60, sustain_s=0.5, limit_after_sound=0)
+tripped, at = clicks_then(t, 1100)
+check("no voice at all (docked headset): still stops at 60 s", tripped and 60 <= at < 61)
+t = vt.SilenceTracker(0.002, 60, sustain_s=0.5, limit_after_sound=600)
+tripped, at = voice_then_quiet(t, 20, 3600)
+check("a cap set by hand applies after the voice", tripped and 619 <= at < 621)
+
 # ... and Whisper turned the silence into "Thank you." lines, delivered as a dictation
 import numpy as np, soundfile as sf
 sr = 16000; clip = np.zeros(sr * 30)

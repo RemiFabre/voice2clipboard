@@ -162,6 +162,29 @@ The guarantee no longer depends on the waiter surviving:
 
 Test: `bash local_tests/test_deferred_speech.sh`.
 
+## Once he has spoken, only Remi ends a dictation (2026-10-02)
+
+Reported by Remi: twice that day a long dictation stopped by itself, he thought when a
+notification arrived; both times he had just finished, by luck. His rule: nothing ends a
+dictation except him, and anything audible waits until a second or two after it ends.
+
+Cause: the near-silence stop as changed on 2026-09-28 (the section below), not a notification.
+Both recordings (17:17, 890 s; 21:00, 372 s) end exactly 60 s after his last real speech, followed
+by digital silence and a few short noises (4 and 24 blocks above the near-silence level). Before
+2026-09-28 those short noises restarted the clock; since then only a half-second sound does, so a
+one-minute pause ended the dictation. Replaying both recordings through the tracker reproduces the
+cuts to the second. The only audible event near either cut was the ding held during the 21:00
+dictation, played 4 s after the cut: the effect, not the cause. Dings and spoken messages already
+wait for a dictation to end, plus 2 s (`ding.sh`, `say_now.sh`).
+
+Now the 60 s stop applies only while no voice has been heard (the docked headset). After a voice,
+silence never ends the dictation (`VOICE2CLIPBOARD_SILENCE_AFTER_VOICE_SECONDS`, 0 = never, can
+set a cap). What still ends one by itself is the microphone stopping (input lost) or the headset
+disconnecting; both deliver what he said. The price: a dictation he forgets keeps the headset in
+call mode until his next press, which stops it and delivers it.
+
+Test: `python local_tests/test_phantom_start.py`.
+
 ## A docked headset dictated "Thank you." for 17 minutes (2026-09-28 evening)
 
 At 18:45:48 a double press played "No new messages."; at 18:45:52 the headset sent Pause, which
@@ -173,7 +196,8 @@ only fired on an empty transcript, and Whisper turned the silence into "Thank yo
 reached the secretary as a dictation (it did not route it).
 
 Only a sound that lasts counts now (`VOICE2CLIPBOARD_SILENCE_SUSTAIN_S`, 0.5 s): shorter clicks
-leave the near-silence clock running, and a dictation that nobody ended (silence, lost input,
+leave the near-silence clock running (since 2026-10-02 that clock only runs until a voice is
+heard, see the section above), and a dictation that nobody ended (silence, lost input,
 headset gone) with no sound of half a second anywhere is a phantom start. It is not transcribed,
 nothing is sent, the audio is kept and a note is queued, as before. Measured over the 182 earbud
 dictations of September: every real one holds sounds of 0.7 s and more (usually 2 to 6 s). Only

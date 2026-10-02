@@ -42,6 +42,12 @@ SILENCE_STOP_SECONDS = float(os.getenv("VOICE2CLIPBOARD_SILENCE_STOP_SECONDS", "
 # earbud dictations of September: every real one holds sounds of 0.7 s and more (usually 2 to 6 s);
 # the phantoms never reach 0.5 s.
 SILENCE_SUSTAIN_S = float(os.getenv("VOICE2CLIPBOARD_SILENCE_SUSTAIN_S", "0.5"))
+# Once he has spoken, only he ends a dictation (Remi, 2026-10-02: twice that day a long dictation
+# was cut while he paused, by the 60 s rule above; he had just finished, by luck). The 60 s stop now
+# applies only to a dictation in which no voice was ever heard (a docked headset). After a voice,
+# silence never ends it unless this is set (seconds; 0 = never). What still ends it by itself:
+# the microphone stopping (input lost) or the headset disconnecting, and both deliver what he said.
+SILENCE_AFTER_VOICE_SECONDS = float(os.getenv("VOICE2CLIPBOARD_SILENCE_AFTER_VOICE_SECONDS", "0"))
 # Presses while recording. One press stops and sends. A cancel (nothing sent, audio and transcript
 # kept, recoverable) needs a gesture the Mac can see, and in call mode that is not a double
 # press: tested with Remi on 2026-09-19, the Shokz firmware swallows it, the Mac receives nothing
@@ -427,9 +433,11 @@ class SilenceTracker:
     """Trips once the input has stayed under rms_threshold for limit_seconds (0 disables it).
     With sustain_s, only a sound lasting that long counts: shorter clicks leave the clock running."""
 
-    def __init__(self, rms_threshold, limit_seconds, sustain_s=0.0):
+    def __init__(self, rms_threshold, limit_seconds, sustain_s=0.0, limit_after_sound=None):
         self.rms_threshold = rms_threshold
         self.limit_seconds = limit_seconds
+        # the limit once a sound has been heard (None: the same); 0 never trips after a sound
+        self.limit_after_sound = limit_seconds if limit_after_sound is None else limit_after_sound
         self.sustain_s = sustain_s
         self.quiet_since = None
         self.loud_since = None
@@ -446,11 +454,14 @@ class SilenceTracker:
                 return False
         else:
             self.loud_since = None
-        if self.limit_seconds <= 0:
+        if self.limit() <= 0:
             return False
         if self.quiet_since is None:
             self.quiet_since = now
-        return now - self.quiet_since >= self.limit_seconds
+        return now - self.quiet_since >= self.limit()
+
+    def limit(self):
+        return self.limit_after_sound if self.heard_sound else self.limit_seconds
 
 
 def headset_mode():
@@ -573,7 +584,9 @@ def record_audio(filename, quick_mode=False):
                 print("  5 – Cancel (discard and stop immediately)")
                 print("📋 Text will always be copied to clipboard.\n")
 
-            silence = SilenceTracker(SILENCE_STOP_RMS, SILENCE_STOP_SECONDS if quick_mode and headset_mode() else 0, SILENCE_SUSTAIN_S)
+            headset_quick = quick_mode and headset_mode()
+            silence = SilenceTracker(SILENCE_STOP_RMS, SILENCE_STOP_SECONDS if headset_quick else 0, SILENCE_SUSTAIN_S,
+                                     SILENCE_AFTER_VOICE_SECONDS if headset_quick else 0)
             try:
                 input_lost = False
                 while recording:
@@ -596,8 +609,9 @@ def record_audio(filename, quick_mode=False):
                     if silence.update(float(np.sqrt(np.mean(np.square(block, dtype=np.float64))))):
                         # Frames keep coming but carry nothing: the headset is gone and another
                         # microphone took over, or the link is dead. Do not record for minutes.
-                        print(f"\n⚠️ No sound for {SILENCE_STOP_SECONDS:.0f} s (headset gone?) — finishing with what was recorded.")
-                        secretary_log(f"recording stopped after {SILENCE_STOP_SECONDS:.0f} s of near-silence")
+                        print(f"\n⚠️ No sound for {silence.limit():.0f} s (headset gone?) — finishing with what was recorded.")
+                        secretary_log(f"recording stopped after {silence.limit():.0f} s of near-silence"
+                                      f" ({'after' if silence.heard_sound else 'and never'} a voice)")
                         if silence.heard_sound:   # never a sound at all: a phantom start, stay silent
                             play_feedback("record_lost", block=False)
                         request_recording_stop("silence")
