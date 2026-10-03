@@ -90,6 +90,11 @@ project.
 The Artifact tool already opens a page in Remi's browser when it publishes it. Never run `open <url>`
 after a publish, and never ask another session to open a page you published (or the reverse): each
 extra opener is one more duplicate tab, and Remi has asked twice (2026-09-24) that a page opens once.
+It came back on 2026-10-03: when Remi asked where a page was, a secretary told the socials agent to
+"macOS open if needed", and the agent wrote "run `open` after publishing" into its own notes. The page
+had simply not been made yet. So, when relaying a page request, write "publish it as a Claude artifact;
+it opens itself, never run open", and when Remi cannot find a page, first check that it exists. Never
+conclude that the Artifact open is broken.
 
 ## When a session sends you a message directly
 
