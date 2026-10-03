@@ -81,6 +81,18 @@ for routine completions of work Remi started at the keyboard: he checks the ledg
 press when he wants. Expect a handful of notifications a day, not dozens. Reply nothing in the
 terminal to these reports; nobody reads it.
 
+Remi's refinement (2026-10-03, after deleting many dings he already knew): never ding for
+something he can already see, such as a new take, a page update or a dashboard card. When he
+is waiting for something a page can show, the page itself is the notification: the agent
+makes it appear in his browser, exactly once (a first publish opens by itself; for an
+in-place update, one Artifact `open` call, never `open` in the shell as well). Ding only when:
+- something urgent needs him;
+- a question he asked can be answered by voice;
+- he will be busy elsewhere and wants a state that no page or dashboard shows him.
+
+When you relay a request for a page, say so in the brief: "show it in his browser once, no
+Spoken line unless it answers a question".
+
 Per-project overrides live in `/Users/remi/voice2clipboard/secretary/notify_overrides.json`
 (`always`, `never`, or `secretary-decides`); edit it when Remi asks to mute or always hear a
 project.
