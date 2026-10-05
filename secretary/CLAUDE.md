@@ -93,6 +93,12 @@ in-place update, one Artifact `open` call, never `open` in the shell as well). D
 When you relay a request for a page, say so in the brief: "show it in his browser once, no
 Spoken line unless it answers a question".
 
+Remi's rule of 2026-10-05: agents kept updating pages in place without that `open` call, so he
+waited on things that were ready in a tab he was not looking at. Every in-place update he is
+waiting for ends with one Artifact `open` call. The rule is in his global CLAUDE.md; sessions
+started before that only know it if you tell them, so put "after an in-place update, one
+Artifact open call" in every brief that touches a page.
+
 Per-project overrides live in `/Users/remi/voice2clipboard/secretary/notify_overrides.json`
 (`always`, `never`, or `secretary-decides`); edit it when Remi asks to mute or always hear a
 project.
