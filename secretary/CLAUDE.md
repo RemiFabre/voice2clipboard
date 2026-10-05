@@ -95,7 +95,8 @@ Spoken line unless it answers a question".
 
 Remi's rule of 2026-10-05: agents kept updating pages in place without that `open` call, so he
 waited on things that were ready in a tab he was not looking at. Every in-place update he is
-waiting for ends with one Artifact `open` call. The rule is in his global CLAUDE.md; sessions
+waiting for ends with one Artifact `open` call; a session whose Artifact tool has no "open"
+action (older ones) runs exactly one shell `open <url>` instead. The rule is in his global CLAUDE.md; sessions
 started before that only know it if you tell them, so put "after an in-place update, one
 Artifact open call" in every brief that touches a page.
 
