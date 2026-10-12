@@ -162,6 +162,17 @@ The guarantee no longer depends on the waiter surviving:
 
 Test: `bash local_tests/test_deferred_speech.sh`.
 
+## Memory warnings follow macOS's own pressure level (2026-10-12)
+
+The memory guard also warned when the compressor held 35 % of the RAM, and that rule raised false
+alarms: 8 of the 10 warnings from 10-03 to 10-12 came while macOS reported normal pressure (level 1)
+with 35 to 38 % compressed, the last one with 61 % of memory free. Remi: rework the number or
+rely on a different metric. Data: over 1518 five-minute readings (10-06 to 10-12) normal pressure
+never went past 37 %; the three real episodes (10-01, 10-03, 10-06) were all level 2, at 38, 53
+and 38 %, and the 2026-09-21 freeze had about 53 %. Rule now: warn at level 2 or 4; at level 1
+only past 50 % compressed, a backstop below the freeze that normal pressure has not reached.
+Unreadable values still decide nothing. Test: `bash local_tests/test_memory_guard.sh`.
+
 ## Once he has spoken, only Remi ends a dictation (2026-10-02)
 
 Reported by Remi: twice that day a long dictation stopped by itself, he thought when a

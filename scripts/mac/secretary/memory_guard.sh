@@ -4,6 +4,9 @@
 # two Python jobs at 18 and 11 GB). The kernel had been killing idle processes since 22:09, eleven
 # minutes earlier, and nothing told Remi, who only saw the mouse get slower. This script tells him
 # while there is still time to act, and names the biggest processes.
+# The rule (2026-10-12): warn when macOS itself reports memory pressure (level 2 "warning" or 4
+# "critical"). While it says normal (level 1), warn only if the compressor holds more than half
+# the RAM, a backstop near the freeze (about 53 %) that normal pressure has never reached here.
 #   memory_guard.sh            check once: health flag "memory", one spoken warning per episode
 #   memory_guard.sh --status   print one plain line and exit (for the self-check and by hand)
 # Called in the background by the Stop hook of every session (cheap: two sysctl/vm_stat reads,
@@ -14,7 +17,12 @@ source "$(dirname "$0")/lib.sh"
 # Not about memory: this script is the builder's once-a-minute housekeeping (the Tower runs it),
 # so deferred speech whose waiter died is rescued here too (lib.sh, deferred_recover).
 [[ "${1:-}" == "--status" ]] || deferred_recover
-WARN_COMPRESSED_PCT="${SECRETARY_MEM_WARN_COMPRESSED_PCT:-35}"   # compressor size as % of RAM
+# Compressor backstop, as % of RAM, for when macOS still says normal. It was 35 until 2026-10-12
+# and raised false alarms: 8 of the 10 warnings from 10-03 to 10-12 came at level 1 with 35 to 38 %
+# (61 % of memory free on the last one). Over 1518 five-minute readings (10-06 to 10-12) level 1
+# never went past 37 %; the three real episodes were all level 2 (38, 53 and 38 %), caught by the
+# level rule on its own. 50 % stays below the freeze's 53 %.
+WARN_COMPRESSED_PCT="${SECRETARY_MEM_WARN_COMPRESSED_PCT:-50}"
 REPEAT_S="${SECRETARY_MEM_REPEAT_S:-600}"
 POCKET_MAX_MB="${SECRETARY_POCKET_MAX_MB:-4000}"
 STAMP="$SECRETARY_RUNTIME/memory_warned"

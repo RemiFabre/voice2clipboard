@@ -21,8 +21,12 @@ guard() { SECRETARY_MEM_READING="$1" bash "$STAGE/memory_guard.sh"; /bin/sleep 0
 
 guard "1 5"
 check "normal: flag ok, nothing said" "[[ \"\$(flag)\" == ok && \$(said) == 0 ]]"
-guard "1 40"
-check "compressor at 40 % of RAM: warned although the OS still says normal" "grep -q 'running short of memory' <<<\"\$(flag)\" && [[ \$(said) == 1 ]]"
+# 2026-10-12: eight false alarms at level 1 with 35 to 38 % in the compressor; macOS decides now
+guard "1 38"
+check "compressor at 38 % while macOS says normal: no warning, flag ok" "[[ \"\$(flag)\" == ok && \$(said) == 0 ]]"
+check "status line at normal pressure and 38 %: no problem" "! SECRETARY_MEM_READING='1 38' bash '$STAGE/memory_guard.sh' --status | grep -q 'short of memory'"
+guard "2 38"
+check "macOS says warning (level 2, as on 10-01 and 10-06 at 38 %): warned" "grep -q 'running short of memory' <<<\"\$(flag)\" && [[ \$(said) == 1 ]]"
 check "the warning names the biggest programs" "grep -q 'firefox 24 gigabytes' '$TMP/said.txt'"
 guard "2 45"
 check "same episode: not said again" "[[ \$(said) == 1 ]]"
@@ -37,6 +41,11 @@ guard "2 20"
 check "a new episode is announced at once" "[[ \$(said) == 3 ]]"
 check "status line is plain" "SECRETARY_MEM_READING='2 20' bash '$STAGE/memory_guard.sh' --status | grep -q 'pressure level 2.*running short'"
 check "the real readings work on this Mac" "bash '$STAGE/memory_guard.sh' --status | grep -Eq 'pressure level [124] .*compressed [0-9]+% of RAM'"
+# backstop: the compressor past half the RAM while macOS still says normal (the 2026-09-21 freeze had about 53 %)
+guard "1 8"; guard "1 49"
+check "49 % at normal pressure: still nothing" "[[ \"\$(flag)\" == ok && \$(said) == 3 ]]"
+guard "1 52"
+check "52 % at normal pressure: warned (backstop near the freeze)" "grep -q 'running short of memory' <<<\"\$(flag)\" && [[ \$(said) == 4 ]]"
 
 # A failed reading decides nothing (2026-09-24 09:06: one sysctl call failed, the RAM size fell back
 # to 1 byte, "606969856000 % compressed" was spoken as a memory shortage while 83 % was free).
