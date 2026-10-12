@@ -131,6 +131,26 @@ ding ignore its 20 s cooldown, since he is waiting for it. A marker older than 1
 (`SECRETARY_RENDERING_MAX_S`) belongs to a render that died and no longer hides the message.
 The "N older waiting" count ignores unrendered messages.
 
+## Repetition loops inside one window (2026-10-12)
+
+A 15 min dictation came out with "I think" repeated 111 times twice (a French sentence between
+them) and "run" 223 times: 2666 of its 6884 characters. The 2026-09-17 fix
+(`condition_on_previous_text=False`, VAD trim) stops a loop from spreading to the next window; this
+time each loop filled a single window. The audio under the first was a two-minute pause (-47 to
+-65 dBFS) whose breaths VAD let through, the second a 3 s pause; a loop-free offline pass found no
+speech in either, so nothing was lost and the French sentence was a hallucination. Whisper's own
+guard, the temperature fallback on `compression_ratio > 2.4`, did not save these windows (ratios
+of 14 to 47, `no_speech_prob` 0.00 on large-v3-turbo). Fix in `tools/mlx_whisper_helper.py`
+(`filter_hallucinations`, used by both the streaming and the whole-file path) and in the recorder's
+own subprocess path: a segment over the compression threshold or made of a 1-4 word phrase said
+five times in a row is dropped, an identical short segment ("Bye.") is kept twice at most, each
+drop goes to the helper log and `loop_segments_dropped_total` to the stream stats.
+Tests: `local_tests/test_helper_loop_filter.py` (stand-in decoder, no audio) and
+`StreamedPausesDoNotLoop` in `local_tests/test_mlx_helper_loops.py` (replays the live chunking on
+that recording, about a minute; skipped without it). Diagnosis recipe: `mlx_whisper.transcribe`
+offline with the same settings and the segments' `compression_ratio`, plus a 10 s RMS profile of
+the audio to see where the pauses are.
+
 ## Deferred speech can no longer be lost (2026-09-28)
 
 Reported by Remi: an answer he asked the secretary for never came. At 09:42:45 the secretary's

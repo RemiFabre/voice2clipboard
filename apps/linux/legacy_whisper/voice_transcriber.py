@@ -842,7 +842,25 @@ try:
 except TypeError:
     result = mlx_whisper.transcribe(audio, repo)
 
-if isinstance(result, dict):
+# Loops inside one window (2026-10-12, "I think" x111 in a pause): a segment over Whisper's
+# compression-ratio threshold, or a short phrase repeated five times, is dropped, as in the helper.
+def is_loop(text):
+    words = text.lower().split()
+    for n in (1, 2, 3, 4):
+        for i in range(0, len(words) - n * 5 + 1):
+            phrase = words[i:i + n]
+            if all(words[i + k * n:i + (k + 1) * n] == phrase for k in range(5)):
+                return True
+    return False
+
+if isinstance(result, dict) and result.get("segments"):
+    kept = []
+    for seg in result["segments"]:
+        t = (seg.get("text") or "").strip()
+        if t and (seg.get("compression_ratio") or 0) <= 2.4 and not is_loop(t):
+            kept.append(t)
+    text = " ".join(kept)
+elif isinstance(result, dict):
     text = result.get("text", "")
 else:
     text = str(result)

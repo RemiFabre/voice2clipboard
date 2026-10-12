@@ -151,13 +151,72 @@ def vad_options():
     return VadOptions(min_silence_duration_ms=VAD_MIN_SILENCE_MS, speech_pad_ms=VAD_SPEECH_PAD_MS)
 
 
+# Repetition loops inside one window. condition_on_previous_text=False stops a loop from spreading
+# to the next window, but Whisper can still fill a single window with one phrase ("I think" x111,
+# "run" x223 on 2026-10-12, in a two-minute pause and a 3 s pause that VAD let through). Whisper's
+# own guard, the temperature fallback on compression_ratio > 2.4, is skipped when no_speech_prob is
+# high, and the segment is then kept because avg_logprob is still above -1. So the segments are
+# checked here: a segment whose compression ratio is above Whisper's threshold, or whose text is a
+# short phrase repeated over and over, is dropped; a short segment repeated identically more than
+# twice in a row ("Bye." x9 on silence) is kept twice at most. Dropped segments are logged.
+LOOP_COMPRESSION_RATIO = float(os.getenv("VOICE2CLIPBOARD_LOOP_COMPRESSION_RATIO", "2.4"))
+LOOP_PHRASE_REPEATS = 5          # a 1-4 word phrase said this many times in a row is a loop
+LOOP_IDENTICAL_SEGMENTS = 2      # identical consecutive segments kept at most this many times
+LOOPS_DROPPED = {"segments": 0}  # since the helper started (reported in the state file)
+
+
+def is_loop_text(text):
+    words = text.lower().split()
+    for n in (1, 2, 3, 4):
+        span = n * LOOP_PHRASE_REPEATS
+        for i in range(0, len(words) - span + 1):
+            phrase = words[i:i + n]
+            if all(words[i + k * n:i + (k + 1) * n] == phrase for k in range(LOOP_PHRASE_REPEATS)):
+                return True
+    return False
+
+
+def filter_hallucinations(result):
+    """Text of a Whisper result without its repetition loops; returns (text, dropped segments)."""
+    if not isinstance(result, dict):
+        return str(result).strip(), []
+    segments = result.get("segments")
+    if not segments:
+        return result.get("text", "").strip(), []
+    kept, dropped = [], []
+    prev_norm, prev_count = None, 0
+    for seg in segments:
+        text = (seg.get("text") or "").strip()
+        if not text:
+            continue
+        ratio = seg.get("compression_ratio") or 0.0
+        if ratio > LOOP_COMPRESSION_RATIO or is_loop_text(text):
+            dropped.append({"why": "loop", "compression_ratio": round(ratio, 2), "text": text[:60]})
+            continue
+        norm = " ".join(re.sub(r"[^\w\s']", " ", text.lower()).split())
+        if norm == prev_norm:
+            prev_count += 1
+            if prev_count >= LOOP_IDENTICAL_SEGMENTS:
+                dropped.append({"why": "repeated segment", "compression_ratio": round(ratio, 2), "text": text[:60]})
+                continue
+        else:
+            prev_norm, prev_count = norm, 0
+        kept.append(text)
+    return " ".join(kept).strip(), dropped
+
+
 def decode_speech(speech):
     """Whisper on a float32 16 kHz array; returns stripped text ('' for empty input)."""
     if speech is None or len(speech) < SAMPLE_RATE // 4:
         return ""
     with DECODE_LOCK:
         result = mlx_whisper.transcribe(speech, path_or_hf_repo=MODEL_REPO, condition_on_previous_text=False)
-    return result.get("text", "").strip() if isinstance(result, dict) else str(result).strip()
+    text, dropped = filter_hallucinations(result)
+    if dropped:
+        LOOPS_DROPPED["segments"] += len(dropped)
+        for d in dropped:
+            print(f"[helper] dropped a {d['why']} (compression ratio {d['compression_ratio']}): {d['text']!r}", file=sys.stderr, flush=True)
+    return text
 
 
 class StreamSession:
@@ -367,6 +426,7 @@ class StreamSession:
             "end_seconds": round(time.time() - t0, 3),
             "background_decode_seconds": round(sum(c["decode_s"] for c in self.chunk_stats if not c["final"]), 3),
             "stop_phrase_hit": self.stop_hit,
+            "loop_segments_dropped_total": LOOPS_DROPPED["segments"],
         }
         return text, stats
 
