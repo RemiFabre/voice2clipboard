@@ -20,7 +20,7 @@ pytweening==1.2.0
 python-xlib==0.33
 
 # LLM interaction
-requests==2.32.3
+requests==2.33.0
 
 # Optional: used in some dependency chains
 pycparser==2.22

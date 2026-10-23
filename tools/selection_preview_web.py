@@ -298,8 +298,14 @@ def main() -> None:
 
     threading.Thread(target=updater, daemon=True).start()
 
+    allowed_hosts = {f"{h}:{args.port}" for h in ("127.0.0.1", "localhost", "[::1]", args.host)}
+
     class H(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802
+            if self.headers.get("Host", "") not in allowed_hosts:
+                self.send_response(403)
+                self.end_headers()
+                return
             if self.path == "/" or self.path.startswith("/index"):
                 body = HTML.encode("utf-8")
                 self.send_response(200)

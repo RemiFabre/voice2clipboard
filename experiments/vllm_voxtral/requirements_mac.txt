@@ -19,7 +19,7 @@ MouseInfo==0.1.3
 pytweening==1.2.0
 
 # LLM interaction
-requests==2.32.3
+requests==2.33.0
 
 # Note: python-xlib removed (Linux/X11 only)
 # Note: PyGetWindow removed (Linux/X11 only)
