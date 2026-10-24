@@ -20,7 +20,7 @@ convenience, not a requirement. Read in this order, nothing more than needed:
 | Gesture router, dictation start, lazy rotation | `scripts/mac/secretary/on_gesture.sh`, `dictate_toggle.sh`, `lazy_rotate.sh` (asks `~/claude_control_center/bin/tower rotate-advice`) |
 | Recorder (headset mode, verified delivery, hold-to-cancel, phantom starts, Escape guard) | `apps/linux/legacy_whisper/voice_transcriber.py`, launched by `scripts/mac/legacy_mlx_toggle_autopaste*.sh` |
 | Speech: inbox, pre-render, loudness, pause/resume, sticky voices | `inbox_post.sh`, `inbox_read_next.sh`, `say_now.sh`, `speech_render.py`, `voices.py`, `secretary/voices.json` (+ untracked `runtime/secretary/voices.learned.json`) |
-| Hooks (ledger, reports to the secretary, keep-warm pings ignored, memory guard) | `stop_hook.sh`, `user_prompt_hook.sh`, `notification_hook.sh`, `ledger_lib.py`, `memory_guard.sh` (also run every minute by the Tower) |
+| Hooks (ledger, reports to the secretary, keep-warm pings ignored, memory guard) | `stop_hook.sh`, `user_prompt_hook.sh`, `notification_hook.sh`, `ledger_lib.py`, `memory_guard.sh` (also run every minute by the Tower; it also runs `empty_window_sweep.sh`, which closes iTerm frames left on screen with no tab) |
 | Health flags read by the Session Tower | `runtime/secretary/health/<topic>`: `nowplaying`, `callmode`, `output`, `memory`, `secretary_input` |
 | Self-check and window checks | `selfcheck.sh`, `secretary_input_check.sh`, `on_headset.sh` |
 

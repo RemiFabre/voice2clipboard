@@ -106,6 +106,38 @@ What exists:
   not yet recovered and marks it `recovered`; `--list` shows them all.
 Tests: `python local_tests/test_cancel_dictation.py`, `python local_tests/test_cancel_integration.py`.
 
+## Empty recorder windows left on screen (2026-10-24)
+
+Remi kept finding gray recorder windows after dictations that had worked: the title, no text. The
+one he kept for inspection (⌥⌘8) was the dictation of 2026-10-23 23:14, which ended normally at
+23:17:12 (transcript saved and delivered, worker exited). For iTerm that window was closed:
+AppleScript listed it with zero tabs, `current session` failed, and its number 8 had gone to a
+window opened at 23:18:05 (iTerm frees the number in `windowWillClose`). What stayed was the bare
+frame, still on screen for yabai and the window server; iTerm's AppleScript `windows` walks
+`NSApp.orderedWindows`, which is why it is still listed. The recorder's close path is not
+involved: every run in the log ends the same way, and the same close worked at 09:54 and 10:03.
+
+What set that dictation apart: it ran through a display sleep and wake with the external monitor
+re-plugged (23:14:49 to 23:14:58), after which WindowServer failed to move that very window
+(`PKGWindowMoveOnMatchingDisplayChangedSeed ... likely misplaced`, 23:14:59), and it ended while
+the screen was still locked (unlock and another hotplug at 23:17:17). Not reproduced, since that
+would mean locking his screen; the older leftovers he closed by hand are past the log retention.
+
+Fix: `scripts/mac/secretary/empty_window_sweep.sh`, run by `memory_guard.sh` (the Tower's minute
+housekeeping and every Stop hook), at most every 30 s. A window with no tab holds no session, so
+closing it cancels nothing. Even so, a window is closed only when it was already empty at a pass at
+least 20 s earlier (a window being created is empty for a moment), its tab count is re-checked
+right before the close (AppleScript `close`, the same `performClose:` as its close button), and no
+pass runs while the screen is locked or a dictation is active. One log line per window closed
+("empty window sweep: closed iTerm window ..."); `--list` prints the empty windows and closes
+nothing. Verified on window 8 itself: closed at 10:23:42, gone from iTerm, yabai and the window
+server. Closing a recorder window during a dictation is still the cancel.
+Test: `bash local_tests/test_empty_window_sweep.sh` (stand-in iTerm, scratch runtime).
+Diagnosis: `screencapture -l <window id>` shows a window's ⌥⌘ number even behind others;
+`log show --predicate 'process == "WindowServer" AND eventMessage CONTAINS
+"PKGWindowMoveOnMatchingDisplayChangedSeed"'` lists misplaced windows; loginwindow `kLWLockFrom`
+and WindowServer `Processing hotplug` lines date screen locks and monitor changes.
+
 ## Pre-rendered inbox (2026-09-19)
 
 `inbox_post.sh` queues the text and returns at once; in the background `speech_render.py`

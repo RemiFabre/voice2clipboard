@@ -15,8 +15,12 @@
 # when it has grown past POCKET_MAX_MB and nothing is speaking (it reloads in about a second).
 source "$(dirname "$0")/lib.sh"
 # Not about memory: this script is the builder's once-a-minute housekeeping (the Tower runs it),
-# so deferred speech whose waiter died is rescued here too (lib.sh, deferred_recover).
-[[ "${1:-}" == "--status" ]] || deferred_recover
+# so deferred speech whose waiter died is rescued here too (lib.sh, deferred_recover), and empty
+# iTerm frames left on screen are closed (empty_window_sweep.sh; in the background, it asks iTerm).
+if [[ "${1:-}" != "--status" ]]; then
+  deferred_recover
+  ( "$(dirname "$0")/empty_window_sweep.sh" </dev/null >/dev/null 2>&1 & )
+fi
 # Compressor backstop, as % of RAM, for when macOS still says normal. It was 35 until 2026-10-12
 # and raised false alarms: 8 of the 10 warnings from 10-03 to 10-12 came at level 1 with 35 to 38 %
 # (61 % of memory free on the last one). Over 1518 five-minute readings (10-06 to 10-12) level 1
