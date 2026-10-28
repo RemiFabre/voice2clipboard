@@ -106,6 +106,34 @@ What exists:
   not yet recovered and marks it `recovered`; `--list` shows them all.
 Tests: `python local_tests/test_cancel_dictation.py`, `python local_tests/test_cancel_integration.py`.
 
+## First press refused, the retry works (2026-10-28)
+
+Remi: a press often plays the "not now" tone while the Mac is idle, the retry works, more and more
+lately. Every case is a press the headset sent as Pause (it believed something was playing),
+which `on_gesture.sh` refused as "headset put away"; the retry then arrives as Play. Refused
+pauses followed by a working press within 20 s: 26 since 2026-09-23, 13 of them on 10-25 to 10-28.
+Two moments when the headset believes "playing" with nothing playing:
+
+- **After a dictation.** The call and the stop cue leave the headset on "playing" until the button
+  app's once-a-minute claim says "paused" again. Since 10-01: within 5 s of the headset microphone
+  closing 6 of 6 presses came as Pause, within a minute 20 of 39, later 1 of 113. Most of the
+  recent cases: answering again a few seconds after a dictation.
+- **While the button app holds "playing"** (120 s) because a Firefox tab keeps taking the buttons.
+  Today's case: Firefox took them five times from 12:07:24, the app held "playing" from 12:08:32,
+  the press at 12:09:27 came as Pause and was refused, the retry at 12:09:30 worked. The app's log
+  line already said a docking could start a dictation during a hold, but the router refused every
+  such press.
+
+Fix, no rebuild: `on_headset.sh mic-closed` sends `ctl.sh settle` 1, 4 and 8 s after the microphone
+closes (what `say_now.sh` already does after a message). And `on_gesture.sh` takes a pause as a press
+within 75 s of the headset microphone closing, or during a hold (read from the app's log line),
+after waiting 1.5 s for a disconnect: docking right after a dictation is common (6 of 31 dockings
+came within 90 s of one), and the charger's Pause arrives at most 0.7 s before the disconnect
+(2.3 s once; the recorder's phantom check catches that). A second press during the wait decides
+alone. Whether the settle after the call is heard by the headset is not verified yet (no live
+test with the microphone): the log will tell, as "taken as a press" lines after a dictation.
+Test: `bash local_tests/test_pause_gesture.sh`.
+
 ## Empty recorder windows left on screen (2026-10-24)
 
 Remi kept finding gray recorder windows after dictations that had worked: the title, no text. The

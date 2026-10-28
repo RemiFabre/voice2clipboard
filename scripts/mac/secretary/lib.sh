@@ -382,6 +382,18 @@ health_problem() { local v; v="$(cut -f2- "$HEALTH_DIR/$1" 2>/dev/null)"; [[ -n 
 # ("<time>\topen\t<pid>:<exe>,..." | "closed" | "absent"); whether that is a problem is decided
 # here: it is one when the microphone is open and no dictation is running.
 HEADSET_MIC_FILE="$SECRETARY_RUNTIME/headset_mic"
+# For a Pause press after a dictation (on_gesture.sh, 2026-10-28): when the headset last dropped
+# (mtime), which press came last (pid of its on_gesture.sh), and the button app's log.
+HEADSET_GONE_FILE="$SECRETARY_RUNTIME/headset.disconnected"
+GESTURE_LAST_FILE="$SECRETARY_RUNTIME/gesture.last"
+EARBUDS_LOG_FILE="$SECRETARY_RUNTIME/earbuds.log"
+# The button app's control script; tests give a stand-in, and without one a test runtime never
+# signals the live app.
+EARBUDS_CTL="${SECRETARY_EARBUDS_CTL:-$ROOT_DIR/scripts/mac/earbuds/ctl.sh}"
+earbuds_ctl() {
+  [[ -z "${SECRETARY_EARBUDS_CTL:-}" && "$SECRETARY_RUNTIME" != "$ROOT_DIR/runtime/secretary" ]] && return 0
+  "$EARBUDS_CTL" "$@" >/dev/null 2>&1 || true
+}
 CALLMODE_NOTIFIED_FILE="$SECRETARY_RUNTIME/callmode_notified"
 # Programs whose use of the headset microphone is a real call: flagged, but never spoken into.
 CALLMODE_QUIET_APPS="${SECRETARY_CALLMODE_QUIET_APPS:-zoom|FaceTime|Teams|Slack|Discord|Webex|Skype|WhatsApp|Signal}"

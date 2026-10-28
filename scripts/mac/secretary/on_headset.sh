@@ -28,6 +28,7 @@ trap 'rmdir "$CLAIM" 2>/dev/null' EXIT
 log "headset $event: $name"
 case "$event" in
   disconnected)
+    touch "$HEADSET_GONE_FILE"   # a Pause just before this was the charger (on_gesture.sh)
     if recorder_alive; then
       log "headset disconnected during a dictation: asking the recorder to stop"
       : >"$DICTATION_STOP_FILE"
@@ -72,6 +73,14 @@ case "$event" in
     who="$(headset_mic_holders | while IFS=: read -r p e; do process_friendly_name "$p" "$e"; done | head -n 1)"
     nohup "$(dirname "$0")/say_now.sh" "Buttons off: ${who:-another program} has the microphone." >/dev/null 2>&1 & ;;
   mic-closed)
+    # After a dictation (the call, then the stop cue) the headset believes "playing" until the
+    # button app's next claim, up to a minute, and sends the next press as Pause, which used to be
+    # refused (2026-10-28). Tell it "paused" again, as say_now.sh does after a message: once the
+    # call is over and once more after the cues. Silent; does nothing while another app holds
+    # the buttons or the app holds "playing".
+    ( for wait_s in ${SECRETARY_SETTLE_WAITS:-1 3 4}; do
+        sleep "$wait_s"; dictation_active && exit 0; earbuds_ctl settle
+      done ) </dev/null >/dev/null 2>&1 &
     callmode_problem >/dev/null
     if [[ -f "$CALLMODE_NOTIFIED_FILE" ]]; then
       mv -f "$CALLMODE_NOTIFIED_FILE" "$CALLMODE_NOTIFIED_FILE.last"; touch "$CALLMODE_NOTIFIED_FILE.last"

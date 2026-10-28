@@ -17,17 +17,53 @@ dictating=0; dictation_active && dictating=1
 tts_finish_if_over
 tts="$(tts_pid)"; tts_state="$(cat "$TTS_STATE_FILE" 2>/dev/null || true)"
 log "gesture: $gesture (dictating=$dictating tts=${tts:+${tts_state:-playing}})"
+echo "$$" >"$GESTURE_LAST_FILE"
 # "pause" (button app resting in paused, 2026-09-21): the headset sent Pause instead of Play. It does
 # that for a press while it believes something is playing (a message: then this is an ordinary
 # single press), and when an earbud is put into its charger. With nothing playing or recording it
 # is the charger, and no dictation may start by itself; the short "not now" tone says the press, if
 # it was one, was seen. Exception: for a few seconds after a message the headset still believes
 # "playing", and answering right after a message is the main use: then a pause is a press.
+# Two more moments when the headset believes "playing" (2026-10-28, Remi: "the first press fails,
+# the retry works, more and more lately"): after a dictation (the call and the stop cue; until the
+# button app's next claim, up to a minute: 20 of the 39 presses within a minute of a dictation's end
+# arrived as Pause since 10-01, 1 of 113 later), and while the button app holds "playing" because a
+# browser tab keeps taking the buttons. There a pause is a press too, unless the headset drops
+# within PAUSE_DOCK_WAIT_S: putting it away right after a dictation is common, and the charger's
+# Pause comes up to 0.7 s before the disconnect (2.3 s once in 31 dockings, which the recorder's
+# phantom check then catches).
+pause_is_press_because() {   # prints why a pause is a press now, or fails
+  local now t line until
+  now="$(date +%s)"
+  if [[ "$(headset_mic_state)" == closed ]]; then
+    t="$(date -j -f '%Y-%m-%d %H:%M:%S' "$(cut -f1 "$HEADSET_MIC_FILE" 2>/dev/null | cut -c1-19)" +%s 2>/dev/null || echo 0)"
+    if (( now - t < ${SECRETARY_PAUSE_AFTER_DICTATION_S:-75} )); then echo "$(( now - t )) s after a dictation"; return 0; fi
+  fi
+  line="$(tail -n 300 "$EARBUDS_LOG_FILE" 2>/dev/null | grep 'holding playing for' | tail -n 1)"
+  if [[ -n "$line" ]]; then
+    t="$(date -j -f '%Y-%m-%d %H:%M:%S' "${line:0:19}" +%s 2>/dev/null || echo 0)"
+    until=$(( t + $(sed -E 's/.*holding playing for ([0-9]+) s.*/\1/' <<<"$line") ))
+    if (( now < until )); then echo "while the button app holds playing ($(( until - now )) s left)"; return 0; fi
+  fi
+  return 1
+}
 if [[ "$gesture" == "pause" ]]; then
   ended_ago=$(( $(date +%s) - $(stat -f %m "$TTS_ENDED_FILE" 2>/dev/null || echo 0) ))
   if [[ "$dictating" == 1 ]] || recorder_alive || [[ -n "$tts" ]]; then gesture="single"
   elif [[ "$ended_ago" -lt "${SECRETARY_PAUSE_IS_PRESS_S:-8}" ]]; then
     log "pause $ended_ago s after a message: taken as a press"; gesture="single"
+  elif why="$(pause_is_press_because)"; then
+    pressed_at="$(date +%s)"
+    sleep "${SECRETARY_PAUSE_DOCK_WAIT_S:-1.5}"
+    gone_at="$(stat -f %m "$HEADSET_GONE_FILE" 2>/dev/null || echo 0)"
+    if (( gone_at >= pressed_at - 3 )); then
+      refuse_cue "pause $why, then the headset disconnected: put away, no dictation"; exit 0
+    fi
+    if [[ "$(cat "$GESTURE_LAST_FILE" 2>/dev/null)" != "$$" ]]; then
+      log "pause $why: a newer press came meanwhile, it decides"; exit 0
+    fi
+    log "pause $why: taken as a press"; gesture="single"
+    dictating=0; dictation_active && dictating=1
   else
     refuse_cue "pause while nothing plays or records: headset put away (or a press sent as pause), no dictation"
     exit 0
