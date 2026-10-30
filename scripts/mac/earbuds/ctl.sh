@@ -17,6 +17,9 @@ write_plist() {
   <key>ProgramArguments</key><array><string>$APP_BIN</string></array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
+  <!-- app-level CPU priority, inherited by the recorder: without it the agent runs at 20 with
+       throttled I/O and every normal job gets the CPU first (18 s press-to-mic under load, 2026-10-30) -->
+  <key>ProcessType</key><string>Interactive</string>
   <key>StandardOutPath</key><string>$LOG.launchd.out</string>
   <key>StandardErrorPath</key><string>$LOG.launchd.err</string>
   <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>

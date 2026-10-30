@@ -960,3 +960,14 @@ secretary's messages are delivered without approval.
 Not yet verified with a human: a real earbud dictation through the launchd-started app (TCC
 prompts), and whether presses still arrive while the headset mic is in hands-free mode during
 a recording. If they do not, stop the dictation with the keyboard shortcut.
+
+## Dictation ahead of heavy jobs (2026-10-30)
+
+The button app's launch agent had no `ProcessType`, so launchd ran it, and everything it starts
+(on_gesture.sh, the recorder), at priority 20 with throttled I/O: under four normal-priority
+eval jobs a press took 18 s to open the microphone. `ctl.sh` now writes
+`ProcessType=Interactive`; afterwards `ps -o pri= -p <EarbudButtons pid>` reads 31 or more and
+`launchctl print gui/$(id -u)/com.voice2clipboard.earbuds` says `spawn type = interactive`.
+`~/bin/heavy` runs its jobs at utility priority (20), so dictation now comes first. The
+secretary agent only runs the login boot script and needs nothing. Measure: press to
+"headset microphone open" in earbuds.log.
