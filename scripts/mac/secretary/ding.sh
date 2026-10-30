@@ -9,6 +9,10 @@ if dictation_active && [[ "${DING_DEFERRED:-0}" != "1" ]]; then
   DING_DEFERRED=1 nohup bash -c 'source "$1/lib.sh"; wait_for_dictation_end; exec "$1/ding.sh"' _ "$(cd "$(dirname "$0")" && pwd)" >/dev/null 2>&1 &
   exit 0
 fi
+# A ding held through a dictation: the message may have been marked read on the Tower meanwhile.
+if [[ "${DING_DEFERRED:-0}" == "1" ]] && ! ls "$INBOX_DIR"/*.txt >/dev/null 2>&1; then
+  log "ding dropped: the inbox emptied during the dictation"; exit 0
+fi
 now="$(date +%s)"; last="$(cat "$DING_STAMP" 2>/dev/null || echo 0)"
 # He was told "Not ready yet." and is waiting for exactly this ding: the cooldown does not apply.
 owed=0; [[ -f "$DING_OWED" ]] && { owed=1; rm -f "$DING_OWED"; }

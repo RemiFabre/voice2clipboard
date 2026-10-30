@@ -274,6 +274,23 @@ inbox_next_playable() {   # newest message that is not being rendered; prints no
   return 1
 }
 inbox_rendering_count() { local f n=0; for f in "$INBOX_DIR"/*.txt; do [[ -f "$f" ]] && message_rendering "$f" && n=$((n + 1)); done; printf '%s' "$n"; }
+# Taking a message out of the inbox (a double press picks one and moves it to spoken/; the Tower
+# marks some read, inbox_mark_read.sh, 2026-10-30) happens under this lock, so both never take the
+# same one. Held for milliseconds. A press never waits more than about 2 s: a lock older than 10 s
+# belongs to a holder that died and is taken over; past 2 s the press goes on without it.
+INBOX_LOCK="$SECRETARY_RUNTIME/inbox.lock"
+inbox_lock() {
+  local i
+  for i in $(seq 1 40); do
+    mkdir "$INBOX_LOCK" 2>/dev/null && return 0
+    if [[ $(( $(date +%s) - $(stat -f %m "$INBOX_LOCK" 2>/dev/null || echo 0) )) -gt 10 ]]; then
+      rmdir "$INBOX_LOCK" 2>/dev/null; continue
+    fi
+    sleep 0.05
+  done
+  log "inbox lock: still held after 2 s, going on without it"; return 1
+}
+inbox_unlock() { rmdir "$INBOX_LOCK" 2>/dev/null || true; }
 
 # The sentences around a message are spoken in its language and voice (Remi, 2026-09-25: in
 # French messages the introduction and the count were English, read by the French voice, so

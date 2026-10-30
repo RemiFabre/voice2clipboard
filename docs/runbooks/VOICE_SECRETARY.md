@@ -242,6 +242,20 @@ The guarantee no longer depends on the waiter surviving:
 
 Test: `bash local_tests/test_deferred_speech.sh`.
 
+## Messages marked read on the Tower (2026-10-30)
+
+Remi wanted to read pending messages on the Session Tower and mark one, some or all read without
+hearing them. `inbox_mark_read.sh [--by <who>] <stem>...` (stem: the file name without `.txt`) moves
+each message to `spoken/` with `status=marked read via <who> <time>`, so `messages_search.sh` finds
+it, removes its voice file, and prints `read <stem>` or `gone <stem>` (already played or marked);
+exit 2 only for bad usage, then nothing is touched. Silent. Taking a message out of the inbox now
+happens under `inbox.lock` (lib.sh `inbox_lock`), shared with the pick and move of a double press,
+held for milliseconds; a press never waits more than about 2 s for it. A message marked read while
+its voice renders: the render ends without a ding and removes its voice file (`inbox_post.sh`); a
+ding held through a dictation is dropped when the inbox emptied meanwhile (`ding.sh`); an owed ding
+after "Not ready yet." is cancelled when no message is rendering any more.
+Test: `bash local_tests/test_inbox_mark_read.sh`.
+
 ## Memory warnings are silent (2026-10-30)
 
 Remi found the spoken memory warnings annoying and asked for them to go. `memory_guard.sh` no longer

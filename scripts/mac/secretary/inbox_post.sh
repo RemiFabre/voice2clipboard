@@ -33,6 +33,8 @@ log "inbox_post from=$from lang=$lang$lang_note: $(printf '%s' "$text" | head -c
   started="$(date +%s)"
   if render_speech "$lang" "$voice" "$stem.wav.tmp.wav" "$text" && [[ -f "$stem.txt" ]]; then
     mv "$stem.wav.tmp.wav" "$stem.wav"
+    # marked read on the Tower meanwhile (inbox_mark_read.sh): its voice must not stay behind
+    [[ -f "$stem.txt" ]] || rm -f "$stem.wav"
     intro="$(intro_text_for "$from" "$lang")"
     [[ -n "$intro" ]] && cached_clip "$lang" "$voice" "$intro" >/dev/null
     waiting="$(ls "$INBOX_DIR"/*.txt 2>/dev/null | wc -l | tr -d ' ')"

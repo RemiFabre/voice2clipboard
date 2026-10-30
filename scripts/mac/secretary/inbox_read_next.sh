@@ -7,7 +7,10 @@ source "$(dirname "$0")/lib.sh"
 if dictation_active; then refuse_cue "inbox_read_next: a dictation is active"; exit 0; fi
 deferred_recover   # deferred speech whose waiter died: into the inbox before looking at it
 # A message whose voice is still being rendered is not there yet: never make him wait for it.
+# Picked and moved under the inbox lock: the Tower may be marking messages read at that moment.
+locked=0; inbox_lock && locked=1
 next="$(inbox_next_playable)"
+[[ -z "$next" && "$locked" == 1 ]] && inbox_unlock
 if [[ -z "$next" && "$(inbox_rendering_count)" -gt 0 ]]; then
   log "inbox_read_next: only messages still being rendered: saying so, the ding will follow"
   : >"$DING_OWED"
@@ -24,6 +27,7 @@ lang="$(message_lang "$next")"; from="$(sed -n 's/^from=//p' "$next" | head -n 1
 body="$(awk 'f{print} /^$/{f=1}' "$next")"
 body_wav="${next%.txt}.wav"
 mv "$next" "$SPOKEN_DIR/"
+[[ "$locked" == 1 ]] && inbox_unlock
 rm -f "${next%.txt}.rendering"   # only ever a stale one here (its render died)
 export SAY_NOW_ARCHIVE="$SPOKEN_DIR/$(basename "$next")"
 archive_prune

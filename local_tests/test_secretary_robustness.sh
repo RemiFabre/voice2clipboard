@@ -39,11 +39,18 @@ check "refuse_cue logs the refusal" "grep -q 'refused: test reason' '$LOG_FILE'"
 
 # 5b. a ding never sounds into a running dictation (2026-09-23): it waits for the recording to end
 sleep 30 & live=$!; echo "$live" >"$DICTATION_LOCK"; : >"$LOG_FILE"; rm -f "$DING_STAMP"
+printf 'lang=en\nfrom=test\n\nwaiting\n' >"$INBOX_DIR/1-test.txt"   # a ding is always for a queued message
 bash "$ROOT/scripts/mac/secretary/ding.sh"
 check "ding during a dictation is held" "grep -q 'ding held' '$LOG_FILE' && ! grep -q '^.* ding$' '$LOG_FILE'"
 kill "$live" 2>/dev/null; wait "$live" 2>/dev/null; rm -f "$DICTATION_LOCK"
 for _ in $(seq 1 60); do grep -q '^.* ding$' "$LOG_FILE" && break; /bin/sleep 0.1; done
 check "the held ding plays once the dictation is over" "grep -q '^.* ding$' '$LOG_FILE'"
+# 5c. ... unless the message was marked read on the Tower meanwhile (2026-10-30)
+sleep 30 & live=$!; echo "$live" >"$DICTATION_LOCK"; : >"$LOG_FILE"; rm -f "$DING_STAMP"
+bash "$ROOT/scripts/mac/secretary/ding.sh"; rm -f "$INBOX_DIR/1-test.txt"
+kill "$live" 2>/dev/null; wait "$live" 2>/dev/null; rm -f "$DICTATION_LOCK"
+for _ in $(seq 1 60); do grep -q 'ding dropped' "$LOG_FILE" && break; /bin/sleep 0.1; done
+check "a held ding whose message is gone does not play" "grep -q 'ding dropped' '$LOG_FILE' && ! grep -q '^.* ding$' '$LOG_FILE'"
 
 # 6. headset name filter
 check "Shokz matches the headset pattern" "is_headset_name 'OpenFit 2+ by Shokz'"
