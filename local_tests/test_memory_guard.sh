@@ -1,6 +1,7 @@
 #!/bin/bash
 # Memory guard: warns while there is still time (2026-09-21: the Mac froze after eleven minutes of
-# memory pressure that nobody was told about). Readings are injected, the voice is a stand-in,
+# memory pressure that nobody was told about). Silent since 2026-10-30: the health flag is the only
+# signal, and each episode is logged once per ten minutes. Readings are injected, the voice is a stand-in,
 # the runtime is a temp folder: no sound, nothing real is read or restarted.
 # Run: bash local_tests/test_memory_guard.sh
 set -u
@@ -16,7 +17,8 @@ source "$STAGE/lib.sh"
 fails=0
 check() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; fails=$((fails + 1)); fi; }
 flag() { cut -f2- "$HEALTH_DIR/memory" 2>/dev/null; }
-said() { cat "$TMP/said.txt" 2>/dev/null | wc -l | tr -d ' '; }
+# "said" now counts warnings logged; nothing may ever reach the voice (checked at the end)
+said() { grep -c 'memory guard: .*short of memory' "$SECRETARY_RUNTIME/secretary.log" 2>/dev/null || echo 0; }
 guard() { SECRETARY_MEM_READING="$1" bash "$STAGE/memory_guard.sh"; /bin/sleep 0.3; }
 
 guard "1 5"
@@ -27,7 +29,7 @@ check "compressor at 38 % while macOS says normal: no warning, flag ok" "[[ \"\$
 check "status line at normal pressure and 38 %: no problem" "! SECRETARY_MEM_READING='1 38' bash '$STAGE/memory_guard.sh' --status | grep -q 'short of memory'"
 guard "2 38"
 check "macOS says warning (level 2, as on 10-01 and 10-06 at 38 %): warned" "grep -q 'running short of memory' <<<\"\$(flag)\" && [[ \$(said) == 1 ]]"
-check "the warning names the biggest programs" "grep -q 'firefox 24 gigabytes' '$TMP/said.txt'"
+check "the warning names the biggest programs (flag and log)" "grep -q 'firefox 24 gigabytes' <<<\"\$(flag)\" && grep -q 'firefox 24 gigabytes' '$SECRETARY_RUNTIME/secretary.log'"
 guard "2 45"
 check "same episode: not said again" "[[ \$(said) == 1 ]]"
 guard "4 55"
@@ -61,5 +63,7 @@ check "a compressor larger than the RAM is a broken reading, not an alarm" "[[ \
 guard "x 20"
 check "a pressure level that is not a number decides nothing" "[[ \$(said) == \$before ]]"
 check "the real reading still works after all that" "bash '$STAGE/memory_guard.sh' --status | grep -Eq 'compressed [0-9]+% of RAM'"
+check "silent: no warning was ever spoken" "[[ ! -e '$TMP/said.txt' ]]"
+check "silent: no sound in the script" "! grep -Eq 'say_now|play_cue' '$STAGE/memory_guard.sh'"
 
 echo; [[ "$fails" == 0 ]] && echo "all passed" || { echo "$fails failed"; exit 1; }

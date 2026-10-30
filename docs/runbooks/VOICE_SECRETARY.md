@@ -242,6 +242,14 @@ The guarantee no longer depends on the waiter surviving:
 
 Test: `bash local_tests/test_deferred_speech.sh`.
 
+## Memory warnings are silent (2026-10-30)
+
+Remi found the spoken memory warnings annoying and asked for them to go. `memory_guard.sh` no longer
+buzzes or speaks. The health flag `memory` (same format: `<time>\t<text>`, `ok` when fine) is the
+only signal, and the Session Tower shows it in violet on its icon and its page. Still in place: the
+same thresholds, one `memory guard:` line in secretary.log per episode (every 10 min while it lasts),
+`--status`, and the voice daemon cap. Test: `bash local_tests/test_memory_guard.sh`.
+
 ## Memory warnings follow macOS's own pressure level (2026-10-12)
 
 The memory guard also warned when the compressor held 35 % of the RAM, and that rule raised false

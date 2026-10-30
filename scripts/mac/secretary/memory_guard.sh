@@ -7,7 +7,9 @@
 # The rule (2026-10-12): warn when macOS itself reports memory pressure (level 2 "warning" or 4
 # "critical"). While it says normal (level 1), warn only if the compressor holds more than half
 # the RAM, a backstop near the freeze (about 53 %) that normal pressure has never reached here.
-#   memory_guard.sh            check once: health flag "memory", one spoken warning per episode
+#   memory_guard.sh            check once: health flag "memory", one log line per episode
+# Silent since 2026-10-30 (Remi: the spoken warnings were annoying): no buzz, no speech. The flag
+# is the only signal; the Session Tower shows it (violet, on its icon and its page).
 #   memory_guard.sh --status   print one plain line and exit (for the self-check and by hand)
 # Called in the background by the Stop hook of every session (cheap: two sysctl/vm_stat reads,
 # 10 ms; `top` runs only when there is something to say). It never kills anything: what to close
@@ -131,9 +133,7 @@ fi
 who="$(biggest)"
 text="$problem (pressure level $level, $pct percent compressed); the biggest: ${who:-unknown}"
 health_set memory "$text"
-# one spoken warning per episode, repeated every REPEAT_S while it lasts
+# one log line per episode, repeated every REPEAT_S while it lasts; nothing audible
 if [[ -f "$STAMP" && $(( $(date +%s) - $(stat -f %m "$STAMP" 2>/dev/null || echo 0) )) -lt "$REPEAT_S" ]]; then exit 0; fi
 : >"$STAMP"
 log "memory guard: $text"
-play_cue "$FAIL_SOUND"; sleep 1.6
-nohup "$(dirname "$0")/say_now.sh" "Warning: $problem. The biggest programs are ${who:-unknown}. Close something before it freezes." >/dev/null 2>&1 &
