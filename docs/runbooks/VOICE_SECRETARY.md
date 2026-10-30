@@ -264,6 +264,14 @@ only signal, and the Session Tower shows it in violet on its icon and its page. 
 same thresholds, one `memory guard:` line in secretary.log per episode (every 10 min while it lasts),
 `--status`, and the voice daemon cap. Test: `bash local_tests/test_memory_guard.sh`.
 
+Same day, with the mac-memory research session: the 10 warnings from 10-12 to 10-30 were all level-2
+blips under 10 minutes (a 3 GB agent job on a 15 to 35 % baseline), while the two episodes that
+mattered (09-21 freeze, 10-03 12:18) reached 53 %. Level 2 now flags only after 15 minutes at level 2
+or more with no level-1 reading in between (`memory_level2_since`; a gap of 5 minutes without a
+reading starts over), wording "the Mac has been short of memory for N minutes"; level 4 and the 50 %
+backstop flag at once. memory.log lines carry `free=` (kern.memorystatus_level) and `swap=` (used),
+come every minute while the level is 2 or more, and keep 240 characters of each command line.
+
 ## Memory warnings follow macOS's own pressure level (2026-10-12)
 
 The memory guard also warned when the compressor held 35 % of the RAM, and that rule raised false

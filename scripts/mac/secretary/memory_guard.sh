@@ -29,6 +29,16 @@ fi
 # never went past 37 %; the three real episodes were all level 2 (38, 53 and 38 %), caught by the
 # level rule on its own. 50 % stays below the freeze's 53 %.
 WARN_COMPRESSED_PCT="${SECRETARY_MEM_WARN_COMPRESSED_PCT:-50}"
+# Level 2 must last (2026-10-30, with the mac-memory research session): the 10 warnings from 10-12
+# to 10-30 were all level 2 and all blips under 10 minutes (a 3 GB agent job on a 15 to 35 %
+# baseline; 3 of 1708 five-minute samples since 10-24 at level 2, each with level 1 on both sides).
+# The two episodes that mattered (09-21 freeze, 10-03 12:18) hit 53 %, caught by the backstop.
+# So level 2 warns only after SUSTAIN_S at level 2 or more with no level-1 reading in between;
+# level 4 and the backstop warn at once. LEVEL2_SINCE holds the episode's start (epoch); its mtime
+# is the last reading at level 2, and a gap of more than GAP_S (no reading) starts a new episode.
+SUSTAIN_S="${SECRETARY_MEM_SUSTAIN_S:-900}"
+GAP_S="${SECRETARY_MEM_GAP_S:-300}"
+LEVEL2_SINCE="$SECRETARY_RUNTIME/memory_level2_since"
 REPEAT_S="${SECRETARY_MEM_REPEAT_S:-600}"
 POCKET_MAX_MB="${SECRETARY_POCKET_MAX_MB:-4000}"
 STAMP="$SECRETARY_RUNTIME/memory_warned"
@@ -71,24 +81,43 @@ fi
 # the last log minutes were lost and the pids were dead). Every MEMLOG_EVERY_S one line goes to
 # runtime/secretary/memory.log: pressure, compressed share, and the five biggest processes with pid
 # and command line (top's MEM counts compressed memory too). The file is kept under 2000 lines.
+# While the level is 2 or more, a line every minute: how long the blips last (2026-10-30). free= is
+# kern.memorystatus_level (% of memory available), swap= the swap in use; the Tower reads only the
+# " | " parts. Commands are cut at 240 characters: Homebrew Python's path alone is longer than 110.
 MEMLOG="$SECRETARY_RUNTIME/memory.log"; MEMLOG_EVERY_S="${SECRETARY_MEMLOG_EVERY_S:-300}"
+[[ "$level" -ge 2 ]] && MEMLOG_EVERY_S="${SECRETARY_MEMLOG_PRESSED_EVERY_S:-60}"
 if [[ -z "${SECRETARY_MEM_READING:-}" && "${1:-}" != "--status" ]] &&
    [[ $(( $(date +%s) - $(stat -f %m "$MEMLOG" 2>/dev/null || echo 0) )) -ge "$MEMLOG_EVERY_S" ]]; then
   {
-    printf '%s level=%s compressed=%s%%' "$(date '+%Y-%m-%d %H:%M:%S')" "$level" "$pct"
+    free="$("$SYSCTL" -n kern.memorystatus_level 2>/dev/null)"
+    swap="$("$SYSCTL" -n vm.swapusage 2>/dev/null | sed -nE 's/.*used = ([0-9]+)(\.[0-9]+)?M.*/\1/p')"
+    printf '%s level=%s compressed=%s%% free=%s%% swap=%sM' "$(date '+%Y-%m-%d %H:%M:%S')" "$level" "$pct" "${free:-?}" "${swap:-?}"
     top -l 1 -o mem -n 5 -stats pid,mem 2>/dev/null | tail -n 5 | while read -r tpid tmem; do
-      printf ' | %s %s %s' "$tpid" "$tmem" "$(ps -o command= -p "$tpid" 2>/dev/null | cut -c1-110)"
+      printf ' | %s %s %s' "$tpid" "$tmem" "$(ps -o command= -p "$tpid" 2>/dev/null | cut -c1-240)"
     done
     printf '\n'
   } >>"$MEMLOG"
   if [[ "$(wc -l <"$MEMLOG")" -gt 2000 ]]; then tail -n 1500 "$MEMLOG" >"$MEMLOG.tmp" && mv "$MEMLOG.tmp" "$MEMLOG"; fi
 fi
+if [[ "${1:-}" == "--status" ]]; then   # the reading now, as macOS gives it
+  now_problem=""
+  if [[ "$level" -ge 4 ]]; then now_problem="critically short of memory"
+  elif [[ "$level" -ge 2 || "$pct" -ge "$WARN_COMPRESSED_PCT" ]]; then now_problem="running short of memory"; fi
+  echo "memory pressure level $level (1 normal, 2 warning, 4 critical), compressed $pct% of RAM${now_problem:+: $now_problem}"; exit 0
+fi
+now="$(date +%s)"
+if [[ "$level" -ge 2 ]]; then
+  last=$(stat -f %m "$LEVEL2_SINCE" 2>/dev/null || echo 0); since="$(cat "$LEVEL2_SINCE" 2>/dev/null)"
+  [[ "$since" =~ ^[0-9]+$ ]] && (( now - last <= GAP_S )) || since="$now"
+  echo "$since" >"$LEVEL2_SINCE"
+else
+  rm -f "$LEVEL2_SINCE"; since="$now"
+fi
 problem=""
-if [[ "${level:-1}" -ge 4 ]]; then problem="the Mac is critically short of memory"
-elif [[ "${level:-1}" -ge 2 || "${pct:-0}" -ge "$WARN_COMPRESSED_PCT" ]]; then problem="the Mac is running short of memory"; fi
-
-if [[ "${1:-}" == "--status" ]]; then
-  echo "memory pressure level ${level:-?} (1 normal, 2 warning, 4 critical), compressed ${pct:-?}% of RAM${problem:+: $problem}"; exit 0
+if [[ "$level" -ge 4 ]]; then problem="the Mac is critically short of memory"
+elif [[ "$pct" -ge "$WARN_COMPRESSED_PCT" ]]; then problem="the Mac is running short of memory"
+elif [[ "$level" -ge 2 ]] && (( now - since >= SUSTAIN_S )); then
+  problem="the Mac has been short of memory for $(( (now - since) / 60 )) minutes"
 fi
 
 # our own daemons first: a warm voice engine that has grown large is restarted while it is idle
