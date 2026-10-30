@@ -200,8 +200,19 @@ def forward_to_secretary(scripts_dir, project, session_id, reason, text):
     path = os.path.join(reports, "%s-%d.txt" % (session_id[:8], int(time.time())))
     with open(path, "w") as f:
         f.write(text + "\n")
-    for old_report in sorted(glob.glob(os.path.join(reports, "*.txt")))[:-200]:
-        os.remove(old_report)
+    # oldest first by time: the names start with the session id, so sorting names deleted a new
+    # report from a session whose id sorts low the moment it was written (2026-10-30)
+    def written_at(p):
+        try:
+            return os.path.getmtime(p)
+        except OSError:
+            return 0
+    for old_report in sorted(glob.glob(os.path.join(reports, "*.txt")), key=written_at)[:-200]:
+        if old_report != path:
+            try:
+                os.remove(old_report)
+            except OSError:
+                pass
     body = ("[Agent report] project: %s | session: %s | why: %s | words: %d | full text: %s\n%s\n"
             "(Decide: if Remi should hear this, run inbox_post.sh --from \"%s\" < that file, or with the "
             "spoken text; otherwise stay silent. The ledger already has it.)"
