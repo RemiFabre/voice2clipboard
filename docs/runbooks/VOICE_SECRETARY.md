@@ -971,3 +971,35 @@ eval jobs a press took 18 s to open the microphone. `ctl.sh` now writes
 `~/bin/heavy` runs its jobs at utility priority (20), so dictation now comes first. The
 secretary agent only runs the login boot script and needs nothing. Measure: press to
 "headset microphone open" in earbuds.log.
+
+## French voice, sentence by sentence (2026-10-31)
+
+Remi likes the French voice (Pocket TTS `french_24l`, voice `estelle`) but it "sometimes stops
+talking" and its "volume changes a lot". Cause: Pocket TTS cuts a text into pieces of at most
+50 tokens and generates each one separately, with nothing carried over. A piece can end before
+saying anything (a short opening sentence came out as half a second of breath), the pieces come
+out at levels several dB apart, and the joins hold pauses of 1 to 2.6 s.
+
+`speech_render.py` now renders French (`SPEECH_RENDER_SENTENCE_LANGS`, default `fr`) one piece at a
+time, cut at `. ! ? : ;`: within one take the model now and then drops the words before a colon.
+A piece of three words or fewer goes with its neighbour, joined by a comma ("Pas encore prêt, il
+reste..."): alone, or after a full stop, it is the piece most often not said. What the voice gets
+ends as a sentence (a bare colon sometimes earns an extra syllable), and times are written as
+hours ("9 h 12" → "9 heures 12": with the digits the opening was lost 3 times in 6, spelled out
+never). Each take is checked against its own text. Too short for its letters (over 22 letters/s,
+0.3 s slack), too long (under 8, 1 s slack), a pause over 1 s or a second 10 dB under the rest is
+a bad take, rendered again, up to 3 takes; the least bad is kept. A piece silent in all three
+fails the render, and `render_speech` then falls back to Kokoro for the whole message. Every take
+is trimmed, levelled on its own, and joined with a 380 ms pause. English is unchanged.
+
+Offline check (the 23 French messages of the archive plus 4 synthetic lines, rendered by the live
+daemon without playback, transcribed with whisper-large-v3-turbo), before → after:
+
+- pauses of 1 s or more: 86 → 6 (longest 2.6 s → 1.7 s);
+- level spread over 2 s windows: median 7.5 → 3.9 dB, worst 12.8 → 9.4 dB;
+- sentences lost: short opening sentences now and then → none (an acronym spelled differently
+  by the recogniser remains);
+- render time: about 11 % longer (retakes: 16 over the 27 texts).
+
+The harness lives outside the repo (it reads private messages). Stub-voice tests are in
+`local_tests/test_french_takes.py`.

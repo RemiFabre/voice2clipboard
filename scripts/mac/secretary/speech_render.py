@@ -91,21 +91,14 @@ def speech_level_dbfs(samples, rate):
     return 10 * math.log10(total / count)
 
 
-def normalize(path):
-    """Bring a 16-bit wav to the target speech level, in place. Returns the gain in dB (0 when untouched)."""
-    with wave.open(path, "rb") as w:
-        params = w.getparams()
-        raw = w.readframes(w.getnframes())
-    if params.sampwidth != 2:
-        return 0.0
-    samples = array.array("h"); samples.frombytes(raw)
-    mono = samples if params.nchannels == 1 else samples[::params.nchannels]
-    level = speech_level_dbfs(mono, params.framerate)
+def levelled(samples, mono, rate):
+    """(samples brought to the target speech level, gain in dB), or (None, 0.0) when nothing to do."""
+    level = speech_level_dbfs(mono, rate)
     if level is None:
-        return 0.0
+        return None, 0.0
     gain_db = max(-15.0, min(15.0, TARGET_DBFS - level))
     if abs(gain_db) < 0.5:
-        return 0.0
+        return None, 0.0
     g = 10 ** (gain_db / 20)
     knee, span = _KNEE * 32767, (_CEIL - _KNEE) * 32767
 
@@ -117,7 +110,21 @@ def normalize(path):
         a = knee + span * math.tanh((a - knee) / span)   # rounds a peak off instead of clipping it
         return int(a if y > 0 else -a)
 
-    out = array.array("h", map(shape, samples))
+    return array.array("h", map(shape, samples)), gain_db
+
+
+def normalize(path):
+    """Bring a 16-bit wav to the target speech level, in place. Returns the gain in dB (0 when untouched)."""
+    with wave.open(path, "rb") as w:
+        params = w.getparams()
+        raw = w.readframes(w.getnframes())
+    if params.sampwidth != 2:
+        return 0.0
+    samples = array.array("h"); samples.frombytes(raw)
+    mono = samples if params.nchannels == 1 else samples[::params.nchannels]
+    out, gain_db = levelled(samples, mono, params.framerate)
+    if out is None:
+        return 0.0
     tmp = path + ".norm"
     with wave.open(tmp, "wb") as w:
         w.setparams(params); w.writeframes(out.tobytes())
@@ -125,14 +132,137 @@ def normalize(path):
     return gain_db
 
 
+# French, sentence by sentence (Remi, 2026-10-31: he likes the French voice, but it sometimes "stops
+# talking" and its volume "changes a lot"). Pocket TTS cuts a text into pieces of at most 50 tokens
+# and generates each one on its own, with nothing carried over: a piece can end before it said
+# anything (a short opening sentence came out as half a second of breath), pieces come out at
+# levels several dB apart, and the joins hold pauses of 1 to 2.6 s (86 of them in the 23 French
+# messages of the archive, rendered again). So each sentence is rendered alone and checked against
+# its own text: too little speech for its letters, too much, a long pause or a quiet stretch inside
+# means a bad take, rendered again (the model samples: a new take differs). Each take is levelled
+# on its own and the sentences are joined with the same short pause. Same archive with this:
+# 4 long pauses, no lost sentence, half the level spread (offline check with speech recognition).
+SENTENCE_LANGS = os.getenv("SPEECH_RENDER_SENTENCE_LANGS", "fr").split()
+TAKES = int(os.getenv("SPEECH_RENDER_TAKES", "3"))
+SENTENCE_PAUSE_MS = int(os.getenv("SPEECH_RENDER_SENTENCE_PAUSE_MS", "380"))
+_SILENT_DBFS, _EDGE_S, _FRAME_S = -45.0, 0.06, 0.02
+LETTERS_PER_S = (8.0, 22.0)   # good takes: 17 letters/s typical, 95 % under 23; outside this, a bad take
+LONGEST_PAUSE_S = 1.0          # a pause this long inside one sentence is the model stalling
+QUIET_DB = 10.0                # a second of speech this far under the take's level is a mumble
+# when every take is bad, the least bad one: a pause or a mumble beats a missing sentence
+_WORSE = ["pause", "quiet", "too long", "too short", "no speech"]
+
+
+def sentences(text):
+    """Sentences, also cut at a colon or semicolon: within one take the model drops the words before
+    a colon now and then. A piece of three words or fewer ("Seule piste :", "D'accord.") goes with
+    its neighbour: alone it is often not said at all."""
+    out = []
+    for s in re.split(r"(?<=[.!?:;])\s+", " ".join(text.split())):
+        if not s:
+            continue
+        if out and len(out[-1].split()) <= 3:
+            # with a comma: "Pas encore prêt. Il reste..." lost its opening 3 times in 6, 1 with a comma
+            if out[-1].endswith(".") and s[:2].istitle():   # "Il reste", not "VMC"
+                out[-1], s = out[-1][:-1] + ",", s[0].lower() + s[1:]
+            out[-1] += " " + s
+        else:
+            out.append(s)
+    if len(out) > 1 and len(out[-1].split()) <= 3:
+        last = out.pop(); out[-1] += " " + last
+    return out
+
+
+def spoken_form(piece):
+    """What the voice gets: a piece cut at a colon ends as a sentence (after a bare colon the model
+    sometimes adds a syllable), and "9 h 12" becomes hours ("9 h 12" lost the whole take's opening
+    3 times in 6, "neuf heures douze" never)."""
+    piece = re.sub(r"\s*[:;]$", ".", piece)
+    hours = lambda h: "une heure" if h == "1" else h + " heures"
+    piece = re.sub(r"\b(\d{1,2}) ?h ?(\d{2})\b", lambda m: "%s %d" % (hours(m[1]), int(m[2])) if int(m[2]) else hours(m[1]), piece)
+    return re.sub(r"\b(\d{1,2}) ?h\b", lambda m: hours(m[1]), piece)
+
+
+def take_quality(mono, rate, letters):
+    """(trimmed sample range, problem kind or "", detail)."""
+    n = max(1, int(rate * _FRAME_S))
+    energy = [sum(map(lambda x: x * x, mono[i:i + n])) / n / (32768.0 ** 2) for i in range(0, len(mono) - n + 1, n)]
+    loud = [e > 10 ** (_SILENT_DBFS / 10) for e in energy]
+    if not any(loud):
+        return (0, 0), "no speech", ""
+    first = loud.index(True); last = len(loud) - loud[::-1].index(True)
+    edge = int(_EDGE_S * rate)
+    span = (max(0, first * n - edge), min(len(mono), last * n + edge))
+    speech_s = (last - first) * _FRAME_S
+    if speech_s < letters / LETTERS_PER_S[1] - 0.3:   # some slack: a short sentence is said fast
+        return span, "too short", "%.1f s for %d letters" % (speech_s, letters)
+    if speech_s > letters / LETTERS_PER_S[0] + 1.0:
+        return span, "too long", "%.1f s for %d letters" % (speech_s, letters)
+    longest = run = 0
+    for v in loud[first:last]:
+        run = 0 if v else run + 1; longest = max(longest, run)
+    if longest * _FRAME_S > LONGEST_PAUSE_S:
+        return span, "pause", "%.1f s" % (longest * _FRAME_S)
+    voiced = [e for e, v in zip(energy[first:last], loud[first:last]) if v]
+    level = 10 * math.log10(sum(voiced) / len(voiced))
+    per_s = int(1 / _FRAME_S)
+    for i in range(0, len(voiced) - per_s + 1, per_s // 5):   # sliding: a mumble rarely starts on a second
+        sec = 10 * math.log10(sum(voiced[i:i + per_s]) / per_s)
+        if sec < level - QUIET_DB:
+            return span, "quiet", "%.0f dB under the rest" % (level - sec)
+    return span, "", ""
+
+
+def render_sentences(parts, lang, voice, out, env, d):
+    """Each sentence rendered alone and checked (up to TAKES takes), levelled, joined by even pauses."""
+    joined, rate = array.array("h"), None
+    for i, part in enumerate(parts):
+        part = spoken_form(part)
+        letters = len(re.findall(r"\w", part))
+        best, best_rank = None, len(_WORSE)
+        for take in range(TAKES):
+            f = os.path.join(d, f"{i:04d}-{take}.wav")
+            r = subprocess.run([KOKORO_SAY, "--lang", lang, "--voice", voice, "--no-play", "--output", f, part],
+                               env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if r.returncode != 0 or not os.path.exists(f):
+                continue
+            with wave.open(f, "rb") as w:
+                if w.getnchannels() != 1 or w.getsampwidth() != 2:
+                    raise SystemExit("sentence takes need 16-bit mono")
+                rate = w.getframerate()
+                samples = array.array("h"); samples.frombytes(w.readframes(w.getnframes()))
+            span, kind, detail = take_quality(samples, rate, letters)
+            if not kind:
+                best, best_rank = samples[span[0]:span[1]], -1; break
+            print(f"speech_render: sentence {i} take {take + 1}: {kind} ({detail})", file=sys.stderr)
+            if _WORSE.index(kind) < best_rank:
+                best, best_rank = samples[span[0]:span[1]], _WORSE.index(kind)
+        if best is None or best_rank == _WORSE.index("no speech"):   # render_speech falls back to Kokoro
+            raise SystemExit(f"voice failed on sentence {i}")
+        if NORMALIZE and len(best):
+            levelled_seg, _ = levelled(best, best, rate)
+            best = levelled_seg if levelled_seg is not None else best
+        if i:
+            joined.extend(array.array("h", bytes(2 * int(rate * SENTENCE_PAUSE_MS / 1000))))
+        joined.extend(best)
+    tmp = out + ".part"
+    with wave.open(tmp, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate); w.writeframes(joined.tobytes())
+    os.replace(tmp, out)
+
+
 def render(text, lang, voice, out):
     # respellings are per language: an English one ("Claude" -> "Clawed") read by the French voice
     # was one more English sound in a French message (2026-09-25)
     text = dictionary.apply(text, "pronounce" if lang == "en" else "pronounce_" + lang)
-    parts = chunks(text)
+    parts = sentences(text) if lang in SENTENCE_LANGS else chunks(text)
     if not parts:
         raise SystemExit("empty text")
     env = dict(os.environ, PYTORCH_ENABLE_MPS_FALLBACK="1")
+    if lang in SENTENCE_LANGS:
+        with tempfile.TemporaryDirectory() as d:
+            render_sentences(parts, lang, voice, out, env, d)
+        return   # every sentence already levelled
     with tempfile.TemporaryDirectory() as d:
         files = []
         for i, part in enumerate(parts):

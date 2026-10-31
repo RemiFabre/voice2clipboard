@@ -7,14 +7,17 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"; SEC="${TEST_SEC:-$ROOT/scripts/mac/sec
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 export SECRETARY_RUNTIME="$TMP/runtime" DICTATION_LOCK="$TMP/recorder.pid" SECRETARY_CUES_MUTED=1
 mkdir -p "$SECRETARY_RUNTIME"
-# Stub for kokoro-say: writes 0.2 s of silence per call and records each request.
+# Stub for kokoro-say: writes a tone as long as the text would take (16 letters a second: French is
+# checked sentence by sentence, and silence is a sentence never said) and records each request.
 cat >"$TMP/kokoro-say" <<'STUB'
 #!/bin/bash
 out=""; voice=""; while [[ $# -gt 0 ]]; do case "$1" in --output) out="$2"; shift 2;; --voice) voice="$2"; shift 2;; --lang) shift 2;; --no-play) shift;; *) text="$1"; shift;; esac; done
 printf '%s|%s\n' "$voice" "$text" >>"$STUB_LOG"
-python3 - "$out" <<'PY'
-import sys, wave
-w = wave.open(sys.argv[1], "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000); w.writeframes(b"\0\0" * 4800); w.close()
+python3 - "$out" "$text" <<'PY'
+import array, math, re, sys, wave
+n = int(24000 * max(0.2, len(re.findall(r"\w", sys.argv[2])) / 16.0))
+a = array.array("h", (int(8000 * math.sin(i / 24000 * 2 * math.pi * 220)) for i in range(n)))
+w = wave.open(sys.argv[1], "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000); w.writeframes(a.tobytes()); w.close()
 PY
 STUB
 chmod +x "$TMP/kokoro-say"
