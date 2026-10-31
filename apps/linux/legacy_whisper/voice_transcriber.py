@@ -64,6 +64,7 @@ ROUTE_LATE_S = float(os.getenv("VOICE2CLIPBOARD_ROUTE_LATE_S", "0.35"))  # the c
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
 SECRETARY_INBOX_POST = os.path.join(REPO_ROOT, "scripts", "mac", "secretary", "inbox_post.sh")
 SECRETARY_LOG = os.path.join(REPO_ROOT, "runtime", "secretary", "secretary.log")
+SECRETARY_SESSION_FILE = os.getenv("SECRETARY_SESSION_FILE", os.path.join(REPO_ROOT, "runtime", "secretary", "secretary_iterm_session"))
 # Lazy rotation of the secretary (scripts/mac/secretary/lazy_rotate.sh): at the press a fresh
 # secretary may be booting; when it is ready before the transcript, the transcript goes there.
 ROTATION_DIR = os.getenv("VOICE2CLIPBOARD_ROTATION_DIR", os.path.join(REPO_ROOT, "runtime", "secretary", "lazy_rotation"))
@@ -1417,7 +1418,11 @@ def target_is_vscode(target_window):
 def mac_paste_and_submit(target_window, use_shift_paste=False):
     escaped_window = _escape_applescript_string(target_window) if target_window else ""
     if target_window:
-        activate_clause = f'tell application "{escaped_window}" to activate\n    delay 0.5\n'
+        # By process, not `tell application`: the recorder captures the process name, which can
+        # differ from the app name ("SessionTower" vs "Session Tower", 2026-10-31: the paste
+        # failed and the dictation was dropped).
+        raise_clause = f'tell application "System Events" to set frontmost of process "{escaped_window}" to true'
+        activate_clause = f'{raise_clause}\n    delay 0.5\n'
     else:
         activate_clause = ""
     if use_shift_paste:
@@ -1450,7 +1455,7 @@ end tell
     end tell
 end tell
 delay 0.35
-tell application "{escaped_window}" to activate
+{raise_clause}
 delay 0.2
 tell application "System Events"
     key code 36
@@ -1796,6 +1801,30 @@ def send_enter_to_iterm_session(session_id):
     _run_iterm_session_applescript(session_id, action_lines)
 
 
+def hand_to_secretary(text, target_window, marker_path, send_id):
+    """A paste that failed must not lose the dictation (2026-10-31, Session Tower panel): type it
+    into the secretary's window instead, marked as routed there, so the secretary can hand it on
+    (deliver_dictation.sh) to the session it was meant for. False when there is no secretary."""
+    if not IS_MAC:
+        return False
+    try:
+        session = open(SECRETARY_SESSION_FILE).read().strip()
+    except OSError:
+        return False
+    if not session or not iterm_session_runs_claude(session):
+        return False
+    note = (f"{QUICK_MODE_PREFIX}(The recorder could not paste this dictation into {target_window or 'the frontmost app'}, "
+            f"where Remi was; it was meant for whatever he was looking at there.) ")
+    words = text[len(QUICK_MODE_PREFIX):] if text.startswith(QUICK_MODE_PREFIX) else text
+    if not deliver_to_claude_session(note + words, session, secretary_log):
+        return False
+    write_quick_send_marker(marker_path, f"iterm_session\nsend_id={send_id}\npid={os.getpid()}\nfallback_from={target_window}\n")
+    append_quick_send_trace("paste_failed_sent_to_secretary", send_id=send_id, target_window=target_window)
+    secretary_log(f"paste into {target_window} failed: dictation handed to the secretary instead")
+    print("📨 Paste failed; sent to the secretary instead.")
+    return True
+
+
 def target_uses_shift_paste(target_window):
     if not target_window:
         return False
@@ -1891,10 +1920,16 @@ def paste_at_cursor_and_send(text, target_window=None, target_iterm_session=None
         if IS_MAC:
             if target_window:
                 print(f"🔄 Refocusing original window ({target_window})...")
-            mac_paste_and_submit(
-                target_window,
-                use_shift_paste=target_uses_shift_paste(target_window),
-            )
+            try:
+                mac_paste_and_submit(
+                    target_window,
+                    use_shift_paste=target_uses_shift_paste(target_window),
+                )
+            except Exception as e:
+                append_quick_send_trace("paste_failed", send_id=send_id, target_window=target_window, error=str(e))
+                if hand_to_secretary(text_with_disclaimer, target_window, marker_path, send_id):
+                    return
+                raise
         else:
             if target_window:
                 print(f"🔄 Refocusing original window ({target_window})...")
