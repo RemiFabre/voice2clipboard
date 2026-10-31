@@ -1452,7 +1452,12 @@ end tell
 {activate_clause}tell application "System Events"
     tell process "{escaped_window}"
         -- Disabled when nothing editable has focus: clicking it would do nothing and the
-        -- dictation would vanish without an error (Session Tower agent, 2026-10-31).
+        -- dictation would vanish without an error (Session Tower agent, 2026-10-31). An app may
+        -- only revalidate its menus every half second (the Tower does), so give it 1.5 s.
+        repeat 6 times
+            if enabled of menu item "Paste" of menu "Edit" of menu bar 1 then exit repeat
+            delay 0.25
+        end repeat
         if not (enabled of menu item "Paste" of menu "Edit" of menu bar 1) then error "no text box has the focus"
         click menu item "Paste" of menu "Edit" of menu bar 1
     end tell
