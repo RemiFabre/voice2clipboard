@@ -599,6 +599,10 @@ def record_audio(filename, quick_mode=False):
                         # audio link, device removed): keep what we have and finish normally.
                         input_lost = True
                         print("\n⚠️ Microphone stopped delivering audio (headset disconnected?) — finishing with what was recorded.")
+                        # Logged so cuts can be counted (2026-10-31: one at 10 min 31 s, mid-sentence,
+                        # the Bluetooth link went silent then stopped; no press, no memory pressure).
+                        secretary_log(f"recording cut: the microphone stopped delivering audio for {INPUT_LOSS_SECONDS:.0f} s"
+                                      f" ({time.time() - last_audio['t']:.1f} s since the last audio)")
                         play_feedback("record_lost", block=False)
                         request_recording_stop("input_lost")
                         continue
