@@ -44,6 +44,8 @@ def dictate(n, fail, secretary):
 raised, marker = dictate(1, fail=False, secretary=True)
 check("the app is raised by its process name, never `tell application <process name>`",
       'set frontmost of process "SessionTower" to true' in scripts[0] and 'tell application "SessionTower"' not in scripts[0])
+check("a disabled Paste item (no text box focused) fails the paste instead of vanishing",
+      'if not (enabled of menu item "Paste" of menu "Edit" of menu bar 1) then error' in scripts[0])
 check("a working paste: pasted, nothing sent to the secretary", not raised and marker.startswith("clipboard_paste") and typed == [])
 raised, marker = dictate(2, fail=True, secretary=True)
 check("a failed paste goes to the secretary, his words verbatim after a note",

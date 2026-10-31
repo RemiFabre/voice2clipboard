@@ -1451,6 +1451,9 @@ end tell
         script = f'''
 {activate_clause}tell application "System Events"
     tell process "{escaped_window}"
+        -- Disabled when nothing editable has focus: clicking it would do nothing and the
+        -- dictation would vanish without an error (Session Tower agent, 2026-10-31).
+        if not (enabled of menu item "Paste" of menu "Edit" of menu bar 1) then error "no text box has the focus"
         click menu item "Paste" of menu "Edit" of menu bar 1
     end tell
 end tell
