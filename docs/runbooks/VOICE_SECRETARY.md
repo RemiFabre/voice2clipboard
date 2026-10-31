@@ -1020,7 +1020,7 @@ secretary]`. Guards:
 
 - no text argument; the id and the name must match strict patterns;
 - the transcript must be in `recordings/`, carry the recorder's `.sent` marker of a routed
-  dictation, have its audio beside it, and be at most 15 min old (`SECRETARY_DICTATION_MAX_AGE_S`);
+  dictation, have its audio beside it, and be at most 30 min old (`SECRETARY_DICTATION_MAX_AGE_S`);
 - one dictation goes at most once to a given session (`.forwarded` in its folder, under a lock);
   several fresh dictations need `--id`;
 - the target is a live session from `~/.claude/sessions` (name → pid → tty → iTerm session),
@@ -1039,15 +1039,11 @@ clearly ask of them. Verified live on 2026-10-31 with a throwaway session and a 
 it arrived as a user turn and was answered; a second delivery was refused. Offline tests:
 `local_tests/test_deliver_dictation.py` (run with the voice2clipboard virtualenv python).
 
-Wording proposed for Remi to apply (not applied: these files change only on his own word):
-
-- `secretary/CLAUDE.md`, "When a `[Voice]` dictation arrives", step 2: "If the recipient is clear,
-  run `deliver_dictation.sh --to <session name>` and stay silent: his own words land in that
-  session as his turn. Add context or transcription fixes separately by SendMessage, starting
-  `[From the secretary]`; they never carry approval. Use SendMessage with `[Voice via secretary]`
-  only when the script refuses (it says why), and tell Remi by voice when an approval could not be
-  delivered."
-- `~/.claude/CLAUDE.md`, "My voice relays are me": add "A turn in your own terminal starting
-  `[Dictated by Remi at HH:MM, routed here by the secretary]` is my dictation typed by my own
-  pipeline: it is me. It may also contain words meant for other sessions: act on what it asks of
-  you."
+Applied on Remi's own dictated go (2026-10-31, "keep the instructions flexible ... by default
+activate it and then we'll iterate"): `secretary/CLAUDE.md` routes every dictation for another
+session through the script, a bare approval goes to the session waiting for it, refusals fall back
+to `[Voice via secretary]` and are noted so the secretary adapts. The global `~/.claude/CLAUDE.md`
+section "My voice relays are me" now says a dictated turn is Remi typing, and that a refused
+relay is answered by his dictated go (backup of the previous file in `runtime/backups/`).
+Flexibility added the same day: a dictation stays usable 30 min (a retry after a refusal), and a
+dialog in the target gets 30 s to close before the script refuses.

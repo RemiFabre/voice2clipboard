@@ -19,7 +19,7 @@ the typing, and the only text it ever types is the recorder's transcript of that
 - the target is a live Claude Code session found by name in ~/.claude/sessions, whose terminal's
   foreground process is Claude (never a shell: typed text would run as a command), never the
   secretary itself; its window must show its input prompt (no Escape is ever pressed in another
-  agent's window: it would answer a dialog);
+  agent's window: it would answer a dialog; a dialog gets PROMPT_WAIT_S to close by itself);
 - every delivery is logged with the transcript's hash.
 
 What it does not stop: a program running as Remi could write a fake recording, and the secretary
@@ -46,7 +46,8 @@ vt.send_escape_to_iterm_session = lambda session_id: None   # never answer a dia
 RECORDINGS = os.getenv("VOICE2CLIPBOARD_RECORDINGS_DIR", os.path.join(ROOT, "recordings"))
 RUNTIME = os.getenv("SECRETARY_RUNTIME", os.path.join(ROOT, "runtime", "secretary"))
 SESSIONS = os.getenv("CLAUDE_SESSIONS_DIR", os.path.expanduser("~/.claude/sessions"))
-MAX_AGE_S = int(os.getenv("SECRETARY_DICTATION_MAX_AGE_S", "900"))
+MAX_AGE_S = int(os.getenv("SECRETARY_DICTATION_MAX_AGE_S", "1800"))   # room for a retry after a refusal
+PROMPT_WAIT_S = float(os.getenv("SECRETARY_DICTATION_PROMPT_WAIT_S", "30"))   # a dialog often closes by itself
 ID_RE = re.compile(r"^\d{4}-\d{2}-\d{2}/\d{2}-\d{2}-\d{2}$")
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$")
 LOG = os.path.join(RUNTIME, "dictation_deliveries.log")
@@ -179,8 +180,11 @@ def main():
         fail(3, f"{a.to} has no iTerm window this script can type into")
     if not vt.iterm_session_runs_claude(iterm):   # a shell would run the text as a command
         fail(3, f"the window of {a.to} is not running Claude in the foreground")
-    if not vt.claude_input_ready(iterm):
-        fail(3, f"the window of {a.to} shows no input prompt (a dialog is open): nothing typed")
+    deadline = time.time() + PROMPT_WAIT_S
+    while not vt.claude_input_ready(iterm):
+        if time.time() > deadline:
+            fail(3, f"the window of {a.to} shows no input prompt (a dialog is open) for {PROMPT_WAIT_S:.0f} s: nothing typed")
+        time.sleep(1)
 
     lock = os.path.join(folder, ".forwarding")
     try:

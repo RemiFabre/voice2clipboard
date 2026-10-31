@@ -8,7 +8,7 @@ from contextlib import redirect_stderr, redirect_stdout
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 TMP = tempfile.mkdtemp()
 os.environ.update(VOICE2CLIPBOARD_RECORDINGS_DIR=f"{TMP}/recordings", SECRETARY_RUNTIME=f"{TMP}/runtime",
-                  CLAUDE_SESSIONS_DIR=f"{TMP}/sessions")
+                  CLAUDE_SESSIONS_DIR=f"{TMP}/sessions", SECRETARY_DICTATION_PROMPT_WAIT_S="1")
 for d in ("recordings", "runtime", "sessions"):
     os.makedirs(f"{TMP}/{d}")
 sys.path.insert(0, os.path.join(ROOT, "scripts", "mac", "secretary"))
@@ -74,7 +74,7 @@ check("no text argument exists", run("--to", "agentic-socials-c9", "do something
 check("an id that is not a recording id is refused", run("--to", "agentic-socials-c9", "--id", "../../etc/passwd")[0] == 2)
 check("a strange session name is refused", run("--to", "a; rm -rf ~")[0] == 2)
 win.reset(); session("other-agent-1")
-recording("2026-10-31/15-00-00", "old words", age_s=3600)
+recording("2026-10-31/15-00-00", "old words", age_s=2000)
 check("a dictation older than the limit is refused", run("--to", "other-agent-1", "--id", "2026-10-31/15-00-00")[0] == 2 and win.typed == [])
 recording("2026-10-31/16-52-00", "clipboard only", sent="clipboard\n")
 check("a dictation never routed (clipboard only) is refused", run("--to", "other-agent-1", "--id", "2026-10-31/16-52-00")[0] == 2)
@@ -101,7 +101,10 @@ check("never the secretary by its folder", run("--to", "renamed-sec", "--id", "2
 session("shell-agent-3"); win.reset(claude=False)
 check("a window whose foreground is a shell: nothing typed", run("--to", "shell-agent-3", "--id", "2026-10-31/16-55-00")[0] == 3 and win.typed == [])
 session("dialog-agent-4"); win.reset(prompt=False)
-check("a window with a dialog open: nothing typed", run("--to", "dialog-agent-4", "--id", "2026-10-31/16-55-00")[0] == 3 and win.typed == [])
+check("a window with a dialog that stays open: nothing typed", run("--to", "dialog-agent-4", "--id", "2026-10-31/16-55-00")[0] == 3 and win.typed == [])
+ready_at = time.time() + 0.5; dd.vt.claude_input_ready = lambda sid: time.time() > ready_at
+check("a dialog that closes within the wait: delivered", run("--to", "dialog-agent-4", "--id", "2026-10-31/16-55-00")[0] == 0)
+dd.vt.claude_input_ready = lambda sid: win.prompt
 session("lost-agent-5"); win.reset(iterm="")
 check("no iTerm window found: refused", run("--to", "lost-agent-5", "--id", "2026-10-31/16-55-00")[0] == 3)
 check("the recorder's Escape is switched off here", dd.vt.send_escape_to_iterm_session("W1") is None)
