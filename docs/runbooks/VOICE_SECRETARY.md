@@ -1025,8 +1025,8 @@ secretary]`. Guards:
   several fresh dictations need `--id`;
 - the target is a live session from `~/.claude/sessions` (name → pid → tty → iTerm session),
   never the secretary. Claude must be in the terminal's foreground: a shell would run the text as
-  a command. Its prompt must be showing: a dialog means nothing is typed, and Escape is never
-  pressed in another agent's window;
+  a command. Its prompt must be showing: a dialog gets 30 s to close, then nothing is typed, and
+  Escape is never pressed in another agent's window;
 - typing and the check that the turn landed are the recorder's own (bracketed paste, transcript
   check); every delivery and refusal goes to `runtime/secretary/dictation_deliveries.log` with the
   transcript's hash.
