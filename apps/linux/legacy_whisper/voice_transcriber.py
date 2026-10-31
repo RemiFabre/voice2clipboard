@@ -27,7 +27,9 @@ DEVICE = "cpu" if IS_MAC else "cuda"
 COMPUTE_TYPE = "int8" if IS_MAC else "float16"
 TRANSCRIBE_BACKEND = os.getenv("VOICE2CLIPBOARD_BACKEND", "auto")  # auto|faster|mlx
 MIC_BAR_WIDTH = 30
-INPUT_LOSS_SECONDS = float(os.getenv("VOICE2CLIPBOARD_INPUT_LOSS_SECONDS", "3"))
+# The Bluetooth input pauses 1 to 2.5 s between callbacks all through a dictation (up to 3.6 s seen,
+# 2026-10-31, mac-memory-ee's count) and 3 s cut one mid-sentence: a headset really gone stays gone.
+INPUT_LOSS_SECONDS = float(os.getenv("VOICE2CLIPBOARD_INPUT_LOSS_SECONDS", "8"))
 # Headset mode (dictation started from an earbud press): nobody is at the screen, so the recorder
 # has to notice by itself that the headset is gone. Measured 2026-09-19: pauses inside real
 # dictations stay under 0.002 rms for 14 s at most; a recording made after the headset dropped
