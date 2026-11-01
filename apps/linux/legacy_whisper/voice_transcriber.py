@@ -548,38 +548,6 @@ def confirm_headset_route(cue_started_at):
         secretary_log(f"headset audio link not confirmed within {ROUTE_CONFIRM_TIMEOUT_S:.0f} s of the start cue")
 
 
-MATCH_CALL_VOLUME = os.getenv("VOICE2CLIPBOARD_MATCH_CALL_VOLUME", "1") == "1"
-CALL_VOLUME_AT_S = (0.4, 1.0, 2.0)   # the call link comes up around the start cue; setting twice is harmless
-
-
-def match_call_volume():
-    """Remi, 2026-11-01: the cues were far louder than a video. While the microphone is open the
-    headset is in call mode, a separate audio device with its own volume (it stayed at 7/15 = 47 %
-    while his media volume was 19 %). Read the media volume before the call link exists, then give
-    the call link the same level once it is up, so one volume setting covers everything. Never
-    unmutes or raises a muted output (the volume guard handles silence)."""
-    def run():
-        try:
-            out = subprocess.run(["osascript", "-e", "get volume settings"], capture_output=True, text=True, timeout=3).stdout
-            m = re.search(r"output volume:(\d+),.*output muted:(true|false)", out)
-        except Exception:
-            return
-        if not m or m.group(2) == "true":
-            return
-        level, t0 = int(m.group(1)), time.time()
-        for at in CALL_VOLUME_AT_S:
-            time.sleep(max(0.0, t0 + at - time.time()))
-            if not recording:
-                return
-            try:
-                subprocess.run(["osascript", "-e", f"set volume output volume {level}"], capture_output=True, timeout=3)
-            except Exception:
-                return
-        secretary_log(f"call mode volume set to the media volume ({level} %)")
-    if MATCH_CALL_VOLUME and IS_MAC:
-        threading.Thread(target=run, daemon=True).start()
-
-
 def record_audio(filename, quick_mode=False):
     global duration_sec, recording, callback_enabled, start_time, stop_requested_by_signal, active_input_stream
     q = queue.Queue()
@@ -591,8 +559,6 @@ def record_audio(filename, quick_mode=False):
         q.put(indata.copy())
         audio_callback(indata, frames, time_info, status)
 
-    if quick_mode and headset_mode():
-        match_call_volume()   # reads the media volume now, before the stream opens the call link
     pcm_path = os.path.splitext(filename)[0] + ".pcm"
     pcm_file = open(pcm_path, "wb") if quick_mode and STREAMING_ENABLED else None
     with sf.SoundFile(filename, mode='w', samplerate=SAMPLE_RATE, channels=CHANNELS) as file:
