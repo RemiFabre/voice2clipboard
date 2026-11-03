@@ -8,10 +8,11 @@ from contextlib import redirect_stderr, redirect_stdout
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 TMP = tempfile.mkdtemp()
 os.environ.update(VOICE2CLIPBOARD_RECORDINGS_DIR=f"{TMP}/recordings", SECRETARY_RUNTIME=f"{TMP}/runtime",
-                  CLAUDE_SESSIONS_DIR=f"{TMP}/sessions", SECRETARY_DICTATION_PROMPT_WAIT_S="1")
+                  CLAUDE_SESSIONS_DIR=f"{TMP}/sessions", SECRETARY_DICTATION_PROMPT_WAIT_S="1",
+                  TOWER_TMUX_SOCKET=f"test-none-{os.getpid()}")   # never a real Tower pane
 for d in ("recordings", "runtime", "sessions"):
     os.makedirs(f"{TMP}/{d}")
-sys.path.insert(0, os.path.join(ROOT, "scripts", "mac", "secretary"))
+sys.path.insert(0, os.environ.get("TEST_DD_DIR") or os.path.join(ROOT, "scripts", "mac", "secretary"))
 import deliver_dictation as dd
 
 fails = 0
@@ -114,6 +115,26 @@ session("busy-agent-6"); win.reset(takes=False)
 code, out = run("--to", "busy-agent-6", "--id", "2026-10-31/16-55-00")
 check("not seen taken: exit 4, recorded as such", code == 4 and "busy-agent-6\t" in open(f"{B}/.forwarded").read())
 check("every refusal is logged", open(f"{TMP}/runtime/dictation_deliveries.log").read().count("refused:") >= 10)
+
+# 6. a session inside the Session Tower's tmux (2026-11-03): pasted through tmux, same checks
+dd.tower_pane = lambda tty: "%7"
+pane = {"claude": True, "prompt": True, "takes": True, "typed": []}
+dd.pane_runs_claude = lambda tty: pane["claude"]
+dd.pane_screen = lambda p: "❯ " if pane["prompt"] else "Do you want to proceed?"
+dd.vt.claude_screen_has_prompt = lambda screen: screen.startswith("❯")
+dd.deliver_through_tmux = lambda text, p, transcript: pane["typed"].append((p, text)) or pane["takes"]
+C = recording("2026-10-31/16-58-00", "Words for the tmux session.")
+session("tmux-agent-7"); win.reset()
+code, out = run("--to", "tmux-agent-7", "--id", "2026-10-31/16-58-00")
+check("a Tower tmux pane: pasted through tmux, nothing typed into iTerm",
+      code == 0 and win.typed == [] and pane["typed"] == [("%7", "[Dictated by Remi at 16:58, routed here by the secretary] Words for the tmux session.")])
+check("logged with its pane", "(pid " in open(f"{TMP}/runtime/dictation_deliveries.log").read() and "tmux %7)" in open(f"{TMP}/runtime/dictation_deliveries.log").read())
+session("tmux-shell-8"); pane.update(claude=False, typed=[])
+check("a pane whose foreground is a shell: nothing pasted", run("--to", "tmux-shell-8", "--id", "2026-10-31/16-58-00")[0] == 3 and pane["typed"] == [])
+session("tmux-dialog-9"); pane.update(claude=True, prompt=False)
+check("a pane showing a dialog: nothing pasted", run("--to", "tmux-dialog-9", "--id", "2026-10-31/16-58-00")[0] == 3 and pane["typed"] == [])
+session("tmux-busy-10"); pane.update(prompt=True, takes=False)
+check("a pane that does not take it: exit 4", run("--to", "tmux-busy-10", "--id", "2026-10-31/16-58-00")[0] == 4)
 
 live.kill()
 print(); print("all passed" if not fails else f"{fails} failed"); sys.exit(1 if fails else 0)

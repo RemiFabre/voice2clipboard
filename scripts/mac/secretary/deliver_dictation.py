@@ -121,6 +121,68 @@ def tty_of(pid):
     return "" if not tty or tty.startswith("?") else "/dev/" + tty
 
 
+# Session Tower (2026-11-03): a session inside the Tower's own tmux (vt.TOWER_TMUX) gets its dictation
+# through tmux itself, as one paste and Enter: typed into its iTerm window instead, tmux would take
+# that window as the one in use and resize the session under Remi's eyes in the Tower's pane, and a
+# session whose window was closed has no window at all. The same checks, on the pane's screen.
+def tower_pane(tty):
+    """The tmux pane ('%7') whose tty is this one, in the Session Tower's tmux, or None."""
+    try:
+        out = subprocess.run(vt.TOWER_TMUX + ["list-panes", "-a", "-F", "#{pane_tty} #{pane_id}"],
+                             capture_output=True, text=True, timeout=3).stdout
+    except Exception:
+        return None
+    return next((p[1] for p in (line.split() for line in out.splitlines()) if len(p) == 2 and p[0] == tty), None)
+
+
+def pane_screen(pane):
+    r = subprocess.run(vt.TOWER_TMUX + ["capture-pane", "-p", "-t", pane], capture_output=True, text=True, timeout=5)
+    return r.stdout if r.returncode == 0 else ""
+
+
+def pane_runs_claude(tty):
+    try:
+        ps = subprocess.check_output(["ps", "-t", os.path.basename(tty), "-o", "stat=,comm="], text=True)
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return vt.tty_foreground_is_claude(ps)
+
+
+def transcript_of(pid):
+    try:
+        sid = json.load(open(os.path.join(SESSIONS, f"{pid}.json"))).get("sessionId")
+    except (OSError, ValueError):
+        return None
+    hits = glob.glob(os.path.join(os.path.expanduser("~/.claude/projects"), "*", f"{sid}.jsonl")) if sid else []
+    return hits[0] if hits else None
+
+
+def deliver_through_tmux(text, pane, transcript):
+    """vt.deliver_to_claude_session, through tmux: a bracketed paste, Enter, then the message must
+    show up as a turn in its transcript (or leave its prompt). Never typed a third time."""
+    marker = " ".join(text.split())[:40]
+    for attempt in (1, 2):
+        offset = os.path.getsize(transcript) if transcript and os.path.exists(transcript) else 0
+        buf = f"dictation-{os.getpid()}"
+        if subprocess.run(vt.TOWER_TMUX + ["load-buffer", "-b", buf, "-"], input=text.encode(), capture_output=True, timeout=5).returncode \
+                or subprocess.run(vt.TOWER_TMUX + ["paste-buffer", "-p", "-d", "-b", buf, "-t", pane], capture_output=True, timeout=5).returncode:
+            return False
+        time.sleep(0.4)
+        subprocess.run(vt.TOWER_TMUX + ["send-keys", "-t", pane, "Enter"], capture_output=True, timeout=5)
+        deadline = time.time() + vt.DELIVERY_VERIFY_SECONDS
+        while time.time() < deadline:
+            if transcript:
+                if vt.transcript_has_user_turn(transcript, marker, offset):
+                    return True
+            else:
+                screen = pane_screen(pane)
+                if vt.claude_screen_has_prompt(screen) and marker not in "\n".join(screen.splitlines()[-6:]):
+                    return True
+            time.sleep(0.25)
+        log(f"message pasted into tmux pane {pane} was not consumed within {vt.DELIVERY_VERIFY_SECONDS:.0f} s (attempt {attempt})")
+    return False
+
+
 def iterm_session_for_tty(tty):
     script = f'''
 tell application "iTerm2"
@@ -175,13 +237,15 @@ def main():
     if os.path.realpath(info.get("cwd", "")) == os.path.join(ROOT, "secretary"):
         fail(3, f"{a.to} is the secretary")
     tty = tty_of(pid)
-    iterm = iterm_session_for_tty(tty) if tty else ""
-    if not iterm:
+    pane = tower_pane(tty) if tty else None
+    iterm = "" if pane or not tty else iterm_session_for_tty(tty)
+    if not pane and not iterm:
         fail(3, f"{a.to} has no iTerm window this script can type into")
-    if not vt.iterm_session_runs_claude(iterm):   # a shell would run the text as a command
+    if not (pane_runs_claude(tty) if pane else vt.iterm_session_runs_claude(iterm)):   # a shell would run the text as a command
         fail(3, f"the window of {a.to} is not running Claude in the foreground")
+    ready = (lambda: vt.claude_screen_has_prompt(pane_screen(pane))) if pane else (lambda: vt.claude_input_ready(iterm))
     deadline = time.time() + PROMPT_WAIT_S
-    while not vt.claude_input_ready(iterm):
+    while not ready():
         if time.time() > deadline:
             fail(3, f"the window of {a.to} shows no input prompt (a dialog is open) for {PROMPT_WAIT_S:.0f} s: nothing typed")
         time.sleep(1)
@@ -196,11 +260,11 @@ def main():
             fail(2, f"dictation {rid} was already given to {a.to}")
         message = header(rid) + vt.apply_word_dictionary(text)
         digest = hashlib.sha256(text.encode()).hexdigest()[:16]
-        ok = vt.deliver_to_claude_session(message, iterm, lambda m: log(m))
+        ok = deliver_through_tmux(message, pane, transcript_of(pid)) if pane else vt.deliver_to_claude_session(message, iterm, lambda m: log(m))
         stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(os.path.join(folder, ".forwarded"), "a") as f:
             f.write(f"{a.to}\t{stamp}\t{digest}\t{'taken' if ok else 'typed, not seen taken'}\n")
-        log(f"{rid} -> {a.to} (pid {pid}, {iterm}) sha256:{digest} {'delivered' if ok else 'typed but not seen in its transcript'}")
+        log(f"{rid} -> {a.to} (pid {pid}, {'tmux ' + pane if pane else iterm}) sha256:{digest} {'delivered' if ok else 'typed but not seen in its transcript'}")
     finally:
         os.rmdir(lock)
     if not ok:

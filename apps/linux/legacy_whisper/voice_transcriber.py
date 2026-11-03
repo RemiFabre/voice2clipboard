@@ -1584,8 +1584,29 @@ return ""
     return (result.stdout or "").strip() if result.returncode == 0 else ""
 
 
+# Session Tower (2026-11-03): new Claude sessions can run inside the Tower's own tmux server (socket
+# "tower", ~/claude_control_center/bin/ttmux), shown in an iTerm window that is a tmux client. Claude
+# is then the foreground of the tmux pane's tty, not of the window's: look through tmux.
+TOWER_TMUX = ["/opt/homebrew/bin/tmux", "-L", os.getenv("TOWER_TMUX_SOCKET", "tower")]
+
+
+def tower_tmux_pane_tty(tty):
+    """The tty of the tmux pane an iTerm window shows, when the window is a client of the Session
+    Tower's tmux; otherwise the tty given."""
+    try:
+        out = subprocess.run(TOWER_TMUX + ["list-clients", "-F", "#{client_tty} #{pane_tty}"],
+                             capture_output=True, text=True, timeout=3).stdout
+    except Exception:
+        return tty
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[0] == tty:
+            return parts[1]
+    return tty
+
+
 def iterm_session_runs_claude(session_id):
-    tty = get_iterm_session_tty(session_id)
+    tty = tower_tmux_pane_tty(get_iterm_session_tty(session_id))
     if not tty:
         return False
     try:
@@ -1727,7 +1748,7 @@ def send_escape_to_iterm_session(session_id):
 def claude_transcript_for_iterm(session_id):
     """Path of the Claude Code transcript behind an iTerm session (tty -> claude pid -> session
     file -> project transcript), or None. Works for a fresh session that registered nothing yet."""
-    tty = get_iterm_session_tty(session_id)
+    tty = tower_tmux_pane_tty(get_iterm_session_tty(session_id))
     if not tty:
         return None
     try:
