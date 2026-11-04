@@ -31,7 +31,7 @@ def run(mode, stop_source, seconds):
 # the decision
 vt.VOICE_MODE = "headset"
 check("ended by silence, lost input or a vanished headset: nobody ended it", all(vt.phantom_start(s) for s in ("silence", "input_lost", "headset:disconnected")))
-check("ended by a press, the keyboard or a cancel: somebody did", not any(vt.phantom_start(s) for s in ("press:stop", "hold:cancel", "external_stop", "escape", None)))
+check("ended by a press, the keyboard or a cancel: somebody did", not any(vt.phantom_start(s) for s in ("press:stop", "external_stop", "escape", None)))
 vt.VOICE_MODE = "manual"
 check("outside headset mode nothing is a phantom", not vt.phantom_start("silence"))
 

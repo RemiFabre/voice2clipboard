@@ -23,7 +23,7 @@ on the state (`scripts/mac/secretary/on_gesture.sh`):
 | State | single | double | triple |
 |---|---|---|---|
 | idle | start a dictation | hear the latest notification | ask what needs your attention |
-| dictating | stop and send (nothing said in under 15 s: cancelled); **press and hold: cancel** | never reaches the Mac | untested |
+| dictating | stop and send (nothing said in under 15 s: cancelled); press and hold: volume only, never a cancel | never reaches the Mac | untested |
 | message playing | pause | stop and discard | stop, play the next queued |
 | message paused | resume | stop and discard | stop, play the next queued |
 
@@ -75,26 +75,18 @@ volume step as a side effect); a triple press is untested. The recorder logs vol
 unknown call commands seen while recording to `secretary.log` to settle such questions.
 
 What exists:
-- **Press and hold cancels (2026-09-21).** Remi reached for the double press again on a
-  dictation started by mistake: a limit he has to remember is a design gap. Press-and-hold is
-  the only other gesture the headset lets through in call mode (`Received speaker gain event`),
-  so the recorder now treats it as cancel: cancel cue, nothing sent, `cancelled` marker, audio
-  kept and transcribed quietly, `recover_cancelled.sh` brings it back. Evidence against false
-  cancels: in 66 logged dictations the headset sent exactly one gain event, the deliberate test
-  of 2026-09-20; a gain report in the first second of a recording is ignored anyway
-  (`VOICE2CLIPBOARD_HOLD_CANCEL_GRACE_S`). Side effect: each hold moves the headset's call
-  volume (the loudness of dictation cues) one step, up on the right earbud, down on the left,
-  so cancelling on the right side is the better habit. `VOICE2CLIPBOARD_HOLD_CANCELS=0` turns
-  it off. Test: `python local_tests/test_hold_cancel.py` (fake Bluetooth log, silent). Confirmed on the
-  real headset on 2026-09-21 at 18:18.
+- **No cancel from the earbuds (Remi's decision, 2026-11-04).** Press-and-hold used to cancel
+  (2026-09-21, read from `Received speaker gain event`). On 2026-11-04 at 15:12 it cancelled a
+  long dictation that he had not touched: he raised the volume with the Mac's menu-bar slider
+  during the dictation (coreaudiod: "Volume update from PID = <ControlCenter>"; bluetoothd:
+  "Volume did update to 4"), the headset echoed the new level as a speaker gain event 0.13 s
+  later, and he kept talking for ten minutes unrecorded. He chose removal over an echo filter
+  ("brittle"). Gain events are now ignored, and every press that reaches the recorder, `double`
+  included, stops and sends. To cancel: close the recorder window, or say "cancel this dictation"
+  in a new one and the secretary drops the one before. Test:
+  `python local_tests/test_earbuds_never_cancel.py` (fake Bluetooth log, silent).
 - A recording of at most `VOICE2CLIPBOARD_ACCIDENTAL_MAX_S` (15 s) with no speech is treated as
   a cancelled accident: `sounds/cue_cancel.aiff`, nothing sent, no note.
-- `PressArbiter` in the recorder: a press that reaches the Mac already classified as `double`
-  (through `on_gesture.sh` and `/tmp/voice2clipboard_quick_autopaste.press`, only possible when
-  the recording does not use the headset microphone) cancels: nothing sent, `cancelled` marker
-  in the folder, quiet transcription. `VOICE2CLIPBOARD_DOUBLE_PRESS_WINDOW_S` (default 0) can make
-  the recorder wait for a second hang-up, at the price of that delay on every stop; it is 0
-  because the second hang-up never comes.
 - Closing the recorder window cancels, by Remi's decision (2026-09-24 09:42: he uses the close
   button as a cancel; the audio may be kept, the text must not reach the secretary). iTerm sends
   HUP to the recorder's process group five seconds after the click (its "undo close" grace,
@@ -431,7 +423,7 @@ Test: `bash local_tests/test_pause_resume.sh` (stand-in player, silent). Not ver
   contract with the Tower agent. Test: `bash local_tests/test_ping_ignored.sh`.
 - The cancel marker and log line now name the gesture ("press and hold", "double press", or
   the stop source) instead of always saying "double press". Press and hold was confirmed on the
-  real headset at 18:18 that day.
+  real headset at 18:18 that day. (Both earbud cancels were removed on 2026-11-04.)
 
 ## Same loudness for every voice, and the phantom dictation at the charger (2026-09-21 night)
 
@@ -456,8 +448,8 @@ Test: `bash local_tests/test_pause_resume.sh` (stand-in player, silent). Not ver
   in its charger a cue would come out of the Mac's speakers), no spoken note, one log line
   (`phantom start`); `phantom_start` in the recorder, test `python local_tests/test_phantom_start.py`.
   Unchanged on purpose: when HE presses stop and there was no speech, he is told. While one
-  earbud is still worn he hears the start cue: press and hold cancels, or one press without a
-  word within 15 s. Candidate for a real cure, to try with him (two minutes, buttons dead
+  earbud is still worn he hears the start cue: one press without a word within 15 s cancels
+  (press and hold no longer does, 2026-11-04). Candidate for a real cure, to try with him (two minutes, buttons dead
   meanwhile): the headset may only send that pause because we report "playing" all the time;
   stop the button app, run `local_tests/nowplaying_client.swift` in state paused, let him dock an
   earbud and then press once, and read the Bluetooth log. If no pause arrives when we are

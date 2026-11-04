@@ -50,17 +50,13 @@ SILENCE_SUSTAIN_S = float(os.getenv("VOICE2CLIPBOARD_SILENCE_SUSTAIN_S", "0.5"))
 # silence never ends it unless this is set (seconds; 0 = never). What still ends it by itself:
 # the microphone stopping (input lost) or the headset disconnecting, and both deliver what he said.
 SILENCE_AFTER_VOICE_SECONDS = float(os.getenv("VOICE2CLIPBOARD_SILENCE_AFTER_VOICE_SECONDS", "0"))
-# Presses while recording. One press stops and sends. A cancel (nothing sent, audio and transcript
-# kept, recoverable) needs a gesture the Mac can see, and in call mode that is not a double
-# press: tested with Remi on 2026-09-19, the Shokz firmware swallows it, the Mac receives nothing
-# at all (no second hang-up, no other AT command, no AVRCP command). So the wait-for-a-second-
-# press window is 0 by default (immediate stop, no added latency); a press that reaches the Mac
-# already classified as "double" (recording not made through the headset microphone) still
-# cancels, and a short recording with no speech in it is treated as a cancelled accident.
-DOUBLE_PRESS_WINDOW_S = float(os.getenv("VOICE2CLIPBOARD_DOUBLE_PRESS_WINDOW_S", "0"))
+# Presses while recording: any press stops and sends. The earbuds cannot cancel a dictation
+# (Remi, 2026-11-04: a Mac volume change during a dictation was echoed by the headset as a gain
+# event and read as press-and-hold, which cancelled ten minutes of speech). To cancel he closes the
+# recorder window, or says so in a dictation and the secretary drops the one before. A short
+# recording with no speech in it is still treated as a cancelled accident.
 ACCIDENTAL_MAX_S = float(os.getenv("VOICE2CLIPBOARD_ACCIDENTAL_MAX_S", "15"))
 PRESS_FILE = os.getenv("VOICE2CLIPBOARD_PRESS_FILE", "/tmp/voice2clipboard_quick_autopaste.press")
-CANCELLED_MARKER = "cancelled"
 ROUTE_CONFIRM_TIMEOUT_S = float(os.getenv("VOICE2CLIPBOARD_ROUTE_CONFIRM_TIMEOUT_S", "10"))
 ROUTE_LATE_S = float(os.getenv("VOICE2CLIPBOARD_ROUTE_LATE_S", "0.35"))  # the cues carry a 350 ms silent lead-in
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
@@ -385,21 +381,17 @@ def longest_sound_seconds(filename, rms_threshold=None, block_s=0.064):
 
 
 class PressArbiter:
-    """Tells one press (stop and send) from two (cancel) while recording.
+    """Collects the presses that reach the Mac while recording; the first one stops and sends.
 
     Presses come from two places: hang-up lines in the Bluetooth log (headset in call mode), and
     the press file written by on_gesture.sh when a press reaches the Mac as a media command
-    (a gesture the headset classified itself: 'single', 'double', 'triple'). A 'double' cancels
-    at once. Otherwise the first press opens a window: a second press inside it cancels at once,
-    and when it closes with a single press the recording stops and is sent."""
+    ('single', 'double', 'triple'). Every kind is a stop: none of them cancels."""
     DUPLICATE_S = 0.08   # the log can repeat a line; one physical press is not two
 
-    def __init__(self, window_s):
-        self.window_s = window_s
+    def __init__(self):
         self.first_at = None
         self.last_at = None
         self.count = 0
-        self.cancel = False
         # Where each counted press came from (2026-09-28: a dictation stopped at 10:19:44 on
         # "1 press" while no channel showed one: no headset hang-up in bluetoothd's log, no button
         # command, no hand-over by on_gesture.sh). The decision line now names its sources.
@@ -407,8 +399,6 @@ class PressArbiter:
 
     def press(self, kind="hangup", now=None, source=None):
         now = time.time() if now is None else now
-        if kind == "double":
-            self.cancel = True
         if self.last_at is not None and now - self.last_at < self.DUPLICATE_S:
             return
         self.last_at = now
@@ -417,19 +407,11 @@ class PressArbiter:
         self.count += 1
         self.sources.append(source or kind)
 
-    def decision(self, now=None):
-        now = time.time() if now is None else now
-        if self.cancel or (self.window_s > 0 and self.count >= 2):
-            return "cancel"
-        if self.first_at is None:
-            return None
-        if self.window_s <= 0 or now - self.first_at >= self.window_s:
-            return "stop"
-        return None
+    def decision(self):
+        return "stop" if self.first_at is not None else None
 
 
-press_arbiter = PressArbiter(DOUBLE_PRESS_WINDOW_S)
-cancel_requested = False
+press_arbiter = PressArbiter()
 
 
 class SilenceTracker:
@@ -633,8 +615,8 @@ def record_audio(filename, quick_mode=False):
                 duration_sec = time.time() - start_time
                 callback_enabled = False
                 print("\r" + " " * (MIC_BAR_WIDTH + 20), end="\r", flush=True)
-                play_feedback("record_cancel" if cancel_requested else "record_stop", block=False)
-                print("\n🎤 Recording cancelled." if cancel_requested else "\n🎤 Recording stopped.")
+                play_feedback("record_stop", block=False)
+                print("\n🎤 Recording stopped.")
 
 
 def focus_and_click_chatgpt_input(timeout=5):
@@ -681,32 +663,6 @@ def write_no_speech_result(reason):
                 "transcribed_at": datetime.now().isoformat(),
                 "stop_source": quick_stop_source,
             }, f, indent=2)
-
-
-def finish_cancelled_recording(filename):
-    """A cancelled dictation is kept, not sent: the folder is marked, and the text is prepared
-    quietly (no sounds, no clipboard, no paste) so recover_cancelled.sh can hand it over at once."""
-    global last_backend_info
-    folder = os.path.dirname(filename)
-    with open(os.path.join(folder, CANCELLED_MARKER), "w") as f:
-        how = {"hold:cancel": "press and hold", "press:cancel": "double press"}.get(quick_stop_source, quick_stop_source or "recorder window closed")
-        f.write(f"cancelled ({how}) at {datetime.now().isoformat()}\n")
-    secretary_log(f"dictation cancelled ({how}); kept in {folder} (recover_cancelled.sh)")
-    write_phase_state("transcribing")
-    try:
-        text = transcribe_with_best_backend(filename)
-    except Exception as e:   # no speech, helper gone: the audio is still there for later
-        print(f"ℹ️ Cancelled recording not transcribed now ({e}); the audio is kept.")
-        return
-    with open(current_transcript_path, "w") as f:
-        f.write(text)
-    stats = {"cancelled": True, "input_duration_seconds": round(duration_sec, 4), "output_text_length_chars": len(text),
-             "audio_path": current_audio_path, "transcript_path": current_transcript_path,
-             "transcribed_at": datetime.now().isoformat()}
-    stats.update(last_backend_info or {})
-    with open(current_stats_path, "w") as f:
-        json.dump(stats, f, indent=2)
-    print(f"🗑️ Cancelled. Text kept in {current_transcript_path}; nothing was sent.")
 
 
 PHANTOM_STOP_SOURCES = ("silence", "input_lost", "headset:disconnected")
@@ -1254,8 +1210,7 @@ def handle_escape_during_recording():
 
 
 def handle_external_stop_during_recording():
-    """Watch for launcher stop-file requests, and arbitrate presses (one = stop, two = cancel)."""
-    global cancel_requested
+    """Watch for launcher stop-file requests and for presses (any press stops and sends)."""
     press_offset = 0
     while recording:
         if stop_request_active():
@@ -1270,16 +1225,8 @@ def handle_external_stop_during_recording():
         except OSError:
             pass
         verdict = press_arbiter.decision()
-        if verdict:
-            gap = (press_arbiter.last_at - press_arbiter.first_at) if press_arbiter.first_at and press_arbiter.last_at else 0.0
-            secretary_log(f"press decision: {verdict} ({press_arbiter.count} press(es), {gap:.2f} s apart, window {DOUBLE_PRESS_WINDOW_S} s)"
-                          f" from: {'; '.join(press_arbiter.sources) or 'unknown'}")
-        if verdict == "cancel":
-            cancel_requested = True
-            print("\n🗑️ Second press — cancelling this dictation (audio kept, nothing sent).")
-            request_recording_stop("press:cancel")
-            return
         if verdict == "stop":
+            secretary_log(f"press decision: stop ({press_arbiter.count} press(es)) from: {'; '.join(press_arbiter.sources) or 'unknown'}")
             request_recording_stop("press:stop")
             return
         time.sleep(0.03)
@@ -1328,29 +1275,10 @@ def headset_other_command(line):
 
 headset_event_from_log_line.last_gain = None
 
-# Cancel gesture (2026-09-21). In call mode the headset keeps a double press to itself, so the
-# double press Remi reaches for can never cancel a dictation started by mistake. The only other
-# gesture that arrives is press-and-hold, as a speaker gain event (one volume step of the call
-# volume as a side effect). It now cancels: cancel cue, nothing sent, audio kept and transcribed
-# quietly, recover_cancelled.sh brings it back. In about forty dictations logged before this
-# change the headset never sent a gain event on its own; the first second of a recording is
-# ignored all the same, in case it reports its volume when the call link comes up.
-HOLD_CANCELS = os.getenv("VOICE2CLIPBOARD_HOLD_CANCELS", "1") != "0"
-HOLD_CANCEL_GRACE_S = float(os.getenv("VOICE2CLIPBOARD_HOLD_CANCEL_GRACE_S", "1.0"))
-
-
-def hold_cancels(event, started_at, now=None):
-    """True when this headset event is a press-and-hold that should cancel the dictation."""
-    if not HOLD_CANCELS or event not in ("gain_up", "gain_down", "gain_change"):
-        return False
-    now = time.time() if now is None else now
-    return started_at is not None and now - started_at >= HOLD_CANCEL_GRACE_S
-
-
 def handle_headset_buttons_during_recording():
-    """Stop the recording when the headset sends its hands-free hang-up (a press); cancel it on
-    a press-and-hold (speaker gain event)."""
-    global cancel_requested
+    """Stop the recording when the headset sends its hands-free hang-up (a press). A press-and-hold
+    only changes the call volume, as the headset does by itself: the Mac moving its own volume
+    slider produces the same gain event, so it can never mean anything (2026-11-04)."""
     if not HEADSET_STOP_ENABLED:
         return
     cmd = ["/usr/bin/log", "stream", "--style", "compact", "--info", "--debug", "--predicate", HEADSET_LOG_PREDICATE]
@@ -1380,13 +1308,6 @@ def handle_headset_buttons_during_recording():
                 press_arbiter.press("hangup", source="headset " + line[:23] + " " + line.split("] ")[-1].split(" from device")[0].strip()[:100])
                 continue
             if event in ("gain_up", "gain_down", "gain_change"):
-                if hold_cancels(event, start_time):
-                    cancel_requested = True
-                    print("\n🗑️ Press-and-hold — cancelling this dictation (audio kept, nothing sent).")
-                    secretary_log(f"press-and-hold ({event}): dictation cancelled, nothing sent, audio kept")
-                    request_recording_stop("hold:cancel")
-                    break
-                secretary_log(f"headset volume event while recording ({event}): ignored (first second, or VOICE2CLIPBOARD_HOLD_CANCELS=0)")
                 continue
             other = headset_other_command(line)
             if other:
@@ -2144,9 +2065,7 @@ def main():
         external_stop_listener.join()
 
         try:
-            if cancel_requested and os.path.exists(filename):
-                finish_cancelled_recording(filename)
-            elif os.path.exists(filename):
+            if os.path.exists(filename):
                 if stop_requested_by_signal:
                     detail = f" via {quick_stop_source}" if quick_stop_source else ""
                     print(f"⏹️ Stop requested{detail}.")
